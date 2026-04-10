@@ -1,0 +1,70 @@
+{
+    "ok": true,
+    "lpa": null,
+    "raw": {
+        "data": [
+            {
+                "id": "2927ffb6-1af5-403f-baf8-b8229ea05164",
+                "iccid": "89852342022469736903",
+                "number": null,
+                "status": "Released",
+                "can_renew": false,
+                "created_at": "2026-04-08T08:19:06.000000Z",
+                "last_bundle": "eSIM, Unlimited,1 Days, China",
+                "matching_id": "AEBE562EAAA447A7AF6F65FB4EBF922C",
+                "sim_applied": true,
+                "qr_code_text": "LPA:1$rsp1.cmlink.com$AEBE562EAAA447A7AF6F65FB4EBF922C",
+                "smdp_address": "rsp1.cmlink.com",
+                "total_bundles": 1,
+                "universal_link": "https://esimsetup.apple.com/esim_qrcode_provisioning?carddata=LPA:1$rsp1.cmlink.com$AEBE562EAAA447A7AF6F65FB4EBF922C",
+                "android_universal_link": "https://esimsetup.android.com/esim_qrcode_provisioning?carddata=LPA:1$rsp1.cmlink.com$AEBE562EAAA447A7AF6F65FB4EBF922C"
+            }
+        ],
+        "meta": {
+            "total": 15,
+            "perPage": 15,
+            "lastPage": 1,
+            "currentPage": 1
+        },
+        "status": true
+    },
+    "iccid": "89852342022469736903",
+    "number": null,
+    "esim_id": "2e8f645c-fa39-4eda-82a1-3085e3f83f65",
+    "pending": false,
+    "puk_code": null,
+    "esim_status": null,
+    "qr_code_url": null,
+    "attempted_at": "2026-04-08T09:02:18+00:00",
+    "smdp_address": null,
+    "activation_code": null,
+    "gloesim_detail_raw": {
+        "data": [
+            {
+                "id": "2927ffb6-1af5-403f-baf8-b8229ea05164",
+                "iccid": "89852342022469736903",
+                "number": null,
+                "status": "Released",
+                "can_renew": false,
+                "created_at": "2026-04-08T08:19:06.000000Z",
+                "last_bundle": "eSIM, Unlimited,1 Days, China",
+                "matching_id": "AEBE562EAAA447A7AF6F65FB4EBF922C",
+                "sim_applied": true,
+                "qr_code_text": "LPA:1$rsp1.cmlink.com$AEBE562EAAA447A7AF6F65FB4EBF922C",
+                "smdp_address": "rsp1.cmlink.com",
+                "total_bundles": 1,
+                "universal_link": "https://esimsetup.apple.com/esim_qrcode_provisioning?carddata=LPA:1$rsp1.cmlink.com$AEBE562EAAA447A7AF6F65FB4EBF922C",
+                "android_universal_link": "https://esimsetup.android.com/esim_qrcode_provisioning?carddata=LPA:1$rsp1.cmlink.com$AEBE562EAAA447A7AF6F65FB4EBF922C"
+            }
+        ],
+        "meta": {
+            "total": 15,
+            "perPage": 15,
+            "lastPage": 1,
+            "currentPage": 1
+        },
+        "status": true
+    },
+    "direct_installation_link_ios": null,
+    "direct_installation_link_android": null
+}

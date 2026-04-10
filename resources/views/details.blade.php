@@ -38,6 +38,20 @@
 
             .bundle-section{padding:24px 0}
             .section-title{font-size:22px;font-weight:800;margin-bottom:18px;color:#0b1a1a}
+            .sub-toggles{display:flex;gap:8px;margin:10px 0 22px;flex-wrap:wrap}
+            .sub-toggles button{padding:10px 18px;border-radius:9999px;background:rgba(255,255,255,.7);border:1px solid rgba(20,84,84,.12);font-size:13px;font-weight:750;color:rgba(15,31,31,.62);cursor:pointer;transition:all .2s}
+            .sub-toggles button.active{background:linear-gradient(90deg, rgba(242,116,87,.14), rgba(20,84,84,.12));border-color:rgba(242,116,87,.32);color:rgba(20,84,84,.92)}
+            .sub-toggles button[disabled]{opacity:.6;cursor:not-allowed}
+            .hidden{display:none!important}
+            .skeleton{background:linear-gradient(90deg, rgba(15,31,31,.06) 25%, rgba(15,31,31,.10) 50%, rgba(15,31,31,.06) 75%);background-size:200% 100%;animation:skeleton-loading 1.4s infinite;border-radius:12px}
+            @keyframes skeleton-loading{0%{background-position:200% 0}100%{background-position:-200% 0}}
+            .bundle-skel{display:grid;gap:12px}
+            .bundle-skel-top{display:flex;justify-content:space-between;gap:16px}
+            .bundle-skel-left{display:grid;gap:8px}
+            .bundle-skel-right{display:grid;gap:8px;justify-items:end}
+            .skel-line-lg{height:20px;width:140px}
+            .skel-line-md{height:14px;width:110px}
+            .skel-pill{height:44px;width:100%}
             
             .bundle-grid{display:grid;grid-template-columns:1fr;gap:20px}
             @media(min-width:768px){.bundle-grid{grid-template-columns:repeat(2,1fr)}}
@@ -69,6 +83,24 @@
 
             .no-bundles{text-align:center;padding:80px 0;color:rgba(15,31,31,.4)}
             .no-bundles svg{margin-bottom:16px;opacity:.3}
+
+            @media(max-width:640px){
+                .container{padding:0 16px}
+                .header-flex{gap:12px;flex-wrap:wrap}
+                .details-hero{padding:18px 0}
+                .hero-flex{flex-direction:column;align-items:flex-start;gap:14px}
+                .asset-flag{height:56px;width:56px;border-radius:16px;font-size:32px}
+                .asset-info h1{font-size:22px}
+                .bundle-card{padding:18px}
+                .bundle-top{flex-direction:column;gap:10px}
+                .bundle-price{text-align:left}
+                .bundle-meta{grid-template-columns:1fr;gap:10px}
+                .no-bundles{padding:56px 0}
+            }
+
+            @media(max-width:380px){
+                .sub-toggles button{width:100%;justify-content:center}
+            }
         </style>
     </head>
     <body>
@@ -111,14 +143,25 @@
                 <div class="container">
                     <h2 class="section-title">Available Bundles</h2>
                     
-                    @if(empty($asset['bundles']))
+                    @php
+                        $bundlesDataOnlyList = $bundlesDataOnly ?? [];
+                        $bundlesDataCallsList = $bundlesDataCalls ?? [];
+                        $hasAnyBundles = !empty($bundlesDataOnlyList) || !empty($bundlesDataCallsList);
+                    @endphp
+
+                    @if(!$hasAnyBundles)
                         <div class="no-bundles">
                             <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 10H3M21 6H3M21 14H3M21 18H3"/></svg>
                             <p>No plans available for this selection at the moment.</p>
                         </div>
                     @else
-                        <div class="bundle-grid">
-                            @foreach($asset['bundles'] as $bundle)
+                        <div class="sub-toggles">
+                            <button class="active" type="button" data-bundle-toggle="data" {{ empty($bundlesDataOnlyList) ? 'disabled' : '' }}>eSIMs for Data</button>
+                            <button type="button" data-bundle-toggle="calls">eSIMs for Data and Call</button>
+                        </div>
+
+                        <div class="bundle-grid" data-bundle-grid="data">
+                            @foreach($bundlesDataOnlyList as $bundle)
                                 <div class="bundle-card">
                                     <div class="bundle-top">
                                         <div>
@@ -157,13 +200,175 @@
                                         </div>
                                     </div>
 
-                                    <button class="buy-btn">Buy eSIM</button>
+                                    @auth
+                                        <a class="buy-btn" href="{{ route('checkout', ['type' => $type, 'id' => $id, 'bundle' => $bundle['id'], 'package_type' => 'DATA-ONLY']) }}" style="display:block;text-align:center">Buy eSIM</a>
+                                    @else
+                                        <a class="buy-btn" href="{{ route('login') }}" style="display:block;text-align:center">Sign in to buy</a>
+                                    @endauth
                                 </div>
                             @endforeach
+                        </div>
+
+                        <div class="bundle-grid hidden" data-bundle-grid="calls" id="callsBundleGrid" data-calls-loaded="0">
+                            <div class="bundle-card">
+                                <div class="bundle-skel">
+                                    <div class="bundle-skel-top">
+                                        <div class="bundle-skel-left">
+                                            <div class="skeleton skel-line-md"></div>
+                                            <div class="skeleton skel-line-lg"></div>
+                                        </div>
+                                        <div class="bundle-skel-right">
+                                            <div class="skeleton skel-line-md"></div>
+                                            <div class="skeleton skel-line-md"></div>
+                                        </div>
+                                    </div>
+                                    <div class="skeleton skel-pill"></div>
+                                </div>
+                            </div>
                         </div>
                     @endif
                 </div>
             </section>
         </main>
+        <script>
+            (() => {
+                const toggles = Array.from(document.querySelectorAll('[data-bundle-toggle]'));
+                const grids = Array.from(document.querySelectorAll('[data-bundle-grid]'));
+                if (toggles.length === 0 || grids.length === 0) return;
+
+                const setMode = (mode) => {
+                    toggles.forEach((btn) => btn.classList.toggle('active', btn.getAttribute('data-bundle-toggle') === mode));
+                    grids.forEach((grid) => grid.classList.toggle('hidden', grid.getAttribute('data-bundle-grid') !== mode));
+                };
+
+                const callsGrid = document.getElementById('callsBundleGrid');
+                const authBuyUrlBase = @json(route('checkout'));
+                const isAuthed = @json(auth()->check());
+                const loginUrl = @json(route('login'));
+                const assetType = @json((string) $type);
+                const assetId = @json((string) $id);
+
+                const renderCallsBundles = (bundles) => {
+                    if (!callsGrid) return;
+                    callsGrid.innerHTML = '';
+                    if (!Array.isArray(bundles) || bundles.length === 0) {
+                        callsGrid.innerHTML = `
+                            <div class="no-bundles" style="grid-column: 1 / -1; padding: 40px 0">
+                                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 10H3M21 6H3M21 14H3M21 18H3"/></svg>
+                                <p>No Data + Calls plans available for this selection.</p>
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    const checkIcon = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`;
+
+                    bundles.forEach((bundle) => {
+                        const features = bundle.features || {};
+                        const hotspot = features.Hotspot || 'Yes';
+                        const checkoutUrl = `${authBuyUrlBase}?type=${encodeURIComponent(assetType)}&id=${encodeURIComponent(assetId)}&bundle=${encodeURIComponent(bundle.id)}&package_type=DATA-VOICE-SMS`;
+
+                        const buyCta = isAuthed
+                            ? `<a class="buy-btn" href="${checkoutUrl}" style="display:block;text-align:center">Buy eSIM</a>`
+                            : `<a class="buy-btn" href="${loginUrl}" style="display:block;text-align:center">Sign in to buy</a>`;
+
+                        const card = document.createElement('div');
+                        card.className = 'bundle-card';
+                        card.innerHTML = `
+                            <div class="bundle-top">
+                                <div>
+                                    <div class="meta-label" style="margin-bottom: 2px;">Valid for</div>
+                                    <div class="bundle-data" style="font-size: 24px; color: #0b1a1a;">${bundle.validity || ''}</div>
+                                </div>
+                                <div class="bundle-price">
+                                    <div class="price-val">${bundle.price_formatted || ''}</div>
+                                    <div class="price-sub">One-time payment</div>
+                                </div>
+                            </div>
+
+                            <div class="bundle-meta">
+                                <div class="meta-item">
+                                    <span class="meta-label">Data</span>
+                                    <span class="meta-val">${bundle.data || ''}</span>
+                                </div>
+                                <div class="meta-item">
+                                    <span class="meta-label">Type</span>
+                                    <span class="meta-val">Data + Calls</span>
+                                </div>
+                            </div>
+
+                            <div class="bundle-features">
+                                <div class="feature">
+                                    ${checkIcon}
+                                    <span>Hotspot: <strong>${hotspot}</strong></span>
+                                </div>
+                                <div class="feature">
+                                    ${checkIcon}
+                                    <span>Network: <strong>2G,3G,4G,5G</strong></span>
+                                </div>
+                                <div class="feature">
+                                    ${checkIcon}
+                                    <span>Activation: <strong>Instant</strong></span>
+                                </div>
+                            </div>
+
+                            ${buyCta}
+                        `;
+                        callsGrid.appendChild(card);
+                    });
+                };
+
+                const loadCallsBundlesIfNeeded = async () => {
+                    if (!callsGrid) return;
+                    if (callsGrid.getAttribute('data-calls-loaded') === '1') return;
+                    callsGrid.setAttribute('data-calls-loaded', '1');
+
+                    toggles.forEach((b) => b.setAttribute('disabled', 'disabled'));
+
+                    try {
+                        const url = `/api/assets/${encodeURIComponent(assetType)}/${encodeURIComponent(assetId)}/bundles?package_type=DATA-VOICE-SMS`;
+                        const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                        const json = await res.json().catch(() => ({}));
+                        if (!res.ok) {
+                            callsGrid.innerHTML = `
+                                <div class="no-bundles" style="grid-column: 1 / -1; padding: 40px 0">
+                                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 10H3M21 6H3M21 14H3M21 18H3"/></svg>
+                                    <p>${(json && json.message) ? json.message : 'Failed to load Data + Calls plans.'}</p>
+                                </div>
+                            `;
+                            return;
+                        }
+                        renderCallsBundles(json.bundles || []);
+                    } catch (e) {
+                        callsGrid.innerHTML = `
+                            <div class="no-bundles" style="grid-column: 1 / -1; padding: 40px 0">
+                                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 10H3M21 6H3M21 14H3M21 18H3"/></svg>
+                                <p>Failed to load Data + Calls plans.</p>
+                            </div>
+                        `;
+                    } finally {
+                        toggles.forEach((b) => b.removeAttribute('disabled'));
+                    }
+                };
+
+                toggles.forEach((btn) => {
+                    btn.addEventListener('click', () => {
+                        if (btn.hasAttribute('disabled')) return;
+                        const mode = btn.getAttribute('data-bundle-toggle');
+                        setMode(mode);
+                        if (mode === 'calls') {
+                            loadCallsBundlesIfNeeded();
+                        }
+                    });
+                });
+
+                const defaultToggle = toggles.find((t) => !t.hasAttribute('disabled')) || toggles[0];
+                const initialMode = defaultToggle.getAttribute('data-bundle-toggle');
+                setMode(initialMode);
+                if (initialMode === 'calls') {
+                    loadCallsBundlesIfNeeded();
+                }
+            })();
+        </script>
     </body>
 </html>

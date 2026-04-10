@@ -12,7 +12,7 @@
             <style>
                 :root{--font-sans:"Instrument Sans",ui-sans-serif,system-ui,sans-serif;--primary:#f27457;--secondary:#145454}
                 *{box-sizing:border-box}
-                body{margin:0;color:#0f1f1f;font-family:var(--font-sans);min-height:100vh;position:relative;overflow-x:hidden;background:
+                body{margin:0;color:#0f1f1f;font-family:var(--font-sans);min-height:100vh;position:relative;overflow-x:hidden;display:flex;flex-direction:column;background:
                     radial-gradient(900px 520px at 12% 14%, rgba(242,116,87,.32) 0%, rgba(242,116,87,0) 60%),
                     radial-gradient(980px 560px at 88% 18%, rgba(20,84,84,.26) 0%, rgba(20,84,84,0) 62%),
                     radial-gradient(1100px 700px at 50% 92%, rgba(242,116,87,.18) 0%, rgba(242,116,87,0) 65%),
@@ -136,7 +136,8 @@
                 .skeleton-text-sm { width: 60px; height: 10px; }
                 .skeleton-btn { width: 60px; height: 28px; border-radius: 9999px; }
 
-                footer{margin-top:34px;border-top:1px solid rgba(15,31,31,.10);background:rgba(255,255,255,.35);backdrop-filter:blur(10px)}
+                main{flex:1;display:flex;flex-direction:column}
+                footer{margin-top:auto;border-top:1px solid rgba(15,31,31,.10);background:rgba(255,255,255,.35);backdrop-filter:blur(10px)}
                 .footer{padding:34px 0;display:grid;grid-template-columns:1fr;gap:22px}
                 .links{color:rgba(15,31,31,.64);font-size:14px;line-height:22px;text-decoration:none}
                 .links:hover{color:rgba(20,84,84,.92)}
@@ -380,9 +381,9 @@
                         <div>
                             <div style="font-weight:800;color:#0b1a1a">Company</div>
                             <div style="margin-top:10px;display:grid;gap:8px">
-                                <a class="links" href="#">Contact Us</a>
-                                <a class="links" href="#">Terms &amp; Conditions</a>
-                                <a class="links" href="#">Privacy Policy</a>
+                                <a class="links" href="{{ route('contact') }}">Contact Us</a>
+                                <a class="links" href="{{ route('terms') }}">Terms &amp; Conditions</a>
+                                <a class="links" href="{{ route('privacy') }}">Privacy Policy</a>
                                 <a class="links" href="#">License Acknowledgement</a>
                             </div>
                         </div>

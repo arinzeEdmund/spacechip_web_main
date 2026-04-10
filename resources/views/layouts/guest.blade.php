@@ -33,16 +33,26 @@
         </style>
     </head>
     <body class="font-sans text-gray-900 antialiased">
-        <div class="min-h-screen flex flex-col sm:justify-center items-center pt-6 sm:pt-0">
-            <div>
-                <a href="/" class="flex flex-col items-center gap-2">
-                    <div class="logo-sc">SC</div>
-                    <span class="text-xl font-bold tracking-tight text-[#145454]">spacechip</span>
-                </a>
-            </div>
+        <div class="min-h-screen flex flex-col">
+            <header class="sticky top-0 z-50 border-b border-gray-100" style="background: rgba(255,255,255,.78); backdrop-filter: blur(12px);">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div class="flex items-center justify-center py-3">
+                        <a href="/" class="flex items-center gap-3">
+                            <div style="height:40px;width:40px;border-radius:9999px;background:linear-gradient(90deg,#f27457,#145454);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;letter-spacing:.02em">
+                                SC
+                            </div>
+                            <div style="font-weight:800;color:rgba(20,84,84,.92);letter-spacing:.02em">
+                                spacechip
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </header>
 
-            <div class="w-full sm:max-w-md mt-6 px-8 py-10 auth-card overflow-hidden">
-                {{ $slot }}
+            <div class="flex-1 flex flex-col sm:justify-center items-center px-4 sm:px-6 pt-8 sm:pt-0">
+                <div class="w-full max-w-md mt-2 px-5 py-8 sm:px-8 sm:py-10 auth-card overflow-hidden">
+                    {{ $slot }}
+                </div>
             </div>
         </div>
 

@@ -55,4 +55,18 @@ return [
         'currency' => env('GLOESIM_CURRENCY', 'USD'),
     ],
 
+    'paystack' => [
+        'public_key' => env('PAYSTACK_PUBLIC_KEY'),
+        'secret_key' => env('PAYSTACK_SECRET_KEY'),
+        'currency' => env('PAYSTACK_CURRENCY', 'NGN'),
+    ],
+
+    'cryptomus' => [
+        'merchant' => env('CRYPTOMUS_MERCHANT'),
+        'payment_key' => env('CRYPTOMUS_PAYMENT_KEY'),
+        'api_url' => env('CRYPTOMUS_API_URL', 'https://api.cryptomus.com'),
+        'verify_ssl' => env('CRYPTOMUS_VERIFY_SSL', true),
+        'force_ipv4' => env('CRYPTOMUS_FORCE_IPV4', false),
+    ],
+
 ];

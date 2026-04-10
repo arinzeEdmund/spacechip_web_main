@@ -9,7 +9,7 @@
         <style>
             :root{--font-sans:"Instrument Sans",ui-sans-serif,system-ui,sans-serif;--primary:#f27457;--secondary:#145454}
             *{box-sizing:border-box}
-            body{margin:0;color:#0f1f1f;font-family:var(--font-sans);min-height:100vh;position:relative;overflow-x:hidden;background:
+            body{margin:0;color:#0f1f1f;font-family:var(--font-sans);min-height:100vh;position:relative;overflow-x:hidden;display:flex;flex-direction:column;background:
                 radial-gradient(900px 520px at 12% 14%, rgba(242,116,87,.32) 0%, rgba(242,116,87,0) 60%),
                 radial-gradient(980px 560px at 88% 18%, rgba(20,84,84,.26) 0%, rgba(20,84,84,0) 62%),
                 radial-gradient(1100px 700px at 50% 92%, rgba(242,116,87,.18) 0%, rgba(242,116,87,0) 65%),
@@ -20,6 +20,7 @@
                 radial-gradient(700px 520px at 58% 66%, rgba(242,116,87,.22) 0%, rgba(242,116,87,0) 74%);
                 filter:blur(26px);opacity:.9;z-index:-1;pointer-events:none}
             a{color:inherit;text-decoration:none}
+            a:hover,a:focus,a:active{text-decoration:none}
             .container{max-width:1120px;margin:0 auto;padding:0 24px}
             .header{padding:16px 0;display:flex;align-items:center;justify-content:space-between}
             .brand-wrap{display:flex;align-items:center;gap:10px}
@@ -50,6 +51,31 @@
             .grid{display:grid;grid-template-columns:1fr;gap:14px}
             @media(min-width:640px){.grid{grid-template-columns:repeat(2,1fr)}}
             @media(min-width:1024px){.grid{grid-template-columns:repeat(3,1fr)}}
+
+            @media(max-width:640px){
+                .container{padding:0 16px}
+                .header{flex-direction:column;align-items:flex-start;gap:12px}
+                .actions{width:100%;flex-wrap:wrap}
+                .actions a{flex:1 1 auto;justify-content:center}
+                .section{padding:28px 0}
+                .section-title{font-size:20px}
+                .search-bar{max-width:none;margin-bottom:20px}
+                .search-bar input{padding:14px 16px 14px 46px;border-radius:18px;font-size:15px}
+                .search-bar svg{left:16px;height:20px;width:20px}
+                .asset-toggles{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:8px;border-radius:24px}
+                .asset-toggles button{width:100%;padding:10px 12px;font-size:13px;text-align:center}
+                .asset-toggles button:nth-child(3){grid-column:1/-1}
+                .card{flex-direction:column;align-items:flex-start}
+                .card-left{width:100%}
+                .card-right{width:100%;flex-direction:row;align-items:center;justify-content:flex-end;text-align:left}
+                .name{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+                .no-results{padding:42px 12px}
+            }
+
+            @media(max-width:480px){
+                .vnum-top{flex-direction:column;gap:10px}
+                .vnum-price-box{text-align:left}
+            }
             
             .card{padding:16px;border-radius:22px;background:rgba(255,255,255,.75);backdrop-filter:blur(12px);border:1px solid rgba(20,84,84,.12);box-shadow:0 14px 35px rgba(15,31,31,.07);display:flex;justify-content:space-between;gap:14px;align-items:center;transition:all .3s}
             .card.hidden-by-search{display:none!important}
@@ -77,6 +103,9 @@
 
             .no-results{grid-column: 1/-1; text-align: center; padding: 60px; color: rgba(15,31,31,.5);}
             .no-results svg{margin-bottom: 12px; opacity: .5;}
+            .load-more-wrap{margin-top:18px;display:none;justify-content:center}
+            .load-more-wrap.show{display:flex}
+            .load-more-btn{padding:12px 16px;border-radius:14px;background:rgba(255,255,255,.8);border:1px solid rgba(20,84,84,.14);font-weight:800;color:rgba(20,84,84,.92);cursor:pointer}
 
             /* Skeleton Styles */
             .skeleton {
@@ -111,7 +140,8 @@
 
             .hidden{display:none!important}
             
-            footer{margin-top:60px;border-top:1px solid rgba(15,31,31,.10);background:rgba(255,255,255,.35);backdrop-filter:blur(10px)}
+            main{flex:1}
+            footer{margin-top:auto;border-top:1px solid rgba(15,31,31,.10);background:rgba(255,255,255,.35);backdrop-filter:blur(10px)}
             .footer{padding:40px 0;display:grid;grid-template-columns:1fr;gap:24px}
             .links{color:rgba(15,31,31,.64);font-size:14px;line-height:22px;text-decoration:none}
             @media(min-width:860px){.footer{grid-template-columns:repeat(3,1fr)}}
@@ -158,37 +188,10 @@
                 </div>
 
                 <!-- Countries Section -->
-                <div data-asset-section="countries">
-                    <!-- Sub-toggles for eSIM types -->
-                    <div class="sub-toggles">
-                        <button class="active" data-esim-type="data">eSIMs for Data</button>
-                        <button data-esim-type="calls">eSIMs for Data and Call</button>
-                    </div>
-
-                    <!-- Data Only Grid -->
-                    <div class="grid" data-esim-grid="data" id="countriesDataOnlyGrid">
+                <div data-asset-section="countries" id="countriesGrid">
+                    <div class="grid">
                         <!-- Skeletons -->
                         @for($i = 0; $i < 9; $i++)
-                            <div class="skeleton-card skeleton-placeholder">
-                                <div class="card-left">
-                                    <div class="skeleton-flag skeleton"></div>
-                                    <div class="meta">
-                                        <div class="skeleton-text-lg skeleton"></div>
-                                        <div class="skeleton-text-sm skeleton"></div>
-                                    </div>
-                                </div>
-                                <div class="card-right">
-                                    <div class="skeleton-text-sm skeleton"></div>
-                                    <div class="skeleton-btn skeleton"></div>
-                                </div>
-                            </div>
-                        @endfor
-                    </div>
-
-                    <!-- Data + Calls Grid -->
-                    <div class="grid hidden" data-esim-grid="calls" id="countriesDataCallsGrid">
-                        <!-- Skeletons -->
-                        @for($i = 0; $i < 6; $i++)
                             <div class="skeleton-card skeleton-placeholder">
                                 <div class="card-left">
                                     <div class="skeleton-flag skeleton"></div>
@@ -259,6 +262,9 @@
                     </svg>
                     <p>No matches found for your search.</p>
                 </div>
+                <div class="load-more-wrap" id="loadMoreWrap">
+                    <button class="load-more-btn" type="button" id="loadMoreBtn">Load more</button>
+                </div>
             </section>
         </main>
 
@@ -275,16 +281,16 @@
                     <div>
                         <div style="font-weight:800;color:#0b1a1a">Company</div>
                         <div style="margin-top:10px;display:grid;gap:8px">
-                            <a class="links" href="#">Contact Us</a>
-                            <a class="links" href="#">Terms &amp; Conditions</a>
-                            <a class="links" href="#">Privacy Policy</a>
+                            <a class="links" href="{{ route('contact') }}">Contact Us</a>
+                            <a class="links" href="{{ route('terms') }}">Terms &amp; Conditions</a>
+                            <a class="links" href="{{ route('privacy') }}">Privacy Policy</a>
                         </div>
                     </div>
                     <div>
                         <div style="font-weight:800;color:#0b1a1a">Support</div>
                         <div style="margin-top:10px;display:grid;gap:8px">
-                            <a class="links" href="#">Help Center</a>
-                            <a class="links" href="#">eSIM Guide</a>
+                            <a class="links" href="{{ route('help') }}">Help Center</a>
+                            <a class="links" href="{{ route('esim.guide') }}">eSIM Guide</a>
                         </div>
                     </div>
                 </div>
@@ -295,19 +301,23 @@
             (() => {
                 const assetToggles = Array.from(document.querySelectorAll('[data-asset-toggle]'));
                 const assetSections = Array.from(document.querySelectorAll('[data-asset-section]'));
-                const esimToggles = Array.from(document.querySelectorAll('[data-esim-type]'));
-                const esimGrids = Array.from(document.querySelectorAll('[data-esim-grid]'));
                 const searchInput = document.getElementById('assetSearch');
                 const noResultsSearch = document.getElementById('noResultsSearch');
+                const loadMoreWrap = document.getElementById('loadMoreWrap');
+                const loadMoreBtn = document.getElementById('loadMoreBtn');
 
                 const grids = {
-                    countriesDataOnly: document.getElementById('countriesDataOnlyGrid'),
-                    countriesDataCalls: document.getElementById('countriesDataCallsGrid'),
+                    countries: document.getElementById('countriesGrid').querySelector('.grid'),
                     regions: document.getElementById('regionsGrid').querySelector('.grid'),
                     virtualNumbers: document.getElementById('virtualNumbersGrid').querySelector('.grid')
                 };
 
-                let allData = null;
+                const state = {
+                    countries: { page: 0, hasMore: true, loading: false, q: '' },
+                    regions: { page: 0, hasMore: true, loading: false, q: '' },
+                    virtual: { page: 0, hasMore: true, loading: false, q: '' },
+                };
+                let activeTab = 'countries';
 
                 const createCard = (item, type) => {
                     const card = document.createElement('div');
@@ -331,7 +341,7 @@
                             <button class="vnum-btn">Get Number</button>
                         `;
                     } else {
-                        const url = `/assets/${type === 'regions' ? 'region' : 'country'}/${item.id}${type === 'countriesDataCalls' ? '?package_type=DATA-VOICE-SMS' : ''}`;
+                        const url = `/assets/${type === 'regions' ? 'region' : 'country'}/${item.id}`;
                         card.innerHTML = `
                             <div class="card-left">
                                 <div class="flag">
@@ -339,11 +349,9 @@
                                 </div>
                                 <div class="meta">
                                     <div class="name">${item.name}</div>
-                                    <div class="subtext">Starting from ${item.starting_price_formatted}</div>
                                 </div>
                             </div>
                             <div class="card-right">
-                                <div class="price">${item.starting_price_formatted}</div>
                                 <a href="${url}" class="mini-btn">View Plans</a>
                             </div>
                         `;
@@ -351,34 +359,94 @@
                     return card;
                 };
 
-                const renderData = (data) => {
-                    // Clear skeletons and render real data
-                    Object.keys(grids).forEach(key => {
-                        const grid = grids[key];
-                        grid.innerHTML = ''; // Remove skeletons
-                        const items = data[key] || [];
-                        
-                        if (items.length === 0) {
-                            grid.innerHTML = '<div class="no-results"><p>No plans available at the moment.</p></div>';
-                        } else {
-                            items.forEach(item => {
-                                grid.appendChild(createCard(item, key === 'regions' ? 'regions' : (key === 'virtualNumbers' ? 'virtual' : key)));
-                            });
-                        }
-                    });
-                    
-                    allData = data;
-                    applySearch();
+                const keyToTab = (key) => (key === 'virtualNumbers' ? 'virtual' : key);
+                const tabToKey = (tab) => (tab === 'virtual' ? 'virtualNumbers' : tab);
+
+                const updateLoadMoreUi = () => {
+                    const tabState = state[activeTab];
+                    const show = !!(tabState && tabState.hasMore && !tabState.loading && tabState.q === (searchInput.value || '').trim());
+                    loadMoreWrap.classList.toggle('show', show);
                 };
 
-                const fetchData = async () => {
+                const setSkeleton = (key) => {
+                    const grid = grids[key];
+                    if (!grid) return;
+                    grid.innerHTML = '';
+                    const count = key === 'countries' ? 9 : 6;
+                    for (let i = 0; i < count; i++) {
+                        const sk = document.createElement('div');
+                        sk.className = 'skeleton-card skeleton-placeholder';
+                        sk.innerHTML = `
+                            <div class="card-left">
+                                <div class="skeleton-flag skeleton"></div>
+                                <div class="meta">
+                                    <div class="skeleton-text-lg skeleton"></div>
+                                    <div class="skeleton-text-sm skeleton"></div>
+                                </div>
+                            </div>
+                            <div class="card-right">
+                                <div class="skeleton-text-sm skeleton"></div>
+                                <div class="skeleton-btn skeleton"></div>
+                            </div>
+                        `;
+                        grid.appendChild(sk);
+                    }
+                };
+
+                const fetchNextPage = async (tab, { reset = false } = {}) => {
+                    const tabState = state[tab];
+                    if (!tabState || tabState.loading) return;
+
+                    const key = tabToKey(tab);
+                    const grid = grids[key];
+                    if (!grid) return;
+
+                    const q = (searchInput.value || '').trim();
+                    if (reset) {
+                        tabState.page = 0;
+                        tabState.hasMore = true;
+                        tabState.q = q;
+                        setSkeleton(key);
+                    }
+
+                    if (!tabState.hasMore) {
+                        updateLoadMoreUi();
+                        return;
+                    }
+
+                    tabState.loading = true;
+                    updateLoadMoreUi();
+
                     try {
-                        const response = await fetch('/api/allassets');
-                        const data = await response.json();
-                        renderData(data);
-                    } catch (error) {
-                        console.error('Error fetching assets:', error);
-                        // Handle error (e.g., show message)
+                        const nextPage = tabState.page + 1;
+                        const url = `/api/allassets?tab=${encodeURIComponent(tab)}&page=${nextPage}&per_page=30${q ? `&q=${encodeURIComponent(q)}` : ''}`;
+                        const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                        const json = await res.json().catch(() => ({}));
+                        if (!res.ok) {
+                            grid.innerHTML = '<div class="no-results"><p>Failed to load data.</p></div>';
+                            tabState.hasMore = false;
+                            return;
+                        }
+
+                        const items = Array.isArray(json.items) ? json.items : [];
+                        if (nextPage === 1) {
+                            grid.innerHTML = '';
+                        }
+                        items.forEach((item) => {
+                            grid.appendChild(createCard(item, tab === 'regions' ? 'regions' : (tab === 'virtual' ? 'virtual' : 'countries')));
+                        });
+
+                        tabState.page = nextPage;
+                        tabState.hasMore = !!json.has_more;
+
+                        const any = items.length > 0;
+                        noResultsSearch.classList.toggle('hidden', any || q === '');
+                    } catch (e) {
+                        grid.innerHTML = '<div class="no-results"><p>Failed to load data.</p></div>';
+                        tabState.hasMore = false;
+                    } finally {
+                        tabState.loading = false;
+                        updateLoadMoreUi();
                     }
                 };
 
@@ -386,82 +454,44 @@
                 const setAssetSection = (mode) => {
                     assetToggles.forEach(btn => btn.classList.toggle('active', btn.getAttribute('data-asset-toggle') === mode));
                     assetSections.forEach(sec => sec.classList.toggle('hidden', sec.getAttribute('data-asset-section') !== mode));
-                    applySearch(); // Re-apply search when switching sections
+                    activeTab = mode === 'virtual' ? 'virtual' : mode;
+                    const currentKey = tabToKey(activeTab);
+                    if (state[activeTab].page === 0) {
+                        fetchNextPage(activeTab, { reset: true });
+                    }
+                    const grid = grids[currentKey];
+                    const hasCards = grid && grid.querySelectorAll('.card, .vnum-card').length > 0;
+                    noResultsSearch.classList.toggle('hidden', hasCards || (searchInput.value || '').trim() === '');
+                    updateLoadMoreUi();
                 };
 
                 assetToggles.forEach(btn => {
                     btn.addEventListener('click', () => setAssetSection(btn.getAttribute('data-asset-toggle')));
                 });
 
-                // eSIM Sub-toggle Logic
-                const setEsimGrid = (type) => {
-                    esimToggles.forEach(btn => btn.classList.toggle('active', btn.getAttribute('data-esim-type') === type));
-                    esimGrids.forEach(grid => grid.classList.toggle('hidden', grid.getAttribute('data-esim-grid') !== type));
-                    applySearch(); // Re-apply search when switching grids
-                };
-
-                esimToggles.forEach(btn => {
-                    btn.addEventListener('click', () => setEsimGrid(btn.getAttribute('data-esim-type')));
+                let searchTimer = null;
+                searchInput.addEventListener('input', () => {
+                    if (searchTimer) window.clearTimeout(searchTimer);
+                    searchTimer = window.setTimeout(() => {
+                        fetchNextPage(activeTab, { reset: true });
+                    }, 250);
                 });
 
-                // Search Logic
-                const applySearch = () => {
-                    const query = searchInput.value.toLowerCase().trim();
-                    const activeSection = assetSections.find(sec => !sec.classList.contains('hidden'));
-                    if (!activeSection) return;
-
-                    // If we're in countries, we need to check the active eSIM grid
-                    let containersToSearch = [];
-                    if (activeSection.getAttribute('data-asset-section') === 'countries') {
-                        const activeGrid = esimGrids.find(grid => !grid.classList.contains('hidden'));
-                        if (activeGrid) containersToSearch = [activeGrid];
-                    } else {
-                        // For regions and virtual, the section itself contains the grid
-                        const grid = activeSection.querySelector('.grid');
-                        if (grid) containersToSearch = [grid];
-                    }
-
-                    let anyMatch = false;
-                    let totalVisibleInContainer = 0;
-
-                    containersToSearch.forEach(container => {
-                        const items = Array.from(container.querySelectorAll('.card, .vnum-card'));
-                        items.forEach(item => {
-                            const name = item.getAttribute('data-search-name') || '';
-                            const matches = name.includes(query);
-                            item.classList.toggle('hidden-by-search', !matches);
-                            if (matches) {
-                                anyMatch = true;
-                                totalVisibleInContainer++;
-                            }
-                        });
-                    });
-
-                    // Show/hide no results message
-                    noResultsSearch.classList.toggle('hidden', anyMatch || query === '');
-                };
-
-                searchInput.addEventListener('input', applySearch);
+                loadMoreBtn.addEventListener('click', () => {
+                    fetchNextPage(activeTab, { reset: false });
+                });
 
                 // Initialize
                 const urlParams = new URLSearchParams(window.location.search);
                 const tabParam = urlParams.get('tab');
-                const typeParam = urlParams.get('type');
 
                 if (tabParam) {
                     setAssetSection(tabParam);
-                    if (tabParam === 'countries' && typeParam) {
-                        setEsimGrid(typeParam);
-                    } else if (tabParam === 'countries') {
-                        setEsimGrid('data');
-                    }
                 } else {
                     setAssetSection('countries');
-                    setEsimGrid('data');
                 }
 
-                // Start fetching data
-                fetchData();
+                fetchNextPage(activeTab, { reset: true });
             })();
         </script>
     </body>

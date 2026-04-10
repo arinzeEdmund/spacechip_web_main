@@ -5,8 +5,8 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
-use Laravel\Socialite\Facades\Socialite;
 use Illuminate\Support\Str;
+use Laravel\Socialite\Facades\Socialite;
 
 class SocialAuthController extends Controller
 {
@@ -24,8 +24,8 @@ class SocialAuthController extends Controller
         }
 
         $user = User::where("{$provider}_id", $socialUser->getId())
-                    ->orWhere('email', $socialUser->getEmail())
-                    ->first();
+            ->orWhere('email', $socialUser->getEmail())
+            ->first();
 
         if ($user) {
             $user->update([
