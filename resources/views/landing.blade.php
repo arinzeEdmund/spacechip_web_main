@@ -4,6 +4,9 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>{{ config('app.name', 'spacechip') }}</title>
+        <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
+        <link rel="alternate icon" href="{{ asset('favicon.svg') }}">
+        <link rel="apple-touch-icon" href="{{ asset('favicon.svg') }}">
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600" rel="stylesheet" />
         @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
@@ -425,24 +428,55 @@
                 const popularRegionsGrid = document.getElementById('popularRegionsGrid');
                 let searchTimeout = null;
 
+                const esc = (value) => {
+                    const s = String(value ?? '');
+                    return s
+                        .replaceAll('&', '&amp;')
+                        .replaceAll('<', '&lt;')
+                        .replaceAll('>', '&gt;')
+                        .replaceAll('"', '&quot;')
+                        .replaceAll("'", '&#39;');
+                };
+
+                const safeHref = (value) => {
+                    const s = String(value ?? '').trim();
+                    if (!s) return '';
+                    try {
+                        const url = new URL(s, window.location.origin);
+                        if (url.protocol !== 'http:' && url.protocol !== 'https:') return '';
+                        return url.href;
+                    } catch (e) {
+                        return '';
+                    }
+                };
+
+                const safeImgSrc = (value) => {
+                    const s = String(value ?? '').trim();
+                    if (!s) return '';
+                    if (s.startsWith('data:image/')) return s;
+                    return safeHref(s);
+                };
+
                 const createCountryCard = (item, type) => {
                     const country = document.createElement('div');
                     country.className = 'country';
-                    const url = `/assets/${type}/${item.id || item.code || item.slug}`;
+                    const id = String(item.id || item.code || item.slug || '');
+                    const url = `/assets/${type}/${encodeURIComponent(id)}`;
+                    const imgSrc = safeImgSrc(item.flag_url || '');
                     
                     country.innerHTML = `
                         <div class="country-left">
                             <div class="flag">
-                                ${item.flag_url ? `<img src="${item.flag_url}" alt="${item.name} flag" loading="lazy">` : `<span>${item.flag || '🌐'}</span>`}
+                                ${imgSrc ? `<img src="${imgSrc}" alt="${esc(item.name)} flag" loading="lazy">` : `<span>${esc(item.flag || '🌐')}</span>`}
                             </div>
                             <div class="c-meta">
-                                <div class="c-name">${item.name || 'Worldwide'}</div>
-                                ${item.note ? `<div class="c-note">${item.note}</div>` : ''}
-                                ${item.badge ? `<div class="c-pill">${item.badge}</div>` : ''}
+                                <div class="c-name">${esc(item.name || 'Worldwide')}</div>
+                                ${item.note ? `<div class="c-note">${esc(item.note)}</div>` : ''}
+                                ${item.badge ? `<div class="c-pill">${esc(item.badge)}</div>` : ''}
                             </div>
                         </div>
                         <div class="country-right">
-                            <div class="price">${item.starting_price_formatted || 'View'} <span>${item.starting_price_formatted ? 'from' : 'plans'}</span></div>
+                            <div class="price">${esc(item.starting_price_formatted || 'View')} <span>${item.starting_price_formatted ? 'from' : 'plans'}</span></div>
                             <a href="${url}" class="mini-btn" style="text-decoration:none">View plans</a>
                         </div>
                     `;

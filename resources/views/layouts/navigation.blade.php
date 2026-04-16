@@ -26,6 +26,12 @@
                 </a>
 
                 <div class="flex items-center gap-2 sm:gap-3">
+                    <a href="{{ route('dashboard.virtual.index') }}" style="padding:10px 14px;border-radius:9999px;background:rgba(255,255,255,.55);border:1px solid rgba(15,31,31,.10);font-weight:850;color:rgba(15,31,31,.72);text-decoration:none;display:inline-flex;align-items:center;gap:8px">
+                        <span class="hidden sm:inline">Numbers</span>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </a>
                     @if ((bool) ($user?->is_admin ?? false) || in_array(mb_strtolower((string) ($user?->email ?? '')), array_values(array_filter(array_map(fn ($v) => trim(mb_strtolower($v)), explode(',', (string) (env('ADMIN_EMAILS', '') ?: ''))))), true))
                         <a href="{{ route('admin.dashboard') }}" style="padding:10px 14px;border-radius:9999px;background:rgba(255,255,255,.55);border:1px solid rgba(15,31,31,.10);font-weight:850;color:rgba(15,31,31,.72);text-decoration:none;display:inline-flex;align-items:center;gap:8px">
                             <span class="hidden sm:inline">Admin</span>

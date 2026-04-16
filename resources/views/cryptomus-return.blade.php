@@ -3,7 +3,11 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="csrf-token" content="{{ csrf_token() }}">
         <title>Crypto Payment - {{ config('app.name', 'spacechip') }}</title>
+        <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
+        <link rel="alternate icon" href="{{ asset('favicon.svg') }}">
+        <link rel="apple-touch-icon" href="{{ asset('favicon.svg') }}">
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600,700" rel="stylesheet" />
         <style>
@@ -60,7 +64,16 @@
                 const poll = async () => {
                     if (!orderId) return;
                     try {
-                        const res = await fetch(`/api/cryptomus/status?order_id=${encodeURIComponent(orderId)}`, { headers: { 'Accept': 'application/json' } });
+                        const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+                        const res = await fetch(`/api/cryptomus/status`, {
+                            method: 'POST',
+                            headers: {
+                                'Accept': 'application/json',
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': csrf
+                            },
+                            body: JSON.stringify({ order_id: orderId })
+                        });
                         const json = await res.json().catch(() => ({}));
                         if (!res.ok) {
                             el.textContent = json.message || 'Unable to check payment status.';

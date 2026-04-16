@@ -3,16 +3,20 @@
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
+
+Schedule::command('virtual-numbers:renew')->hourly();
 
 Artisan::command('db:sqlite-to-mysql', function () {
     $sourcePath = database_path('database.sqlite');
 
     if (! file_exists($sourcePath)) {
         $this->error("SQLite database file not found at: {$sourcePath}");
+
         return 1;
     }
 
@@ -35,6 +39,7 @@ Artisan::command('db:sqlite-to-mysql', function () {
     foreach ($sourceTables as $table) {
         if (! in_array($table, $targetTables, true)) {
             $this->line("Skipping {$table} (not present in MySQL)");
+
             continue;
         }
 

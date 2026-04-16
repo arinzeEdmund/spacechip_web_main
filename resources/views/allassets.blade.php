@@ -4,6 +4,9 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>All Assets - {{ config('app.name', 'spacechip') }}</title>
+        <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
+        <link rel="alternate icon" href="{{ asset('favicon.svg') }}">
+        <link rel="apple-touch-icon" href="{{ asset('favicon.svg') }}">
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600" rel="stylesheet" />
         <style>
@@ -319,36 +322,69 @@
                 };
                 let activeTab = 'countries';
 
+                const esc = (value) => {
+                    const s = String(value ?? '');
+                    return s
+                        .replaceAll('&', '&amp;')
+                        .replaceAll('<', '&lt;')
+                        .replaceAll('>', '&gt;')
+                        .replaceAll('"', '&quot;')
+                        .replaceAll("'", '&#39;');
+                };
+
+                const safeHref = (value) => {
+                    const s = String(value ?? '').trim();
+                    if (!s) return '';
+                    try {
+                        const url = new URL(s, window.location.origin);
+                        if (url.protocol !== 'http:' && url.protocol !== 'https:') return '';
+                        return url.href;
+                    } catch (e) {
+                        return '';
+                    }
+                };
+
+                const safeImgSrc = (value) => {
+                    const s = String(value ?? '').trim();
+                    if (!s) return '';
+                    if (s.startsWith('data:image/')) return s;
+                    return safeHref(s);
+                };
+
                 const createCard = (item, type) => {
                     const card = document.createElement('div');
                     card.className = type === 'virtual' ? 'vnum-card' : 'card';
-                    card.setAttribute('data-search-name', item.name.toLowerCase());
+                    card.setAttribute('data-search-name', String(item.name || '').toLowerCase());
 
                     if (type === 'virtual') {
+                        const imgSrc = safeImgSrc(item.flag_url || '');
+                        const href = safeHref(item.url || '');
                         card.innerHTML = `
                             <div class="vnum-top">
                                 <div class="vnum-info">
                                     <div class="flag">
-                                        ${item.flag_url ? `<img src="${item.flag_url}" alt="${item.name}">` : `<span>${item.flag || '🌐'}</span>`}
+                                        ${imgSrc ? `<img src="${imgSrc}" alt="${esc(item.name)}">` : `<span>${esc(item.flag || '🌐')}</span>`}
                                     </div>
-                                    <div class="vnum-name">${item.name}</div>
+                                    <div class="vnum-name">${esc(item.name)}</div>
                                 </div>
                                 <div class="vnum-price-box">
-                                    <div class="vnum-price">${item.price_formatted}<span>/mo</span></div>
+                                    <div class="vnum-price">${esc(item.price_formatted)}<span>/mo</span></div>
                                 </div>
                             </div>
-                            <div class="vnum-desc">${item.description || 'Virtual phone number for calls and SMS.'}</div>
-                            <button class="vnum-btn">Get Number</button>
+                            <div class="vnum-desc">${esc(item.description || 'Virtual phone number for calls and SMS.')}</div>
+                            ${href ? `<a class="vnum-btn" href="${href}" style="text-decoration:none;display:block;text-align:center">Get Number</a>` : `<button class="vnum-btn" type="button" disabled>Get Number</button>`}
                         `;
                     } else {
-                        const url = `/assets/${type === 'regions' ? 'region' : 'country'}/${item.id}`;
+                        const kind = type === 'regions' ? 'region' : 'country';
+                        const url = `/assets/${kind}/${encodeURIComponent(String(item.id || ''))}`;
+                        const imgSrc = safeImgSrc(item.flag_url || '');
                         card.innerHTML = `
                             <div class="card-left">
                                 <div class="flag">
-                                    ${item.flag_url ? `<img src="${item.flag_url}" alt="${item.name}">` : `<span>${item.flag || '🌐'}</span>`}
+                                    ${imgSrc ? `<img src="${imgSrc}" alt="${esc(item.name)}">` : `<span>${esc(item.flag || '🌐')}</span>`}
                                 </div>
                                 <div class="meta">
-                                    <div class="name">${item.name}</div>
+                                    <div class="name">${esc(item.name)}</div>
                                 </div>
                             </div>
                             <div class="card-right">

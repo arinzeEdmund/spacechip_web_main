@@ -6,6 +6,9 @@
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
         <title>{{ config('app.name', 'Laravel') }}</title>
+        <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
+        <link rel="alternate icon" href="{{ asset('favicon.svg') }}">
+        <link rel="apple-touch-icon" href="{{ asset('favicon.svg') }}">
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
@@ -15,7 +18,7 @@
         <script src="https://cdn.tailwindcss.com"></script>
     </head>
     <body class="font-sans antialiased">
-        <div class="min-h-screen flex flex-col {{ request()->routeIs('dashboard') || request()->routeIs('admin.*') ? '' : 'bg-gray-100' }}" style="{{ request()->routeIs('dashboard') || request()->routeIs('admin.*') ? 'background:
+        <div class="min-h-screen flex flex-col {{ request()->routeIs('dashboard') || request()->routeIs('admin.*') || request()->routeIs('virtual.*') ? '' : 'bg-gray-100' }}" style="{{ request()->routeIs('dashboard') || request()->routeIs('admin.*') || request()->routeIs('virtual.*') ? 'background:
             radial-gradient(900px 520px at 12% 14%, rgba(242,116,87,.32) 0%, rgba(242,116,87,0) 60%),
             radial-gradient(980px 560px at 88% 18%, rgba(20,84,84,.26) 0%, rgba(20,84,84,0) 62%),
             radial-gradient(1100px 700px at 50% 92%, rgba(242,116,87,.18) 0%, rgba(242,116,87,0) 65%),

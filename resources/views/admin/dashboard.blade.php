@@ -100,6 +100,63 @@
                             <span class="tag {{ $health['gloesim_configured'] ? 'good' : 'bad' }}">{{ $health['gloesim_configured'] ? 'GloEsim OK' : 'GloEsim Missing' }}</span>
                         </div>
                     </div>
+                    <div style="padding:12px;border-radius:18px;border:1px solid rgba(15,31,31,.08);background:rgba(255,255,255,.6)">
+                        <div style="display:flex;justify-content:space-between;gap:10px">
+                            <div>
+                                <div class="label">Providers</div>
+                                <div class="meta mono" style="margin-top:6px">twilio={{ $health['twilio_configured'] ? 'configured' : 'missing' }}</div>
+                            </div>
+                            <span class="tag {{ $health['twilio_configured'] ? 'good' : 'bad' }}">{{ $health['twilio_configured'] ? 'Twilio OK' : 'Twilio Missing' }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass card" style="grid-column:span 12">
+                <div class="section-title">Virtual Numbers</div>
+                <div class="two">
+                    <div class="kpi">
+                        <div>
+                            <div class="label">Subscriptions</div>
+                            <div class="value">{{ number_format($stats['virtual_total'] ?? 0) }}</div>
+                            <div class="meta">{{ number_format($stats['virtual_active'] ?? 0) }} active · {{ number_format($stats['virtual_past_due'] ?? 0) }} past due</div>
+                        </div>
+                        <span class="tag {{ ($stats['virtual_past_due'] ?? 0) > 0 ? 'bad' : 'good' }}">{{ ($stats['virtual_past_due'] ?? 0) > 0 ? 'Needs review' : 'Healthy' }}</span>
+                    </div>
+                    <div style="padding:12px;border-radius:18px;border:1px solid rgba(15,31,31,.08);background:rgba(255,255,255,.6)">
+                        <div style="font-weight:950;color:#0b1a1a">Quick Links</div>
+                        <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap">
+                            <a href="{{ route('dashboard.virtual.index') }}" class="tag good" style="text-decoration:none">Open Store</a>
+                            <a href="{{ route('dashboard.virtual.my') }}" class="tag" style="text-decoration:none">My Numbers</a>
+                        </div>
+                        <div class="meta" style="margin-top:10px">Renewals run hourly via scheduler.</div>
+                    </div>
+                </div>
+                <div style="margin-top:14px;overflow:auto">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>User</th>
+                                <th>Number</th>
+                                <th>Status</th>
+                                <th>Plan</th>
+                                <th>Next Renewal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach(($recentVirtualSubs ?? []) as $s)
+                                <tr>
+                                    <td class="mono">{{ optional($s->created_at)->toDateTimeString() }}</td>
+                                    <td class="mono">{{ $s->user?->email }}</td>
+                                    <td class="mono">{{ $s->phone_number }}</td>
+                                    <td><span class="tag {{ (string) $s->status === 'active' ? 'good' : ((string) $s->status === 'past_due' ? 'bad' : '') }}">{{ $s->status }}</span></td>
+                                    <td class="mono">{{ $s->product?->label }}</td>
+                                    <td class="mono">{{ $s->current_period_end ? $s->current_period_end->toDateTimeString() : '' }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
                 </div>
             </div>
 

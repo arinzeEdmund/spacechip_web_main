@@ -69,4 +69,11 @@ return [
         'force_ipv4' => env('CRYPTOMUS_FORCE_IPV4', false),
     ],
 
+    'twilio' => [
+        'account_sid' => env('TWILIO_ACCOUNT_SID'),
+        'auth_token' => env('TWILIO_AUTH_TOKEN'),
+        'sms_webhook_url' => env('TWILIO_SMS_WEBHOOK_URL'),
+        'voice_webhook_url' => env('TWILIO_VOICE_WEBHOOK_URL'),
+    ],
+
 ];

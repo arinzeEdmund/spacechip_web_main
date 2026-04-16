@@ -580,56 +580,57 @@ class GloEsimService
             return $fallback;
         }
 
-            $pricesByCountryId = [];
-            foreach ($globalPackages as $package) {
-                $packageCountries = data_get($package, 'countries', []);
-                $amount = $this->extractAmount($package);
-                if ($amount === null) {
-                    continue;
-                }
-
-                foreach ($packageCountries as $c) {
-                    $id = (string) data_get($c, 'id');
-                    if (! isset($pricesByCountryId[$id]) || $amount < $pricesByCountryId[$id]) {
-                        $pricesByCountryId[$id] = $amount;
-                    }
-                }
+        $pricesByCountryId = [];
+        foreach ($globalPackages as $package) {
+            $packageCountries = data_get($package, 'countries', []);
+            $amount = $this->extractAmount($package);
+            if ($amount === null) {
+                continue;
             }
 
-            $results = [];
-
-            foreach ($countries as $country) {
-                $id = (string) (data_get($country, 'id') ?? '');
-                if ($id === '') {
-                    continue;
+            foreach ($packageCountries as $c) {
+                $id = (string) data_get($c, 'id');
+                if (! isset($pricesByCountryId[$id]) || $amount < $pricesByCountryId[$id]) {
+                    $pricesByCountryId[$id] = $amount;
                 }
+            }
+        }
 
-                $name = (string) data_get($country, 'name');
-                $code = $this->extractCountryCode($country);
+        $results = [];
 
-                $results[] = [
-                    'id' => $id,
-                    'name' => $name,
-                    'code' => $code,
-                    'flag' => $this->flagEmoji($code),
-                    'flag_url' => data_get($country, 'image_url'),
-                    'starting_price' => $pricesByCountryId[$id] ?? null,
-                    'starting_price_formatted' => isset($pricesByCountryId[$id]) ? $this->formatMoney($pricesByCountryId[$id], $currency) : null,
-                ];
+        foreach ($countries as $country) {
+            $id = (string) (data_get($country, 'id') ?? '');
+            if ($id === '') {
+                continue;
             }
 
-            // Filter out countries with no plans for this type
-            $results = array_filter($results, fn ($r) => $r['starting_price'] !== null);
+            $name = (string) data_get($country, 'name');
+            $code = $this->extractCountryCode($country);
 
-            usort($results, fn ($a, $b) => strcmp($a['name'], $b['name']));
+            $results[] = [
+                'id' => $id,
+                'name' => $name,
+                'code' => $code,
+                'flag' => $this->flagEmoji($code),
+                'flag_url' => data_get($country, 'image_url'),
+                'starting_price' => $pricesByCountryId[$id] ?? null,
+                'starting_price_formatted' => isset($pricesByCountryId[$id]) ? $this->formatMoney($pricesByCountryId[$id], $currency) : null,
+            ];
+        }
 
-            $final = array_values($results);
-            if ($final !== []) {
-                Cache::put($cacheKey, $final, now()->addHours(6));
-                return $final;
-            }
+        // Filter out countries with no plans for this type
+        $results = array_filter($results, fn ($r) => $r['starting_price'] !== null);
 
-            return $fallback;
+        usort($results, fn ($a, $b) => strcmp($a['name'], $b['name']));
+
+        $final = array_values($results);
+        if ($final !== []) {
+            Cache::put($cacheKey, $final, now()->addHours(6));
+
+            return $final;
+        }
+
+        return $fallback;
     }
 
     public function allRegionsWithPrices(): array
@@ -788,6 +789,19 @@ class GloEsimService
                 }
             }
 
+            $canRenewRaw = data_get($p, 'can_renew');
+            if ($canRenewRaw === null) {
+                $canRenewRaw = data_get($p, 'canRenew');
+            }
+            $canRenew = null;
+            if (is_bool($canRenewRaw)) {
+                $canRenew = $canRenewRaw;
+            } elseif (is_numeric($canRenewRaw)) {
+                $canRenew = ((int) $canRenewRaw) === 1;
+            } elseif (is_string($canRenewRaw) && trim($canRenewRaw) !== '') {
+                $canRenew = in_array(mb_strtolower(trim($canRenewRaw)), ['1', 'true', 'yes'], true);
+            }
+
             return [
                 'id' => data_get($p, 'id'),
                 'name' => data_get($p, 'name'),
@@ -796,10 +810,12 @@ class GloEsimService
                 'price' => $amount,
                 'price_formatted' => $this->formatMoney($amount, $currency),
                 'package_type' => data_get($p, 'package_type'),
+                'can_renew' => $canRenew,
                 'features' => [
                     'Hotspot' => data_get($p, 'hotspot') ? 'Supported' : 'Check coverage',
                     'Network' => data_get($p, 'connectivity') ?? '4G/5G',
                     'Activation' => 'Instant',
+                    'Renewal' => $canRenew === true ? 'Yes' : 'No',
                 ],
             ];
         }, $packages);
@@ -1212,6 +1228,160 @@ class GloEsimService
         ];
     }
 
+    public function topupEsim(string $targetEsimId, string $packageTypeId, string $reference, string $customerEmail, string $packageType = 'DATA-ONLY', array $customerDetails = []): array
+    {
+        $targetEsimId = trim($targetEsimId);
+        if ($targetEsimId === '') {
+            return ['ok' => false, 'error' => 'Missing target esim_id.'];
+        }
+
+        $normalizedType = $this->normalizePackageType($packageType);
+        $normalizedType = $normalizedType === '' ? 'DATA-ONLY' : $normalizedType;
+
+        $details = $this->getEsimDetails($targetEsimId);
+        if (! is_array($details) || (($details['ok'] ?? false) !== true)) {
+            return ['ok' => false, 'pending' => true, 'error' => 'Unable to fetch target eSIM details yet.', 'esim_id' => $targetEsimId];
+        }
+
+        $canRenewRaw = $details['can_renew'] ?? data_get($details, 'gloesim_item.can_renew');
+        $canRenew = false;
+        if (is_bool($canRenewRaw)) {
+            $canRenew = $canRenewRaw;
+        } elseif (is_numeric($canRenewRaw)) {
+            $canRenew = ((int) $canRenewRaw) === 1;
+        } elseif (is_string($canRenewRaw) && trim($canRenewRaw) !== '') {
+            $canRenew = in_array(mb_strtolower(trim($canRenewRaw)), ['1', 'true', 'yes'], true);
+        }
+
+        if (! $canRenew) {
+            return ['ok' => false, 'error' => 'This eSIM cannot be renewed.', 'esim_id' => $targetEsimId];
+        }
+
+        $targetIccid = trim((string) ($details['iccid'] ?? ''));
+
+        $endpointCandidates = [
+            '/developer/dealer/package/topup',
+            '/developer/dealer/package/renew',
+            '/developer/dealer/package/extension',
+        ];
+
+        $basePayload = [
+            'package_type_id' => $packageTypeId,
+            'email' => $customerEmail,
+            'esim_id' => $targetEsimId,
+            'esimId' => $targetEsimId,
+            'sim_id' => $targetEsimId,
+            'simId' => $targetEsimId,
+        ];
+
+        if ($targetIccid !== '') {
+            $basePayload['iccid'] = $targetIccid;
+        }
+
+        if ($normalizedType === 'DATA-VOICE-SMS') {
+            $name = trim((string) ($customerDetails['name'] ?? ''));
+            $parts = $name !== '' ? preg_split('/\s+/', $name) : [];
+            $firstName = (string) ($customerDetails['first_name'] ?? ($parts[0] ?? 'Customer'));
+            $lastName = (string) ($customerDetails['last_name'] ?? (count($parts) > 1 ? implode(' ', array_slice($parts, 1)) : ''));
+
+            $basePayload = array_merge($basePayload, [
+                'first_name' => $firstName,
+                'last_name' => $lastName,
+                'street_name' => (string) ($customerDetails['street_name'] ?? 'Unknown'),
+                'street_number' => (string) ($customerDetails['street_number'] ?? '0'),
+                'street_direction' => (string) ($customerDetails['street_direction'] ?? ''),
+                'city' => (string) ($customerDetails['city'] ?? 'Unknown'),
+                'state' => (string) ($customerDetails['state'] ?? 'Unknown'),
+                'zipcode' => (string) ($customerDetails['zipcode'] ?? '00000'),
+                'contact_number' => (string) ($customerDetails['contact_number'] ?? '0000000000'),
+                'imei' => (string) ($customerDetails['imei'] ?? '000000000000000'),
+            ]);
+        }
+
+        $resultWrapper = null;
+        foreach ($endpointCandidates as $endpoint) {
+            $attempt = $this->postFormDetailed($endpoint, $basePayload);
+            if (($attempt['ok'] ?? false) === true && is_array($attempt['json'] ?? null)) {
+                $resultWrapper = $attempt;
+                break;
+            }
+        }
+
+        if (! is_array($resultWrapper) || (($resultWrapper['ok'] ?? false) !== true) || ! is_array($resultWrapper['json'] ?? null)) {
+            $fallbackEndpoint = $normalizedType === 'DATA-VOICE-SMS'
+                ? '/developer/dealer/package/data_voice_sms/purchase'
+                : '/developer/dealer/package/purchase';
+            $attempt = $this->postFormDetailed($fallbackEndpoint, $basePayload);
+            if (($attempt['ok'] ?? false) !== true || ! is_array($attempt['json'] ?? null)) {
+                $msg = (string) ($attempt['error'] ?? 'Unable to top up eSIM.');
+                $status = $attempt['status'] ?? null;
+
+                return [
+                    'ok' => false,
+                    'error' => is_numeric($status) ? "HTTP {$status}: {$msg}" : $msg,
+                ];
+            }
+            $resultWrapper = $attempt;
+        }
+
+        $result = $resultWrapper['json'];
+
+        $orderId = data_get($result, 'data.id')
+            ?? data_get($result, 'data.order_id')
+            ?? data_get($result, 'order_id')
+            ?? data_get($result, 'id');
+
+        $esimId = data_get($result, 'data.esim_id')
+            ?? data_get($result, 'esim_id')
+            ?? data_get($result, 'data.sim_id')
+            ?? data_get($result, 'sim_id')
+            ?? $targetEsimId;
+
+        $iccid = data_get($result, 'data.iccid')
+            ?? data_get($result, 'iccid')
+            ?? $targetIccid;
+
+        $simApplied = data_get($result, 'data.sim_applied')
+            ?? data_get($result, 'sim_applied');
+
+        $hasDelivery = is_string($iccid) && trim($iccid) !== '';
+        $simAppliedBool = is_bool($simApplied) ? $simApplied : null;
+
+        if (! $hasDelivery || $simAppliedBool === false) {
+            return [
+                'ok' => false,
+                'pending' => true,
+                'reference' => $reference,
+                'esim_id' => $esimId,
+                'order_id' => $orderId,
+                'iccid' => is_string($iccid) ? $iccid : null,
+                'error' => 'Purchased, but top-up details are not ready yet.',
+                'raw' => $result,
+            ];
+        }
+
+        if (trim((string) $esimId) !== $targetEsimId && $targetIccid !== '' && trim((string) $iccid) !== $targetIccid) {
+            return [
+                'ok' => false,
+                'error' => 'Top-up did not apply to the expected eSIM.',
+                'order_id' => $orderId,
+                'esim_id' => $esimId,
+                'iccid' => $iccid,
+                'target_esim_id' => $targetEsimId,
+                'target_iccid' => $targetIccid,
+            ];
+        }
+
+        return [
+            'ok' => true,
+            'reference' => $reference,
+            'esim_id' => (string) $targetEsimId,
+            'order_id' => $orderId,
+            'iccid' => is_string($iccid) ? $iccid : null,
+            'raw' => $result,
+        ];
+    }
+
     public function getEsimDetails(string $esimId): array
     {
         $id = trim($esimId);
@@ -1370,10 +1540,13 @@ class GloEsimService
         }
 
         if (! is_string($iccid) || trim($iccid) === '') {
+            $canRenew = $gloesimItem ? (data_get($gloesimItem, 'can_renew')) : null;
+
             return [
                 'ok' => false,
                 'pending' => true,
                 'esim_id' => (string) $resolvedEsimId,
+                'can_renew' => $canRenew,
                 'smdp_address' => is_string($smdpAddress) ? $smdpAddress : null,
                 'lpa' => is_string($lpa) ? $lpa : null,
                 'activation_code' => is_string($activationCode) ? $activationCode : null,
@@ -1383,10 +1556,13 @@ class GloEsimService
             ];
         }
 
+        $canRenew = $gloesimItem ? (data_get($gloesimItem, 'can_renew')) : null;
+
         return [
             'ok' => true,
             'esim_id' => (string) $resolvedEsimId,
             'iccid' => $iccid,
+            'can_renew' => $canRenew,
             'activation_code' => is_string($activationCode) ? $activationCode : null,
             'lpa' => is_string($lpa) ? $lpa : null,
             'qr_code_url' => $qrCodeUrl,

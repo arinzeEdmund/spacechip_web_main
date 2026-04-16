@@ -4,6 +4,9 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>Checkout - {{ config('app.name', 'spacechip') }}</title>
+        <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
+        <link rel="alternate icon" href="{{ asset('favicon.svg') }}">
+        <link rel="apple-touch-icon" href="{{ asset('favicon.svg') }}">
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600,700" rel="stylesheet" />
         <style>
@@ -239,6 +242,22 @@
                         </div>
                     </button>
 
+                    <button class="pay-option card-opt" type="button" id="payWithWalletBtn" style="margin-top:12px">
+                        <div class="shimmer"></div>
+                        <div class="pay-top">
+                            <div>
+                                <div class="pay-kicker">Pay with</div>
+                                <div class="pay-name">Wallet</div>
+                                <div class="pay-sub">Balance: <span data-wallet-balance>Loading…</span></div>
+                            </div>
+                            <span class="badge badge-cool">Instant</span>
+                        </div>
+                        <div class="pay-loading" data-wallet-loading>
+                            <span class="spin"></span>
+                            <span>Checking wallet…</span>
+                        </div>
+                    </button>
+
                     <div class="divider">
                         <div class="divider-line"></div>
                         <span class="divider-text">or</span>
@@ -342,11 +361,14 @@
                 const openBtn = document.getElementById('proceedToPaymentBtn');
                 const closeBtn = document.getElementById('closePaymentModalBtn');
                 const payWithCardBtn = document.getElementById('payWithCardBtn');
+                const payWithWalletBtn = document.getElementById('payWithWalletBtn');
                 const payWithCryptoBtn = document.getElementById('payWithCryptoBtn');
                 const payWithCryptomusCardBtn = document.getElementById('payWithCryptomusCardBtn');
                 const statusEl = document.getElementById('paymentStatus');
                 const modalStatusEl = document.getElementById('paymentModalStatus');
                 const paystackLoadingEl = payWithCardBtn.querySelector('[data-paystack-loading]');
+                const walletLoadingEl = payWithWalletBtn ? payWithWalletBtn.querySelector('[data-wallet-loading]') : null;
+                const walletBalanceEl = payWithWalletBtn ? payWithWalletBtn.querySelector('[data-wallet-balance]') : null;
                 const cryptomusCryptoLoadingEl = payWithCryptoBtn.querySelector('[data-cryptomus-loading="crypto"]');
                 const cryptomusCardLoadingEl = payWithCryptomusCardBtn.querySelector('[data-cryptomus-loading="card"]');
 
@@ -363,6 +385,7 @@
                     id: @json((string) ($id ?? '')),
                     bundle: @json((string) ($bundle['id'] ?? '')),
                     package_type: @json((string) ($bundle['package_type'] ?? 'DATA-ONLY')),
+                    topup_esim_id: @json((string) ($topupEsimId ?? '')),
                 };
                 const paystackAmounts = {
                     NGN: @json((int) ($paystackAmountMinorNgn ?? 0)),
@@ -407,6 +430,7 @@
                         paystackStatusTimer = null;
                     }
                     setPaystackLoading(false);
+                    setWalletLoading(false);
                     setCryptomusLoading(false, 'crypto');
                     setCryptomusLoading(false, 'card');
                     setStatus('', 'neutral');
@@ -419,6 +443,7 @@
                     void modal.offsetHeight;
                     modal.style.animation = '';
                     resetPaymentUi();
+                    refreshWalletBalance();
                     closeBtn.focus();
                 };
 
@@ -480,6 +505,7 @@
                 const setDisabled = (isDisabled) => {
                     const disabled = !!isDisabled;
                     payWithCardBtn.disabled = disabled;
+                    if (payWithWalletBtn) payWithWalletBtn.disabled = disabled;
                     payWithCryptoBtn.disabled = disabled;
                     payWithCryptomusCardBtn.disabled = disabled || payWithCryptomusCardBtn.getAttribute('data-always-disabled') === 'true';
                     const pills = document.querySelectorAll('[data-pay-currency]');
@@ -489,6 +515,16 @@
                 const setPaystackLoading = (isLoading) => {
                     const disabled = !!isLoading;
                     if (paystackLoadingEl) paystackLoadingEl.classList.toggle('show', disabled);
+                    if (walletLoadingEl) walletLoadingEl.classList.remove('show');
+                    if (cryptomusCryptoLoadingEl) cryptomusCryptoLoadingEl.classList.remove('show');
+                    if (cryptomusCardLoadingEl) cryptomusCardLoadingEl.classList.remove('show');
+                    setDisabled(disabled);
+                };
+
+                const setWalletLoading = (isLoading) => {
+                    const disabled = !!isLoading;
+                    if (walletLoadingEl) walletLoadingEl.classList.toggle('show', disabled);
+                    if (paystackLoadingEl) paystackLoadingEl.classList.remove('show');
                     if (cryptomusCryptoLoadingEl) cryptomusCryptoLoadingEl.classList.remove('show');
                     if (cryptomusCardLoadingEl) cryptomusCardLoadingEl.classList.remove('show');
                     setDisabled(disabled);
@@ -499,7 +535,24 @@
                     if (cryptomusCryptoLoadingEl) cryptomusCryptoLoadingEl.classList.toggle('show', disabled && kind === 'crypto');
                     if (cryptomusCardLoadingEl) cryptomusCardLoadingEl.classList.toggle('show', disabled && kind === 'card');
                     if (paystackLoadingEl) paystackLoadingEl.classList.remove('show');
+                    if (walletLoadingEl) walletLoadingEl.classList.remove('show');
                     setDisabled(disabled);
+                };
+
+                const refreshWalletBalance = async () => {
+                    if (!walletBalanceEl) return;
+                    walletBalanceEl.textContent = 'Loading…';
+                    try {
+                        const res = await fetch('/api/wallet/balance', { headers: { 'Accept': 'application/json' } });
+                        const json = await res.json().catch(() => ({}));
+                        if (!res.ok || !json.ok) {
+                            walletBalanceEl.textContent = 'Unavailable';
+                            return;
+                        }
+                        walletBalanceEl.textContent = String(json.balance_formatted || '$0.00');
+                    } catch (e) {
+                        walletBalanceEl.textContent = 'Unavailable';
+                    }
                 };
 
                 const currencyRow = document.getElementById('currencyRow');
@@ -545,7 +598,38 @@
                     setStatus('Loading Paystack…', 'neutral');
 
                     try {
-                        const reference = `sc_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+                        const initRes = await fetch('/api/paystack/initialize', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': csrfToken
+                            },
+                            body: JSON.stringify({
+                                type: checkoutContext.type,
+                                id: checkoutContext.id,
+                                bundle: checkoutContext.bundle,
+                                package_type: checkoutContext.package_type,
+                                currency: selectedPayCurrency,
+                                topup_esim_id: checkoutContext.topup_esim_id || ''
+                            })
+                        });
+                        const initJson = await initRes.json().catch(() => ({}));
+                        if (!initRes.ok) {
+                            setStatus(initJson.message || 'Payment initialization failed. Please try again.', 'error');
+                            setPaystackLoading(false);
+                            return;
+                        }
+
+                        const reference = String(initJson.reference || '');
+                        const payAmount = Number(initJson.amount || 0);
+                        const payCurrency = String(initJson.currency || '').toUpperCase();
+                        const payEmail = String(initJson.email || userEmail || '');
+                        if (!reference || !payAmount || !payCurrency) {
+                            setStatus('Payment initialization failed. Please try again.', 'error');
+                            setPaystackLoading(false);
+                            return;
+                        }
                         let handler;
                         try {
                             console.groupCollapsed('Spacechip FX conversion → Paystack');
@@ -565,9 +649,9 @@
 
                             handler = window.PaystackPop.setup({
                             key: paystackKey,
-                            email: userEmail,
-                            amount: 100 * 100,
-                            currency: 'NGN',
+                            email: payEmail,
+                            amount: payAmount,
+                            currency: payCurrency,
                             ref: reference,
                             metadata: checkoutContext,
                             callback: function (response) {
@@ -591,7 +675,8 @@
                                         type: checkoutContext.type,
                                         id: checkoutContext.id,
                                         bundle: checkoutContext.bundle,
-                                        package_type: checkoutContext.package_type
+                                        package_type: checkoutContext.package_type,
+                                        topup_esim_id: checkoutContext.topup_esim_id || ''
                                     })
                                 })
                                     .then(async (res) => {
@@ -630,10 +715,16 @@
                                                         paystackStatusController = new AbortController();
 
                                                         try {
-                                                            const res2 = await fetch(`/api/paystack/status?reference=${encodeURIComponent(ref)}`, {
-                                                                method: 'GET',
+                                                            const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+                                                            const res2 = await fetch(`/api/paystack/status`, {
+                                                                method: 'POST',
                                                                 signal: paystackStatusController.signal,
-                                                                headers: { 'Accept': 'application/json' }
+                                                                headers: {
+                                                                    'Accept': 'application/json',
+                                                                    'Content-Type': 'application/json',
+                                                                    'X-CSRF-TOKEN': csrf
+                                                                },
+                                                                body: JSON.stringify({ reference: ref })
                                                             });
                                                             const json2 = await res2.json().catch(() => ({}));
                                                             if (!res2.ok) {
@@ -719,6 +810,56 @@
                     }
                 };
 
+                const startWalletPay = async () => {
+                    const usdAmountMinor = paystackAmounts.USD || 0;
+                    if (!usdAmountMinor || usdAmountMinor <= 0) {
+                        setStatus('Invalid USD amount for this bundle.', 'error');
+                        return;
+                    }
+
+                    setWalletLoading(true);
+                    setStatus('Checking wallet…', 'neutral');
+
+                    try {
+                        const balRes = await fetch('/api/wallet/balance', { headers: { 'Accept': 'application/json' } });
+                        const balJson = await balRes.json().catch(() => ({}));
+                        if (!balRes.ok || !balJson.ok) {
+                            setStatus(balJson.message || 'Unable to load wallet balance.', 'error');
+                            return;
+                        }
+
+                        const balMinor = Number(balJson.balance_minor || 0);
+                        if (balMinor < usdAmountMinor) {
+                            setStatus(`Insufficient wallet balance. You have ${String(balJson.balance_formatted || '')}.`, 'error');
+                            return;
+                        }
+
+                        setStatus('Paying with wallet…', 'neutral');
+                        const payRes = await fetch('/api/wallet/pay/esim', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': csrfToken
+                            },
+                            body: JSON.stringify(checkoutContext)
+                        });
+                        const payJson = await payRes.json().catch(() => ({}));
+                        if (!payRes.ok || !payJson.ok) {
+                            setStatus(payJson.message || 'Wallet payment failed.', 'error');
+                            return;
+                        }
+
+                        setStatus('Payment successful. Preparing order…', 'success');
+                        window.setTimeout(() => window.location.href = @json(route('dashboard')), 700);
+                    } catch (e) {
+                        setStatus('Wallet payment failed. Try again.', 'error');
+                    } finally {
+                        setWalletLoading(false);
+                        refreshWalletBalance();
+                    }
+                };
+
                 const startCryptomus = async (kind) => {
                     const mode = kind === 'card' ? 'card' : 'crypto';
                     if (cryptomusInvoiceController) {
@@ -743,6 +884,7 @@
                                 id: checkoutContext.id,
                                 bundle: checkoutContext.bundle,
                                 package_type: checkoutContext.package_type,
+                                topup_esim_id: checkoutContext.topup_esim_id || '',
                                 kind: mode
                             })
                         });
@@ -777,6 +919,7 @@
                 };
 
                 payWithCardBtn.addEventListener('click', startPaystack);
+                if (payWithWalletBtn) payWithWalletBtn.addEventListener('click', startWalletPay);
                 payWithCryptoBtn.addEventListener('click', () => startCryptomus('crypto'));
             })();
         </script>

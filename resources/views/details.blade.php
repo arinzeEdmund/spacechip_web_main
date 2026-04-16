@@ -4,6 +4,9 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>{{ $asset['name'] }} Details - {{ config('app.name', 'spacechip') }}</title>
+        <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
+        <link rel="alternate icon" href="{{ asset('favicon.svg') }}">
+        <link rel="apple-touch-icon" href="{{ asset('favicon.svg') }}">
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600,700" rel="stylesheet" />
         <style>
@@ -198,10 +201,14 @@
                                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
                                             <span>Activation: <strong>Instant</strong></span>
                                         </div>
+                                        <div class="feature">
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                                            <span>Renewal: <strong>{{ ($bundle['can_renew'] ?? null) === true ? 'Yes' : 'No' }}</strong></span>
+                                        </div>
                                     </div>
 
                                     @auth
-                                        <a class="buy-btn" href="{{ route('checkout', ['type' => $type, 'id' => $id, 'bundle' => $bundle['id'], 'package_type' => 'DATA-ONLY']) }}" style="display:block;text-align:center">Buy eSIM</a>
+                                        <a class="buy-btn" href="{{ route('checkout', array_filter(['type' => $type, 'id' => $id, 'bundle' => $bundle['id'], 'package_type' => 'DATA-ONLY', 'topup_esim_id' => $topupEsimId ?? null])) }}" style="display:block;text-align:center">{{ ($topupEsimId ?? null) ? 'Top up' : 'Buy eSIM' }}</a>
                                     @else
                                         <a class="buy-btn" href="{{ route('login') }}" style="display:block;text-align:center">Sign in to buy</a>
                                     @endauth
@@ -266,10 +273,13 @@
                     bundles.forEach((bundle) => {
                         const features = bundle.features || {};
                         const hotspot = features.Hotspot || 'Yes';
-                        const checkoutUrl = `${authBuyUrlBase}?type=${encodeURIComponent(assetType)}&id=${encodeURIComponent(assetId)}&bundle=${encodeURIComponent(bundle.id)}&package_type=DATA-VOICE-SMS`;
+                        const renewal = features.Renewal || (bundle.can_renew === true ? 'Yes' : 'No');
+                        const topupEsimId = @json($topupEsimId ?? null);
+                        const topupQuery = topupEsimId ? `&topup_esim_id=${encodeURIComponent(topupEsimId)}` : '';
+                        const checkoutUrl = `${authBuyUrlBase}?type=${encodeURIComponent(assetType)}&id=${encodeURIComponent(assetId)}&bundle=${encodeURIComponent(bundle.id)}&package_type=DATA-VOICE-SMS${topupQuery}`;
 
                         const buyCta = isAuthed
-                            ? `<a class="buy-btn" href="${checkoutUrl}" style="display:block;text-align:center">Buy eSIM</a>`
+                            ? `<a class="buy-btn" href="${checkoutUrl}" style="display:block;text-align:center">${topupEsimId ? 'Top up' : 'Buy eSIM'}</a>`
                             : `<a class="buy-btn" href="${loginUrl}" style="display:block;text-align:center">Sign in to buy</a>`;
 
                         const card = document.createElement('div');
@@ -309,6 +319,10 @@
                                 <div class="feature">
                                     ${checkIcon}
                                     <span>Activation: <strong>Instant</strong></span>
+                                </div>
+                                <div class="feature">
+                                    ${checkIcon}
+                                    <span>Renewal: <strong>${renewal}</strong></span>
                                 </div>
                             </div>
 
