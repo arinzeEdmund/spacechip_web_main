@@ -440,7 +440,10 @@ class TwilioService
             ->withBasicAuth($sid, $token)
             ->asForm()
             ->acceptJson()
-            ->timeout(30);
+            ->timeout(30)
+            ->retry(2, 100, function ($exception) {
+                return $exception instanceof \Illuminate\Http\Client\ConnectionException;
+            }, throw: false);
 
         try {
             /** @var Response $res */
@@ -451,13 +454,21 @@ class TwilioService
                 default => $client->send($method, $path, ['form_params' => $payload]),
             };
         } catch (\Throwable $e) {
-            return ['ok' => false, 'error' => 'Twilio request failed.'];
+            $errorMsg = 'A connection error occurred while communicating with Twilio.';
+            if (app()->environment('local', 'testing')) {
+                $errorMsg .= ' Error: '.$e->getMessage();
+            }
+            return ['ok' => false, 'error' => $errorMsg];
         }
 
         if (! $res->successful()) {
             $json = $res->json();
             $msg = is_array($json) ? (string) (data_get($json, 'message') ?? '') : '';
             $msg = trim($msg);
+
+            if ($res->serverError()) {
+                $msg = 'Twilio service is currently unavailable. Please try again later.';
+            }
 
             return ['ok' => false, 'status' => $res->status(), 'error' => $msg !== '' ? $msg : 'Twilio request failed.'];
         }

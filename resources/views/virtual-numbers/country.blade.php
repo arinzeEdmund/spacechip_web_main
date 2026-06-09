@@ -25,8 +25,9 @@
         .load-more-wrap{margin-top:14px;display:flex;justify-content:center}
         .load-more-btn{padding:12px 16px;border-radius:9999px;border:1px solid rgba(15,31,31,.10);background:rgba(255,255,255,.65);font-weight:900;color:rgba(15,31,31,.72);cursor:pointer}
         .load-more-btn:disabled{opacity:.6;cursor:not-allowed}
-        .skeleton{background:linear-gradient(90deg, rgba(15,31,31,.06), rgba(15,31,31,.10), rgba(15,31,31,.06));background-size:200% 100%;animation:skeleton 1.1s ease-in-out infinite}
+        .skeleton{background:linear-gradient(90deg, rgba(15,31,31,.06) 0%, rgba(15,31,31,.12) 35%, rgba(15,31,31,.06) 70%, rgba(15,31,31,.12) 100%);background-size:300% 100%;animation:skeleton .95s ease-in-out infinite}
         @keyframes skeleton{0%{background-position:200% 0}100%{background-position:-200% 0}}
+        .dark .skeleton{background:linear-gradient(90deg, rgba(31,41,55,.55) 0%, rgba(55,65,81,.95) 35%, rgba(242,116,87,.26) 50%, rgba(55,65,81,.95) 65%, rgba(31,41,55,.55) 100%);background-size:400% 100%;animation:skeleton .85s ease-in-out infinite}
         .skel-pn{width:140px;height:16px;border-radius:8px}
         .skel-loc{width:160px;height:12px;border-radius:8px}
         .skel-tags{width:140px;height:26px;border-radius:9999px}
@@ -68,15 +69,23 @@
         </div>
     </div>
 
+    <script type="application/json" id="virtualNumbersCountryConfig">{!! json_encode([
+        'productId' => (int) $product->id,
+        'checkoutBase' => (string) ($checkoutBaseUrl ?? route('dashboard.virtual.checkout')),
+    ]) !!}</script>
     <script>
         (() => {
-            const productId = @json((int) $product->id);
+            const cfgEl = document.getElementById('virtualNumbersCountryConfig');
+            const cfg = cfgEl ? JSON.parse(cfgEl.textContent || '{}') : {};
+            const productId = Number(cfg.productId || 0);
+            const checkoutBase = String(cfg.checkoutBase || '');
             const statusEl = document.getElementById('status');
             const resultsEl = document.getElementById('results');
             const qEl = document.getElementById('q');
             const refreshBtn = document.getElementById('refreshBtn');
             const loadMoreBtn = document.getElementById('loadMoreBtn');
-            const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+            const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+            const csrf = csrfMeta ? (csrfMeta.getAttribute('content') || '') : '';
 
             let page = 0;
             let hasMore = false;
@@ -132,7 +141,6 @@
                         capVoice ? '<span class="tag">VOICE</span>' : ''
                     ].filter(Boolean).join(' ');
 
-                    const checkoutBase = @json((string) ($checkoutBaseUrl ?? route('dashboard.virtual.checkout')));
                     const buyUrl = `${checkoutBase}?product_id=${encodeURIComponent(String(productId))}&phone_number=${encodeURIComponent(phone)}&number_type=${encodeURIComponent(numberType)}`;
 
                     const row = document.createElement('div');

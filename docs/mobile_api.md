@@ -13,6 +13,9 @@ This document describes the HTTP APIs to implement the full Spacechip mobile exp
   - `USD 1.23` is `123` minor.
 - **Standard error**
   - `4xx/5xx` responses usually include `{ "message": "..." }`
+- **Live endpoint index**
+  - `GET /api/mobile/health`
+  - `GET /api/mobile/endpoints`
 
 ## Authentication
 
@@ -243,3 +246,51 @@ Body:
 - Paystack should be completed using the official Paystack Android/iOS SDK.
 - The API returns `access_code` and `reference`. Use those to complete the charge, then call the matching `verify` endpoint.
 
+## Social Numbers — OTP Activation
+
+These routes use wallet balance only.
+
+- Apps: `GET /api/social-numbers/apps` (Auth + verified)
+- Countries: `GET /api/social-numbers/countries` (Auth + verified)
+- Quote: `GET /api/social-numbers/prices?country=US&product=telegram` (Auth + verified)
+- Buy: `POST /api/social-numbers/buy` (Auth + verified)
+- Check OTP: `GET /api/social-numbers/check/{orderId}` (Auth + verified)
+- Finish: `POST /api/social-numbers/orders/{orderId}/finish` (Auth + verified)
+- Cancel/refund if no OTP: `POST /api/social-numbers/orders/{orderId}/cancel` (Auth + verified)
+- Ban/refund if no OTP: `POST /api/social-numbers/orders/{orderId}/ban` (Auth + verified)
+- Try another: `POST /api/social-numbers/orders/{orderId}/try-another` (Auth + verified)
+- History: `GET /api/social-numbers/orders?limit=20&offset=0` (Auth + verified)
+
+## Social Rentals — Monthly Numbers
+
+These routes use wallet balance only.
+
+- Apps: `GET /api/social-rentals/apps` (Auth + verified)
+- Countries: `GET /api/social-rentals/countries` (Auth + verified)
+- Quote: `GET /api/social-rentals/quote?country=US&product=telegram&provider=all_providers` (Auth + verified)
+- Buy: `POST /api/social-rentals/buy` (Auth + verified)
+- Activate: `POST /api/social-rentals/{rentalId}/activate` (Auth + verified)
+- Fetch SMS: `GET /api/social-rentals/{rentalId}/sms` (Auth + verified)
+- Cancel renewal: `POST /api/social-rentals/{rentalId}/cancel` (Auth + verified)
+- History: `GET /api/social-rentals?limit=20&offset=0` (Auth + verified)
+
+## Provider Webhooks
+
+Configure these on the provider dashboards after hosting:
+
+- Airalo: `POST /api/airalo/webhook`
+- Twilio SMS: `POST /api/twilio/sms`
+- Twilio Voice: `POST /api/twilio/voice`
+- Twilio recording callback: `POST /api/twilio/voice/recording`
+
+## Hosting Checklist
+
+1. Point the domain document root to the Laravel `public` directory.
+2. Set `APP_URL=https://your-domain.com` and `APP_DEBUG=false`.
+3. Configure database, Paystack, Twilio, Airalo/Glo eSIM, SMSPVA, mail, and exchange-rate env values.
+4. Run `composer install --no-dev --optimize-autoloader`, `npm install`, `npm run build`, `php artisan migrate --force`, and `php artisan storage:link`.
+5. Cache production config/routes/views after env is correct.
+6. Add the Laravel scheduler cron: `* * * * * cd /path/to/app && php artisan schedule:run >> /dev/null 2>&1`.
+7. Use `https://your-domain.com/api` as the mobile base URL.
+
+Crypto/Cryptomus payment endpoints are excluded from the mobile integration.

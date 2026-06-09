@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\User;
 use App\Models\WalletTransaction;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class WalletService
 {
@@ -35,6 +36,14 @@ class WalletService
 
             $user->wallet_balance_minor = $after;
             $user->save();
+
+            Log::info("Wallet Credit: User {$userId}", [
+                'amount_minor' => $amountMinor,
+                'action' => $action,
+                'before' => $before,
+                'after' => $after,
+                'payment_id' => $paymentId,
+            ]);
 
             return WalletTransaction::create([
                 'user_id' => $userId,
@@ -71,6 +80,14 @@ class WalletService
 
             $user->wallet_balance_minor = $after;
             $user->save();
+
+            Log::info("Wallet Debit: User {$userId}", [
+                'amount_minor' => $amountMinor,
+                'action' => $action,
+                'before' => $before,
+                'after' => $after,
+                'payment_id' => $paymentId,
+            ]);
 
             return WalletTransaction::create([
                 'user_id' => $userId,

@@ -1,0 +1,348 @@
+SPACECHIP API ENDPOINTS (for mobile integration)
+Source: routes/web.php
+
+Notes
+- Most authenticated API routes use Laravel Sanctum.
+- Send the token as: Authorization: Bearer <token>
+- Many routes also require the user’s email to be verified (middleware: verified).
+
+
+========================
+AUTH
+========================
+
+POST /api/auth/register
+  # Creates a new user account and returns a Sanctum bearer token.
+  # Also attempts to send an email verification notification (best-effort).
+  Auth: none
+  Body: name, email, password, device_name? (optional)
+  Returns: { ok, token_type, token, user { id, name, email, email_verified } }
+
+POST /api/auth/login
+  # Logs in a user and returns a new Sanctum bearer token.
+  Auth: none
+  Body: email, password, device_name? (optional)
+  Returns: { ok, token_type, token, user { id, name, email, email_verified, wallet_balance_minor } }
+
+POST /api/auth/logout
+  # Logs out the current device by deleting the current Sanctum access token.
+  Auth: auth:sanctum
+  Body: none
+  Returns: { ok: true }
+
+GET /api/auth/me
+  # Returns the authenticated user’s basic profile.
+  Auth: auth:sanctum
+  Query: none
+  Returns: { ok, user { id, name, email, email_verified, wallet_balance_minor } }
+
+POST /api/auth/resend-verification
+  # Re-sends the email verification notification (if not verified yet).
+  Auth: auth:sanctum
+  Body: none
+  Returns: { ok: true }
+
+POST /api/auth/forgot-password
+  # Sends a password reset link to the given email (if the account exists).
+  Auth: none
+  Body: email
+  Returns: { ok: true } (or 422 on failure)
+
+
+========================
+LANDING / CATALOG (PUBLIC)
+========================
+
+GET /api/landing
+  # Landing-page data: popular countries, popular regions, and a searchable list of assets.
+  Auth: none
+  Returns: { popularCountries, popularRegions, searchableAssets }
+
+GET /api/allassets
+  # Returns eSIM countries, eSIM regions, and virtual-number products.
+  # Can be used in 2 modes:
+  # - If query "tab" is present: returns paginated results for that tab.
+  # - If no "tab": returns full lists for countries/regions/virtualNumbers.
+  Auth: none
+  Query (tab mode): tab=countries|regions|virtual, page?, per_page?, q?
+  Returns (tab mode): { tab, page, per_page, total, has_more, items }
+  Returns (full mode): { countries, regions, virtualNumbers }
+
+GET /api/assets/{type}/{id}/bundles
+  # Fetches bundles (plans) for an eSIM asset (country/region/etc), optionally by package type.
+  Auth: none
+  Path: type, id
+  Query: package_type=DATA-ONLY|DATA-VOICE-SMS (default DATA-ONLY)
+  Returns: { type, id, package_type, bundles }
+
+
+========================
+eSIM PURCHASE (PAYSTACK)
+========================
+
+POST /api/paystack/initialize
+  # Initializes a Paystack transaction for an eSIM purchase (or eSIM top-up).
+  # Use the returned access_code/reference to open Paystack checkout in the mobile app.
+  Auth: auth:sanctum
+  Body: type, id, bundle, package_type?, currency=NGN|USD?, topup_esim_id?
+  Returns: { reference, access_code, amount, currency, email, conversion { ... } }
+
+POST /api/paystack/verify
+  # Verifies a Paystack transaction and attempts to fulfill the eSIM via Airalo.
+  # Can return “pending” if Airalo fulfillment hasn’t completed yet.
+  Auth: auth:sanctum
+  Body: reference
+  Returns: { ok, status, reference, data, fulfillment { ok, pending?, synced?, esim_id?, iccid?, qr_code_data_url?, ... } }
+
+GET /api/paystack/status
+  # Reads cached/DB payment status + fulfillment payload for a Paystack reference (web session auth).
+  Auth: auth (session/cookie)
+  Query: reference
+  Returns: { ok, status, reference, data, fulfillment }
+
+POST /api/paystack/status
+  # Polling endpoint (mobile-friendly) for Paystack fulfillment.
+  # If fulfillment is pending, it may re-attempt to fetch/complete eSIM details and sync QR data.
+  Auth: auth:sanctum
+  Body: reference
+  Returns: cached fulfillment payload (same shape as verify/status)
+
+
+========================
+CRYPTO PAYMENT EXCLUDED
+========================
+
+Cryptomus/crypto payment endpoints are intentionally not part of the mobile API contract.
+
+
+========================
+MY eSIMs
+========================
+
+GET /api/my-esims
+  # Lists the authenticated user’s fulfilled eSIM purchases (Paystack/card or wallet),
+  # including derived expiration estimates and QR payload details when available.
+  Auth: auth:sanctum
+  Query: filter=valid|expired (default valid), page?, per_page?
+  Returns: { filter, page, per_page, total, has_more, items[] }
+
+POST /api/my-esims/sync
+  # Attempts to “sync” recent eSIM orders by fetching latest eSIM details from provider (Airalo/Glo eSIM),
+  # and updates stored fulfillment payloads when possible.
+  Auth: auth:sanctum
+  Body: none
+  Returns: { ok: true, updated: <count> }
+
+
+========================
+VIRTUAL NUMBERS (TWILIO) - CATALOG
+========================
+
+GET /api/virtual-numbers/countries
+  # Lists available Twilio countries for purchasing virtual numbers, with a starting price.
+  Auth: auth:sanctum + verified
+  Query: page?, per_page?, q?, context=dashboard?
+  Returns: { ok, page, per_page, total, has_more, items[] }
+
+GET /api/virtual-numbers/country/{country}
+  # Returns basic metadata for a virtual-number country (product_id + starting price).
+  Auth: auth:sanctum + verified
+  Path: country (ISO2, e.g. "US")
+  Returns: { ok, country_code, country_name, product_id, starting_from }
+
+GET /api/virtual-numbers/available
+  # Returns available phone numbers for a given virtual-number product, including pricing hints.
+  Auth: auth:sanctum + verified
+  Query: product_id (required), limit?, page?
+  Returns: { ok, items[], has_more, types_tried, modes_tried }
+
+
+========================
+VIRTUAL NUMBERS - SUBSCRIPTIONS
+========================
+
+GET /api/virtual-numbers/my
+  # Lists the authenticated user’s virtual-number subscriptions.
+  Auth: auth:sanctum + verified
+  Returns: { ok, items[] }
+
+POST /api/virtual-numbers/paystack/initialize
+  # Initializes a Paystack transaction for buying a virtual-number subscription.
+  Auth: auth:sanctum + verified
+  Body: product_id, phone_number, number_type? (Local|Mobile|TollFree)
+  Returns: { reference, access_code, amount, currency, email }
+
+POST /api/virtual-numbers/paystack/verify
+  # Verifies the Paystack transaction and provisions the number in Twilio, then creates a subscription record.
+  Auth: auth:sanctum + verified
+  Body: reference
+  Returns: { ok, subscription { ok, subscription_id, phone_number, status, current_period_end } }
+
+POST /api/virtual-numbers/{subscription}/cancel
+  # Cancels a virtual-number subscription and attempts to release the number from Twilio.
+  Auth: auth:sanctum + verified (must own subscription)
+  Returns: { ok: true }
+
+
+========================
+VIRTUAL NUMBERS - MESSAGES & SETTINGS
+========================
+
+GET /api/virtual-numbers/{subscription}/messages
+  # Fetches recent inbound/outbound messages for a virtual number subscription.
+  Auth: auth:sanctum + verified (must own subscription)
+  Query: per_page?
+  Returns: { ok, items[] }
+
+GET /api/virtual-numbers/{subscription}/settings
+  # Reads message forwarding settings for a subscription.
+  Auth: auth:sanctum + verified (must own subscription)
+  Returns: { ok, settings { forward_to_email, forward_to_phone } }
+
+POST /api/virtual-numbers/{subscription}/settings
+  # Updates forwarding settings for incoming messages/voicemail.
+  Auth: auth:sanctum + verified (must own subscription)
+  Body: forward_to_email?, forward_to_phone? (E.164, e.g. +14155552671)
+  Returns: { ok, settings { forward_to_email, forward_to_phone } }
+
+POST /api/virtual-numbers/{subscription}/messages/send
+  # Sends an outbound SMS/MMS from the virtual number via Twilio and stores it in the inbox.
+  Auth: auth:sanctum + verified (must own subscription)
+  Body: to, body?, media_urls? (array of URLs)
+  Returns: { ok, message { id, direction, message_type, from, to, body, created_at } }
+
+GET /api/virtual-numbers/messages/{message}/media/{index}
+  # Proxies a protected Twilio media URL for an MMS attachment.
+  Auth: auth:sanctum + verified (must own message via subscription)
+  Returns: raw media bytes with Content-Type
+
+GET /api/virtual-numbers/messages/{message}/recording
+  # Proxies a voicemail recording (MP3) for playback.
+  Auth: auth:sanctum + verified (must own message via subscription)
+  Returns: audio/mpeg bytes
+
+
+========================
+WALLET
+========================
+
+GET /api/wallet/balance
+  # Returns wallet balance (USD minor units).
+  Auth: auth:sanctum + verified
+  Returns: { ok, balance_minor, balance_formatted }
+
+GET /api/wallet/transactions
+  # Returns recent wallet transactions.
+  Auth: auth:sanctum + verified
+  Returns: { ok, items[] }
+
+POST /api/wallet/deposit/paystack/initialize
+  # Initializes a Paystack transaction to fund the wallet.
+  Auth: auth:sanctum + verified
+  Body: amount_usd
+  Returns: { ok, reference, access_code, amount, currency, email, wallet_credit_usd_minor, wallet_credit_usd_formatted }
+
+POST /api/wallet/deposit/paystack/verify
+  # Verifies Paystack deposit and credits the wallet.
+  Auth: auth:sanctum + verified
+  Body: reference
+  Returns: { ok, wallet { ok, wallet_transaction_id, credited_usd_minor, balance_usd_minor, ... } }
+
+POST /api/wallet/pay/esim
+  # Buys (or tops up) an eSIM using wallet balance, then fulfills via Airalo.
+  Auth: auth:sanctum + verified
+  Body: type, id, bundle, package_type?, topup_esim_id?
+  Returns: { ok, fulfillment { ok, pending?, esim_id?, iccid?, qr_code_url?, smdp_address?, ... } }
+
+POST /api/wallet/pay/virtual-number
+  # Buys a virtual number subscription using wallet balance and provisions it via Twilio.
+  Auth: auth:sanctum + verified
+  Body: product_id, phone_number, number_type? (Local|Mobile|TollFree)
+  Returns: { ok, subscription { ok, subscription_id, phone_number, status, current_period_end } }
+
+
+========================
+SOCIAL NUMBERS (5SIM)
+========================
+
+GET /api/social-numbers/profile
+  # Returns the 5SIM account profile (provider response).
+  Auth: auth:sanctum + verified
+  Returns: { ok, profile }
+
+GET /api/social-numbers/apps
+  # Returns app availability/summary (WhatsApp/Telegram/Instagram/etc) for a country/operator.
+  Auth: auth:sanctum + verified
+  Query: country=any?, operator=any?
+  Returns: { ok, country, operator, items[] }
+
+GET /api/social-numbers/countries
+  # Returns available countries and supported operators for 5SIM activations.
+  Auth: auth:sanctum + verified
+  Returns: { ok, items[] }
+
+GET /api/social-numbers/prices
+  # Returns operator pricing/availability for a specific product in a country.
+  Auth: auth:sanctum + verified
+  Query: country (required), product (whatsapp|telegram|instagram|facebook|tiktok|twitter), limit?, offset?
+  Returns: { ok, country, product, min_cost, total_count, total_operators, limit, offset, has_more, operators[] }
+
+POST /api/social-numbers/buy
+  # Buys a 5SIM activation number for a product in a country/operator.
+  Auth: auth:sanctum + verified
+  Body: product, country, operator, max_price? (optional)
+  Returns: { ok, order } (provider order payload)
+
+GET /api/social-numbers/check/{id}
+  # Checks a specific 5SIM order by id.
+  Auth: auth:sanctum + verified
+  Returns: { ok, order }
+
+POST /api/social-numbers/orders/{id}/finish
+  # Marks a 5SIM order as finished (provider close).
+  Auth: auth:sanctum + verified
+  Returns: { ok, order }
+
+POST /api/social-numbers/orders/{id}/cancel
+  # Cancels a 5SIM order.
+  Auth: auth:sanctum + verified
+  Returns: { ok, order }
+
+POST /api/social-numbers/orders/{id}/ban
+  # Bans a 5SIM order (flags the number as bad).
+  Auth: auth:sanctum + verified
+  Returns: { ok, order }
+
+GET /api/social-numbers/orders
+  # Lists the authenticated user’s recent 5SIM activation orders.
+  Auth: auth:sanctum + verified
+  Query: limit?, offset?
+  Returns: { ok, total, items[] }
+
+
+========================
+PROVIDER WEBHOOKS (SERVER-TO-SERVER)
+========================
+
+POST /api/airalo/webhook
+  # Airalo webhook receiver (currently handles low data usage alert events).
+  # Looks up the owning user by ICCID and sends a “low data” email notification.
+  Auth: none (relies on provider event delivery; no auth middleware)
+  Returns: { ok: true }
+
+POST /api/twilio/sms
+  # Twilio Messaging webhook for inbound SMS/MMS to a purchased virtual number.
+  # Validates Twilio signature, stores message, and optionally forwards to email/phone if configured.
+  Auth: none (signature-validated)
+  Returns: TwiML XML (empty <Response/>)
+
+POST /api/twilio/voice
+  # Twilio Voice webhook for calls to a purchased virtual number.
+  # Responds with TwiML to record voicemail (and posts recording status callback).
+  Auth: none (signature-validated)
+  Returns: TwiML XML (<Record ... />)
+
+POST /api/twilio/voice/recording
+  # Twilio recording status callback: stores voicemail metadata and optionally forwards notifications.
+  Auth: none (signature-validated)
+  Returns: TwiML XML (empty <Response/>)

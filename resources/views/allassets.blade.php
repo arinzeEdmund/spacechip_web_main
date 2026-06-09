@@ -3,10 +3,15 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#0b1a1a">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <meta name="apple-mobile-web-app-title" content="{{ config('app.name', 'spacechip') }}">
         <title>All Assets - {{ config('app.name', 'spacechip') }}</title>
         <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
         <link rel="alternate icon" href="{{ asset('favicon.svg') }}">
         <link rel="apple-touch-icon" href="{{ asset('favicon.svg') }}">
+        <link rel="manifest" href="{{ asset('manifest.json') }}">
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600" rel="stylesheet" />
         <style>
@@ -91,7 +96,10 @@
             .card-right{text-align:right;display:flex;flex-direction:column;gap:8px;align-items:flex-end}
             .price{font-weight:800;font-size:15px;color:rgba(20,84,84,.92)}
             .price span{font-weight:650;color:rgba(15,31,31,.64);font-size:12px}
-            .mini-btn{padding:8px 14px;border-radius:9999px;background:rgba(255,255,255,.85);border:1px solid rgba(20,84,84,.14);font-size:13px;font-weight:700;color:rgba(20,84,84,.92);cursor:pointer}
+            .mini-btn{padding:8px 14px;border-radius:9999px;background:rgba(255,255,255,.85);border:1px solid rgba(20,84,84,.14);font-size:13px;font-weight:700;color:rgba(20,84,84,.92);cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+            .mini-btn.is-loading{pointer-events:none;opacity:.75}
+            .btn-spinner{width:14px;height:14px;border-radius:9999px;border:2px solid rgba(20,84,84,.25);border-top-color:rgba(20,84,84,.92);animation:btn-spin .8s linear infinite}
+            @keyframes btn-spin{to{transform:rotate(360deg)}}
             
             .vnum-card{padding:18px;border-radius:24px;background:rgba(255,255,255,.75);backdrop-filter:blur(12px);border:1px solid rgba(20,84,84,.12);box-shadow:0 14px 35px rgba(15,31,31,.07);display:flex;flex-direction:column;gap:16px;transition:all .3s}
             .vnum-card.hidden-by-search{display:none!important}
@@ -112,16 +120,20 @@
 
             /* Skeleton Styles */
             .skeleton {
-                background: #e1e1e1;
-                background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-                background-size: 200% 100%;
-                animation: skeleton-loading 1.5s infinite;
+                background: linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 35%, #f3f4f6 70%, #e5e7eb 100%);
+                background-size: 300% 100%;
+                animation: skeleton-loading 0.95s ease-in-out infinite;
                 border-radius: 4px;
             }
 
             @keyframes skeleton-loading {
                 0% { background-position: 200% 0; }
                 100% { background-position: -200% 0; }
+            }
+            .dark .skeleton{
+                background: linear-gradient(90deg, rgba(31,41,55,.55) 0%, rgba(55,65,81,.95) 35%, rgba(242,116,87,.26) 50%, rgba(55,65,81,.95) 65%, rgba(31,41,55,.55) 100%);
+                background-size: 400% 100%;
+                animation: skeleton-loading 0.85s ease-in-out infinite;
             }
 
             .skeleton-card {
@@ -160,7 +172,14 @@
                     </a>
                     <div class="actions">
                         <a href="/" class="btn-secondary">Back to Home</a>
-                        <a href="#" class="btn-primary">Sign In</a>
+                        @auth
+                            <form method="POST" action="{{ route('logout') }}">
+                                @csrf
+                                <button type="submit" class="btn-primary" style="border:0;cursor:pointer">Sign Out</button>
+                            </form>
+                        @else
+                            <a href="{{ route('login') }}" class="btn-primary">Sign In</a>
+                        @endauth
                     </div>
                 </div>
             </div>
@@ -356,6 +375,9 @@
                     card.className = type === 'virtual' ? 'vnum-card' : 'card';
                     card.setAttribute('data-search-name', String(item.name || '').toLowerCase());
 
+                    const rawName = String(item.name || '');
+                    const truncatedName = rawName.length > 12 ? rawName.substring(0, 12) + '...' : rawName;
+
                     if (type === 'virtual') {
                         const imgSrc = safeImgSrc(item.flag_url || '');
                         const href = safeHref(item.url || '');
@@ -363,9 +385,9 @@
                             <div class="vnum-top">
                                 <div class="vnum-info">
                                     <div class="flag">
-                                        ${imgSrc ? `<img src="${imgSrc}" alt="${esc(item.name)}">` : `<span>${esc(item.flag || '🌐')}</span>`}
+                                        ${imgSrc ? `<img src="${imgSrc}" alt="${esc(rawName)}">` : `<span>${esc(item.flag || '🌐')}</span>`}
                                     </div>
-                                    <div class="vnum-name">${esc(item.name)}</div>
+                                    <div class="vnum-name">${esc(truncatedName)}</div>
                                 </div>
                                 <div class="vnum-price-box">
                                     <div class="vnum-price">${esc(item.price_formatted)}<span>/mo</span></div>
@@ -381,14 +403,14 @@
                         card.innerHTML = `
                             <div class="card-left">
                                 <div class="flag">
-                                    ${imgSrc ? `<img src="${imgSrc}" alt="${esc(item.name)}">` : `<span>${esc(item.flag || '🌐')}</span>`}
+                                    ${imgSrc ? `<img src="${imgSrc}" alt="${esc(rawName)}">` : `<span>${esc(item.flag || '🌐')}</span>`}
                                 </div>
                                 <div class="meta">
-                                    <div class="name">${esc(item.name)}</div>
+                                    <div class="name">${esc(truncatedName)}</div>
                                 </div>
                             </div>
                             <div class="card-right">
-                                <a href="${url}" class="mini-btn">View Plans</a>
+                                <a href="${url}" class="mini-btn js-view-plans">View Plans</a>
                             </div>
                         `;
                     }
@@ -408,7 +430,7 @@
                     const grid = grids[key];
                     if (!grid) return;
                     grid.innerHTML = '';
-                    const count = key === 'countries' ? 9 : 6;
+                    const count = 9;
                     for (let i = 0; i < count; i++) {
                         const sk = document.createElement('div');
                         sk.className = 'skeleton-card skeleton-placeholder';
@@ -417,11 +439,9 @@
                                 <div class="skeleton-flag skeleton"></div>
                                 <div class="meta">
                                     <div class="skeleton-text-lg skeleton"></div>
-                                    <div class="skeleton-text-sm skeleton"></div>
                                 </div>
                             </div>
                             <div class="card-right">
-                                <div class="skeleton-text-sm skeleton"></div>
                                 <div class="skeleton-btn skeleton"></div>
                             </div>
                         `;
@@ -443,6 +463,7 @@
                         tabState.hasMore = true;
                         tabState.q = q;
                         setSkeleton(key);
+                        noResultsSearch.classList.add('hidden');
                     }
 
                     if (!tabState.hasMore) {
@@ -452,6 +473,11 @@
 
                     tabState.loading = true;
                     updateLoadMoreUi();
+
+                    // Keep skeletons for initial load
+                    if (reset) {
+                        setSkeleton(key);
+                    }
 
                     try {
                         const nextPage = tabState.page + 1;
@@ -475,8 +501,8 @@
                         tabState.page = nextPage;
                         tabState.hasMore = !!json.has_more;
 
-                        const any = items.length > 0;
-                        noResultsSearch.classList.toggle('hidden', any || q === '');
+                        const any = grid.querySelectorAll('.card, .vnum-card').length > 0;
+                        noResultsSearch.classList.toggle('hidden', any || (q === '' && items.length > 0));
                     } catch (e) {
                         grid.innerHTML = '<div class="no-results"><p>Failed to load data.</p></div>';
                         tabState.hasMore = false;
@@ -492,12 +518,17 @@
                     assetSections.forEach(sec => sec.classList.toggle('hidden', sec.getAttribute('data-asset-section') !== mode));
                     activeTab = mode === 'virtual' ? 'virtual' : mode;
                     const currentKey = tabToKey(activeTab);
+                    
+                    // Show appropriate section
+                    assetSections.forEach(sec => sec.classList.toggle('hidden', sec.getAttribute('data-asset-section') !== mode));
+                    
                     if (state[activeTab].page === 0) {
                         fetchNextPage(activeTab, { reset: true });
+                    } else {
+                        const grid = grids[currentKey];
+                        const hasCards = grid && grid.querySelectorAll('.card, .vnum-card').length > 0;
+                        noResultsSearch.classList.toggle('hidden', hasCards);
                     }
-                    const grid = grids[currentKey];
-                    const hasCards = grid && grid.querySelectorAll('.card, .vnum-card').length > 0;
-                    noResultsSearch.classList.toggle('hidden', hasCards || (searchInput.value || '').trim() === '');
                     updateLoadMoreUi();
                 };
 
@@ -517,6 +548,43 @@
                     fetchNextPage(activeTab, { reset: false });
                 });
 
+                let activeLoadingLink = null;
+                const resetViewPlansLoading = (el) => {
+                    if (!el) return;
+                    if (!el.classList.contains('is-loading')) return;
+                    el.classList.remove('is-loading');
+                    el.removeAttribute('aria-busy');
+                    el.removeAttribute('aria-disabled');
+                    if (el.dataset.originalHtml) el.innerHTML = el.dataset.originalHtml;
+                };
+                const resetAllViewPlansLoading = () => {
+                    document.querySelectorAll('a.js-view-plans.is-loading').forEach(resetViewPlansLoading);
+                    activeLoadingLink = null;
+                };
+
+                window.addEventListener('pageshow', () => {
+                    resetAllViewPlansLoading();
+                });
+
+                document.addEventListener('click', (e) => {
+                    const a = e.target.closest('a.js-view-plans');
+                    if (!a) return;
+                    if (e.defaultPrevented) return;
+                    if (e.button !== 0) return;
+                    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                    const href = a.getAttribute('href');
+                    if (!href) return;
+                    e.preventDefault();
+                    if (activeLoadingLink && activeLoadingLink !== a) resetViewPlansLoading(activeLoadingLink);
+                    activeLoadingLink = a;
+                    if (!a.dataset.originalHtml) a.dataset.originalHtml = a.innerHTML;
+                    a.classList.add('is-loading');
+                    a.setAttribute('aria-busy', 'true');
+                    a.setAttribute('aria-disabled', 'true');
+                    a.innerHTML = '<span class="btn-spinner" aria-hidden="true"></span><span>Loading…</span>';
+                    window.location.assign(href);
+                });
+
                 // Initialize
                 const urlParams = new URLSearchParams(window.location.search);
                 const tabParam = urlParams.get('tab');
@@ -530,5 +598,6 @@
                 fetchNextPage(activeTab, { reset: true });
             })();
         </script>
+        <script src="{{ asset('pwa-install.js') }}" defer></script>
     </body>
 </html>

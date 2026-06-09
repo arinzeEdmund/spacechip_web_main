@@ -68,7 +68,10 @@ class CryptomusService
         try {
             $res = Http::baseUrl($apiUrl)
                 ->acceptJson()
-                ->timeout(60)
+                ->timeout(30)
+                ->retry(2, 100, function ($exception) {
+                    return $exception instanceof \Illuminate\Http\Client\ConnectionException;
+                }, throw: false)
                 ->withOptions($options)
                 ->withHeaders([
                     'merchant' => $merchant,
@@ -76,18 +79,27 @@ class CryptomusService
                 ])
                 ->post($path, $payload);
         } catch (\Throwable $e) {
+            $errorMsg = 'A connection error occurred while communicating with Cryptomus.';
+            if (app()->environment('local', 'testing')) {
+                $errorMsg .= ' Error: '.$e->getMessage();
+            }
             return [
                 'state' => 1,
-                'message' => $e->getMessage(),
+                'status' => 500,
+                'message' => $errorMsg,
             ];
         }
 
         if (! $res->successful()) {
             $body = $res->json();
+            $errorMsg = $res->reason();
+            if ($res->serverError()) {
+                $errorMsg = 'Cryptomus service is currently unavailable. Please try again later.';
+            }
 
             return [
                 'state' => 1,
-                'message' => $res->reason(),
+                'message' => $errorMsg,
                 'status' => $res->status(),
                 'body' => is_array($body) ? $body : null,
             ];

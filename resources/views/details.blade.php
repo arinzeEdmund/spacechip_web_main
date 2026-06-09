@@ -3,10 +3,16 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#0b1a1a">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <meta name="apple-mobile-web-app-title" content="{{ config('app.name', 'spacechip') }}">
         <title>{{ $asset['name'] }} Details - {{ config('app.name', 'spacechip') }}</title>
         <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
         <link rel="alternate icon" href="{{ asset('favicon.svg') }}">
         <link rel="apple-touch-icon" href="{{ asset('favicon.svg') }}">
+        <link rel="manifest" href="{{ asset('manifest.json') }}">
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600,700" rel="stylesheet" />
         <style>
@@ -46,8 +52,9 @@
             .sub-toggles button.active{background:linear-gradient(90deg, rgba(242,116,87,.14), rgba(20,84,84,.12));border-color:rgba(242,116,87,.32);color:rgba(20,84,84,.92)}
             .sub-toggles button[disabled]{opacity:.6;cursor:not-allowed}
             .hidden{display:none!important}
-            .skeleton{background:linear-gradient(90deg, rgba(15,31,31,.06) 25%, rgba(15,31,31,.10) 50%, rgba(15,31,31,.06) 75%);background-size:200% 100%;animation:skeleton-loading 1.4s infinite;border-radius:12px}
+            .skeleton{background:linear-gradient(90deg, rgba(15,31,31,.06) 0%, rgba(15,31,31,.12) 35%, rgba(15,31,31,.06) 70%, rgba(15,31,31,.12) 100%);background-size:300% 100%;animation:skeleton-loading .95s ease-in-out infinite;border-radius:12px}
             @keyframes skeleton-loading{0%{background-position:200% 0}100%{background-position:-200% 0}}
+            .dark .skeleton{background:linear-gradient(90deg, rgba(31,41,55,.55) 0%, rgba(55,65,81,.95) 35%, rgba(242,116,87,.26) 50%, rgba(55,65,81,.95) 65%, rgba(31,41,55,.55) 100%);background-size:400% 100%;animation:skeleton-loading .85s ease-in-out infinite}
             .bundle-skel{display:grid;gap:12px}
             .bundle-skel-top{display:flex;justify-content:space-between;gap:16px}
             .bundle-skel-left{display:grid;gap:8px}
@@ -80,6 +87,10 @@
 
             .buy-btn{width:100%;padding:14px;border-radius:18px;background:linear-gradient(90deg, #f27457, #145454);color:#fff;font-weight:700;border:none;cursor:pointer;box-shadow:0 8px 20px rgba(242,116,87,.15);transition:all .2s;margin-top:4px}
             .buy-btn:hover{filter:brightness(1.05);box-shadow:0 12px 25px rgba(242,116,87,.25)}
+            .buy-btn.is-loading{opacity:.82;filter:saturate(.95);box-shadow:0 10px 26px rgba(20,84,84,.18)}
+            .buy-btn-content{display:inline-flex;align-items:center;justify-content:center;gap:10px;width:100%}
+            .buy-spinner{width:18px;height:18px;border-radius:9999px;border:3px solid rgba(255,255,255,.38);border-top-color:#fff;animation:buy-spin .75s linear infinite;flex:0 0 auto}
+            @keyframes buy-spin{to{transform:rotate(360deg)}}
 
             .back-link{display:inline-flex;align-items:center;gap:8px;color:rgba(15,31,31,.6);font-weight:600;font-size:14px;margin-bottom:24px}
             .back-link:hover{color:var(--secondary)}
@@ -237,6 +248,14 @@
                 </div>
             </section>
         </main>
+        <script type="application/json" id="detailsPageConfig">{!! json_encode([
+            'authBuyUrlBase' => route('checkout'),
+            'isAuthed' => auth()->check(),
+            'loginUrl' => route('login'),
+            'assetType' => (string) $type,
+            'assetId' => (string) $id,
+            'topupEsimId' => $topupEsimId ?? null,
+        ]) !!}</script>
         <script>
             (() => {
                 const toggles = Array.from(document.querySelectorAll('[data-bundle-toggle]'));
@@ -249,11 +268,45 @@
                 };
 
                 const callsGrid = document.getElementById('callsBundleGrid');
-                const authBuyUrlBase = @json(route('checkout'));
-                const isAuthed = @json(auth()->check());
-                const loginUrl = @json(route('login'));
-                const assetType = @json((string) $type);
-                const assetId = @json((string) $id);
+                const cfgEl = document.getElementById('detailsPageConfig');
+                const cfg = cfgEl ? JSON.parse(cfgEl.textContent || '{}') : {};
+                const authBuyUrlBase = String(cfg.authBuyUrlBase || '');
+                const isAuthed = Boolean(cfg.isAuthed);
+                const loginUrl = String(cfg.loginUrl || '');
+                const assetType = String(cfg.assetType || '');
+                const assetId = String(cfg.assetId || '');
+                const topupEsimId = cfg.topupEsimId ? String(cfg.topupEsimId) : '';
+                let activeBuyButton = null;
+
+                const resetBuyButton = (btn) => {
+                    if (!btn || !btn.classList.contains('is-loading')) return;
+                    btn.classList.remove('is-loading');
+                    const original = btn.getAttribute('data-original-label') || btn.textContent.trim() || 'Buy eSIM';
+                    btn.innerHTML = original;
+                };
+
+                const setBuyButtonLoading = (btn) => {
+                    if (!btn) return;
+                    if (activeBuyButton && activeBuyButton !== btn) {
+                        resetBuyButton(activeBuyButton);
+                    }
+                    activeBuyButton = btn;
+                    const label = btn.getAttribute('data-original-label') || btn.textContent.trim() || 'Buy eSIM';
+                    btn.setAttribute('data-original-label', label);
+                    btn.classList.add('is-loading');
+                    btn.innerHTML = `<span class="buy-btn-content"><span class="buy-spinner" aria-hidden="true"></span><span>Loading...</span></span>`;
+                };
+
+                document.addEventListener('click', (event) => {
+                    const btn = event.target.closest('a.buy-btn');
+                    if (!btn) return;
+                    setBuyButtonLoading(btn);
+                });
+
+                window.addEventListener('pageshow', () => {
+                    document.querySelectorAll('a.buy-btn.is-loading').forEach(resetBuyButton);
+                    activeBuyButton = null;
+                });
 
                 const renderCallsBundles = (bundles) => {
                     if (!callsGrid) return;
@@ -274,7 +327,6 @@
                         const features = bundle.features || {};
                         const hotspot = features.Hotspot || 'Yes';
                         const renewal = features.Renewal || (bundle.can_renew === true ? 'Yes' : 'No');
-                        const topupEsimId = @json($topupEsimId ?? null);
                         const topupQuery = topupEsimId ? `&topup_esim_id=${encodeURIComponent(topupEsimId)}` : '';
                         const checkoutUrl = `${authBuyUrlBase}?type=${encodeURIComponent(assetType)}&id=${encodeURIComponent(assetId)}&bundle=${encodeURIComponent(bundle.id)}&package_type=DATA-VOICE-SMS${topupQuery}`;
 
@@ -384,5 +436,6 @@
                 }
             })();
         </script>
+        <script src="{{ asset('pwa-install.js') }}" defer></script>
     </body>
 </html>

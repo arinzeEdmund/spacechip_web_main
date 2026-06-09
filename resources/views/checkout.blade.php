@@ -3,10 +3,16 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#0b1a1a">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <meta name="apple-mobile-web-app-title" content="{{ config('app.name', 'spacechip') }}">
         <title>Checkout - {{ config('app.name', 'spacechip') }}</title>
         <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
         <link rel="alternate icon" href="{{ asset('favicon.svg') }}">
         <link rel="apple-touch-icon" href="{{ asset('favicon.svg') }}">
+        <link rel="manifest" href="{{ asset('manifest.json') }}">
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600,700" rel="stylesheet" />
         <style>
@@ -923,5 +929,6 @@
                 payWithCryptoBtn.addEventListener('click', () => startCryptomus('crypto'));
             })();
         </script>
+        <script src="{{ asset('pwa-install.js') }}" defer></script>
     </body>
  </html>

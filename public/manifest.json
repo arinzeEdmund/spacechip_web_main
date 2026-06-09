@@ -1,0 +1,19 @@
+{
+  "name": "spacechip",
+  "short_name": "spacechip",
+  "description": "spacechip",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0b1a1a",
+  "theme_color": "#0b1a1a",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
+

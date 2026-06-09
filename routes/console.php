@@ -10,6 +10,29 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('virtual-numbers:renew')->hourly();
+Schedule::command('social-rentals:renew')->hourly();
+Schedule::command('airalo:sync-catalog')->hourly();
+
+Artisan::command('airalo:sync-catalog', function (\App\Services\AiraloService $airalo) {
+    $this->info('Syncing Airalo catalog and warming cache...');
+    
+    // Clear and re-warm the main country list cache
+    \Illuminate\Support\Facades\Cache::forget('airalo.all_countries_prices.v2.DATA-ONLY');
+    $airalo->allCountriesWithPrices('DATA-ONLY');
+    $this->line('✓ Countries synced.');
+
+    // Clear and re-warm the main regional list cache
+    \Illuminate\Support\Facades\Cache::forget('airalo.all_regions_prices.v1');
+    $airalo->allRegionsWithPrices();
+    $this->line('✓ Regions synced.');
+
+    // Warm searchable assets (24h cache)
+    \Illuminate\Support\Facades\Cache::forget('airalo.searchable_assets.v1');
+    $airalo->searchableAssets();
+    $this->line('✓ Searchable assets warmed.');
+
+    $this->info('Airalo catalog sync completed successfully.');
+})->purpose('Sync Airalo catalog and warm package caches');
 
 Artisan::command('db:sqlite-to-mysql', function () {
     $sourcePath = database_path('database.sqlite');

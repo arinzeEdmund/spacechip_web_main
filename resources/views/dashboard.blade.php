@@ -33,8 +33,9 @@
         .search-bar input:focus{border-color:var(--primary);box-shadow:0 14px 35px rgba(242,116,87,.12)}
         .search-bar svg{position:absolute;left:18px;top:50%;transform:translateY(-50%);height:22px;width:22px;color:rgba(15,31,31,.4);pointer-events:none}
 
-        .asset-toggles{display:flex;gap:10px;margin-bottom:0;background:rgba(255,255,255,.5);padding:6px;border-radius:9999px;border:1px solid rgba(20,84,84,.1);width:fit-content}
-        .asset-toggles button{padding:12px 24px;border-radius:9999px;border:none;background:transparent;font-size:14px;font-weight:700;color:rgba(15,31,31,.6);cursor:pointer;transition:all .2s}
+        .asset-toggles{display:flex;gap:10px;margin-bottom:0;background:rgba(255,255,255,.5);padding:6px;border-radius:9999px;border:1px solid rgba(20,84,84,.1);width:fit-content;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+        .asset-toggles::-webkit-scrollbar{display:none}
+        .asset-toggles button{padding:12px 18px;border-radius:9999px;border:none;background:transparent;font-size:14px;font-weight:700;color:rgba(15,31,31,.6);cursor:pointer;transition:all .2s;white-space:nowrap;flex:0 0 auto}
         .asset-toggles button.active{background:#fff;color:rgba(20,84,84,.92);box-shadow:0 10px 25px rgba(15,31,31,.08);border:1px solid rgba(20,84,84,.1)}
         .nav-row{display:none}
         .esim-card{display:flex;flex-direction:column;gap:12px;padding:18px;border-radius:20px;background:rgba(255,255,255,.75);backdrop-filter:blur(10px);border:1px solid rgba(20,84,84,.12);box-shadow:0 16px 40px rgba(15,31,31,.08)}
@@ -69,8 +70,8 @@
             .search-bar{min-width:0}
             .search-bar input{padding:14px 16px 14px 46px;border-radius:18px;font-size:15px}
             .search-bar svg{left:16px;height:20px;width:20px}
-            .asset-toggles{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:8px;border-radius:24px}
-            .asset-toggles button{width:100%;padding:10px 12px;font-size:13px;text-align:center}
+            .asset-toggles{width:100%;border-radius:24px}
+            .asset-toggles button{padding:10px 12px;font-size:13px}
             .card{flex-direction:column;align-items:flex-start}
             .card-left{width:100%}
             .card-right{width:100%;flex-direction:row;align-items:center;justify-content:flex-end;text-align:left}
@@ -94,7 +95,10 @@
         .card-right{text-align:right;display:flex;flex-direction:column;gap:8px;align-items:flex-end}
         .price{font-weight:800;font-size:15px;color:rgba(20,84,84,.92)}
         .price span{font-weight:650;color:rgba(15,31,31,.64);font-size:12px}
-        .mini-btn{padding:8px 14px;border-radius:9999px;background:rgba(255,255,255,.85);border:1px solid rgba(20,84,84,.14);font-size:13px;font-weight:700;color:rgba(20,84,84,.92);cursor:pointer}
+        .mini-btn{padding:8px 14px;border-radius:9999px;background:rgba(255,255,255,.85);border:1px solid rgba(20,84,84,.14);font-size:13px;font-weight:700;color:rgba(20,84,84,.92);cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+        .mini-btn.is-loading{pointer-events:none;opacity:.75}
+        .btn-spinner{width:14px;height:14px;border-radius:9999px;border:2px solid rgba(20,84,84,.25);border-top-color:rgba(20,84,84,.92);animation:btn-spin .8s linear infinite}
+        @keyframes btn-spin{to{transform:rotate(360deg)}}
         
         .vnum-card{padding:18px;border-radius:24px;background:rgba(255,255,255,.75);backdrop-filter:blur(12px);border:1px solid rgba(20,84,84,.12);box-shadow:0 14px 35px rgba(15,31,31,.07);display:flex;flex-direction:column;gap:16px;transition:all .3s}
         .vnum-card.hidden-by-search{display:none!important}
@@ -113,11 +117,54 @@
         .vn-sub{color:rgba(15,31,31,.62);font-weight:650;font-size:13px;margin-top:6px}
         .vn-controls{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center;margin-top:12px}
         .vn-controls input{padding:12px 14px;border-radius:16px;border:1px solid rgba(15,31,31,.12);background:rgba(255,255,255,.78);outline:none;min-width:280px}
-        .vn-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+        .vn-actions{display:flex;gap:10px;align-items:center;flex-wrap:nowrap;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+        .vn-actions::-webkit-scrollbar{display:none}
         .vn-btn{padding:10px 14px;border-radius:9999px;background:rgba(255,255,255,.85);border:1px solid rgba(20,84,84,.14);font-size:13px;font-weight:900;color:rgba(20,84,84,.92);cursor:pointer}
         .vn-btn.primary{background:linear-gradient(90deg,var(--primary),var(--secondary));color:#fff;border:none}
         .vn-status{margin-top:10px;font-size:13px;color:rgba(15,31,31,.62);font-weight:700}
         .vn-hidden{display:none!important}
+        .sn-search{position:relative;width:100%;max-width:520px}
+        .sn-search svg{position:absolute;left:18px;top:50%;transform:translateY(-50%);width:20px;height:20px;color:rgba(20,84,84,.7);pointer-events:none}
+        .sn-search input{width:100%;padding:12px 16px 12px 50px;border-radius:9999px;border:1px solid rgba(15,31,31,.1);background:rgba(255,255,255,.72);box-shadow:inset 0 1px 0 rgba(255,255,255,.72),0 8px 20px rgba(15,31,31,.04);outline:none;font-weight:800;color:#0b1a1a}
+        .sn-search input::placeholder{color:rgba(15,31,31,.42);opacity:1}
+        .sn-search input:focus{border-color:rgba(20,84,84,.3);background:rgba(255,255,255,.9);box-shadow:0 10px 26px rgba(20,84,84,.08)}
+        .sn-panel{padding:24px;display:flex;flex-direction:column;gap:20px}
+        .sn-topbar{display:grid;grid-template-columns:minmax(260px,1fr) auto;gap:18px;align-items:start}
+        .sn-heading{display:flex;flex-direction:column;gap:14px;min-width:0}
+        .sn-title-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+        .sn-mode-switch{display:inline-flex;gap:6px;padding:6px;border-radius:9999px;border:1px solid rgba(20,84,84,.12);background:rgba(255,255,255,.64);box-shadow:inset 0 1px 0 rgba(255,255,255,.7);width:max-content;max-width:100%;overflow-x:auto}
+        .sn-mode-switch .vn-btn{border:none;background:transparent;box-shadow:none}
+        .sn-mode-switch .vn-btn.primary{background:linear-gradient(90deg,var(--primary),var(--secondary));color:#fff;box-shadow:0 10px 24px rgba(20,84,84,.14)}
+        .sn-toolbox{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+        .sn-toolbox .vn-btn{min-height:44px}
+        .sn-status-line{min-height:20px;margin-top:-6px;padding:0 2px}
+        .sn-rental-detail{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(280px,.8fr);gap:18px;align-items:stretch}
+        .sn-rental-main,.sn-rental-side{border:1px solid rgba(20,84,84,.12);background:rgba(255,255,255,.62);border-radius:22px;padding:22px;box-shadow:0 14px 34px rgba(15,31,31,.05)}
+        .sn-rental-main{display:flex;flex-direction:column;gap:14px}
+        .sn-rental-side{display:flex;flex-direction:column;gap:14px;justify-content:space-between}
+        .sn-kicker{font-size:12px;font-weight:950;letter-spacing:.08em;text-transform:uppercase;color:rgba(20,84,84,.66)}
+        .sn-rental-title{font-size:28px;line-height:1.08;font-weight:1000;color:#0b1a1a}
+        .sn-rental-copy{max-width:640px;font-size:15px;line-height:1.55;color:rgba(15,31,31,.64);font-weight:700}
+        .sn-metric-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
+        .sn-metric{padding:12px 14px;border-radius:16px;background:rgba(20,84,84,.07);border:1px solid rgba(20,84,84,.10);min-width:150px}
+        .sn-metric .k{font-size:11px;font-weight:950;letter-spacing:.07em;text-transform:uppercase;color:rgba(15,31,31,.46)}
+        .sn-metric .v{margin-top:6px;font-weight:1000;color:#0b1a1a}
+        .sn-field-label{font-size:12px;font-weight:950;letter-spacing:.07em;text-transform:uppercase;color:rgba(15,31,31,.48)}
+        .sn-provider-select{width:100%;padding:14px 16px;border-radius:18px;border:1px solid rgba(15,31,31,.12);background:rgba(255,255,255,.88);outline:none;font-size:15px;font-weight:900;color:rgba(15,31,31,.8)}
+        .sn-rental-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+        .sn-rental-actions .vn-btn{min-height:46px;padding-left:18px;padding-right:18px}
+        @media(max-width:640px){
+            .sn-panel{padding:18px;gap:16px}
+            .sn-topbar{grid-template-columns:1fr}
+            .sn-mode-switch{width:100%}
+            .sn-mode-switch .vn-btn{flex:1 0 auto}
+            .sn-toolbox{justify-content:flex-start;flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px}
+            .sn-search{max-width:none}
+            .sn-rental-detail{grid-template-columns:1fr}
+            .sn-rental-main,.sn-rental-side{padding:18px}
+            .sn-rental-title{font-size:22px}
+            .sn-rental-actions{justify-content:flex-start}
+        }
         .vn-number-card{padding:14px;border-radius:20px;border:1px solid rgba(15,31,31,.08);background:rgba(255,255,255,.6);display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}
         .vn-number-meta{display:flex;flex-direction:column;gap:6px;min-width:0}
         .vn-number-title{font-weight:950;color:#0b1a1a}
@@ -136,6 +183,29 @@
         .vn-compose{margin-top:12px;display:grid;gap:10px}
         .vn-compose input,.vn-compose textarea{width:100%;padding:12px 14px;border-radius:16px;border:1px solid rgba(15,31,31,.12);background:rgba(255,255,255,.82);outline:none;font-weight:750;color:rgba(15,31,31,.78)}
         .vn-compose textarea{min-height:88px;resize:vertical}
+        .sn-otp-panel{grid-column:1/-1;border:1px solid rgba(20,84,84,.12);background:linear-gradient(180deg,rgba(255,255,255,.76),rgba(255,255,255,.58));border-radius:24px;padding:22px;box-shadow:0 16px 38px rgba(15,31,31,.06);display:grid;gap:18px}
+        .sn-otp-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap}
+        .sn-otp-title{font-weight:1000;font-size:20px;color:#0b1a1a}
+        .sn-otp-sub{margin-top:5px;color:rgba(15,31,31,.58);font-size:13px;font-weight:800}
+        .sn-countdown{min-width:132px;padding:12px 14px;border-radius:18px;background:rgba(20,84,84,.08);border:1px solid rgba(20,84,84,.12);text-align:right}
+        .sn-countdown .k{font-size:11px;font-weight:950;letter-spacing:.08em;text-transform:uppercase;color:rgba(15,31,31,.45)}
+        .sn-countdown .v{margin-top:4px;font-size:24px;font-weight:1000;color:#145454;font-variant-numeric:tabular-nums}
+        .sn-otp-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(240px,.72fr);gap:14px}
+        .sn-otp-box{padding:16px;border-radius:20px;border:1px solid rgba(15,31,31,.09);background:rgba(255,255,255,.68);min-width:0}
+        .sn-otp-label{font-size:11px;font-weight:950;letter-spacing:.08em;text-transform:uppercase;color:rgba(15,31,31,.46)}
+        .sn-phone-value{margin-top:8px;font-size:28px;line-height:1.1;font-weight:1000;color:#0b1a1a;word-break:break-word}
+        .sn-code-slot{margin-top:10px;min-height:76px;border-radius:18px;border:1px dashed rgba(20,84,84,.24);background:rgba(20,84,84,.04);display:flex;align-items:center;justify-content:center;text-align:center;padding:14px;color:rgba(15,31,31,.58);font-weight:900}
+        .sn-code-slot.has-code{border-style:solid;border-color:rgba(242,116,87,.28);background:linear-gradient(90deg,rgba(242,116,87,.13),rgba(20,84,84,.08));color:#0b1a1a}
+        .sn-code-value{font-size:34px;font-weight:1000;letter-spacing:.08em;color:#145454}
+        .sn-otp-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+        @media(max-width:640px){
+            .sn-otp-panel{padding:18px}
+            .sn-otp-head{flex-direction:column}
+            .sn-countdown{text-align:left;width:100%}
+            .sn-otp-grid{grid-template-columns:1fr}
+            .sn-phone-value{font-size:23px}
+            .sn-otp-actions{justify-content:flex-start}
+        }
         .vn-skel-card{padding:14px;border-radius:20px;background:rgba(255,255,255,.65);border:1px solid rgba(20,84,84,.10);display:flex;justify-content:space-between;gap:12px;align-items:center}
         .vn-skel-left{display:flex;align-items:center;gap:12px;min-width:0}
         .vn-skel-flag{width:40px;height:40px;border-radius:14px}
@@ -163,14 +233,6 @@
         .wallet-panel .tiny-btn:active{transform:translateY(1px)}
         .wallet-panel .tiny-btn:first-of-type{background:linear-gradient(90deg, rgba(242,116,87,.95), rgba(20,84,84,.95));border:none;color:#fff;box-shadow:0 10px 28px rgba(20,84,84,.14)}
         .wallet-panel .tiny-btn:first-of-type:hover{filter:saturate(1.05) brightness(1.02)}
-        .wallet-tx{margin-top:14px;display:grid;gap:10px;position:relative;z-index:1}
-        .wallet-tx-item{padding:12px 14px;border-radius:20px;border:1px solid rgba(15,31,31,.08);background:
-            linear-gradient(180deg, rgba(255,255,255,.78), rgba(255,255,255,.58));
-            display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
-        .wallet-tx-left{display:flex;flex-direction:column;gap:4px}
-        .wallet-tx-action{font-weight:950;color:#0b1a1a;text-transform:capitalize}
-        .wallet-tx-meta{font-size:12px;color:rgba(15,31,31,.62);font-weight:700}
-        .wallet-tx-amt{font-weight:1000;white-space:nowrap;background:linear-gradient(90deg, rgba(242,116,87,.98), rgba(20,84,84,.98));-webkit-background-clip:text;background-clip:text;color:transparent}
 
         .no-results{grid-column: 1/-1; text-align: center; padding: 60px; color: rgba(15,31,31,.5);}
         .no-results svg{margin-bottom: 12px; opacity: .5;}
@@ -181,16 +243,20 @@
 
         /* Skeleton Styles */
         .skeleton {
-            background: #e1e1e1;
-            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-            background-size: 200% 100%;
-            animation: skeleton-loading 1.5s infinite;
+            background: linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 35%, #f3f4f6 70%, #e5e7eb 100%);
+            background-size: 300% 100%;
+            animation: skeleton-loading 0.95s ease-in-out infinite;
             border-radius: 4px;
         }
 
         @keyframes skeleton-loading {
             0% { background-position: 200% 0; }
             100% { background-position: -200% 0; }
+        }
+        .dark .skeleton{
+            background: linear-gradient(90deg, rgba(31,41,55,.55) 0%, rgba(55,65,81,.95) 35%, rgba(242,116,87,.26) 50%, rgba(55,65,81,.95) 65%, rgba(31,41,55,.55) 100%);
+            background-size: 400% 100%;
+            animation: skeleton-loading 0.85s ease-in-out infinite;
         }
 
         .skeleton-card {
@@ -233,7 +299,7 @@
                 <div class="section-head">
                     <div>
                         <h1 class="section-title">All Assets</h1>
-                        <p class="section-sub">Browse all available eSIMs, Regional Plans, and Virtual Numbers.</p>
+                        <p class="section-sub">Browse all available eSIMs, Regional Plans, and Social Virtual Numbers.</p>
                     </div>
                 </div>
 
@@ -251,7 +317,6 @@
                         </div>
                     </div>
                     <div id="walletStatus" class="wallet-sub wallet-status"></div>
-                    <div id="walletTx" class="wallet-tx"></div>
                 </div>
 
                 <div class="controls-row">
@@ -260,13 +325,13 @@
                             <path d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z" stroke="currentColor" stroke-width="2.5"/>
                             <path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
                         </svg>
-                        <input type="text" id="assetSearch" placeholder="Search countries, regions, or plans...">
+                        <input type="text" id="assetSearch" placeholder="Search countries, regions, or numbers...">
                     </div>
 
                     <div class="asset-toggles">
                         <button class="active" data-asset-toggle="countries">Countries eSIMs</button>
                         <button data-asset-toggle="regions">Regional Plans</button>
-                        <button data-asset-toggle="virtual">Virtual Numbers</button>
+                        <button data-asset-toggle="social">Social Virtual Numbers</button>
                         <button type="button" id="myEsimsNavBtn">My eSIMs</button>
                     </div>
                 </div>
@@ -405,6 +470,53 @@
                     </div>
                 </div>
 
+                <!-- Social Numbers Section -->
+                <div class="hidden" data-asset-section="social" id="socialNumbersGrid">
+                    <div class="vn-panel sn-panel">
+                        <div class="sn-topbar">
+                            <div class="sn-heading">
+                                <div class="sn-title-row">
+                                    <div class="vn-title">Social Media Numbers</div>
+                                    <div class="sn-mode-switch">
+                                        <button type="button" class="vn-btn" id="snOtpModeBtn">One-time OTP</button>
+                                        <button type="button" class="vn-btn" id="snRentModeBtn">Monthly Rentals</button>
+                                    </div>
+                                </div>
+                                <div class="sn-search">
+                                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                        <path d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z" stroke="currentColor" stroke-width="2.5"/>
+                                        <path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                                    </svg>
+                                    <input id="snInlineSearch" type="text" placeholder="Search social numbers...">
+                                </div>
+                            </div>
+                            <div class="sn-toolbox">
+                                <button type="button" class="vn-btn" id="snRentalsBtn">My Monthly Numbers</button>
+                                <button type="button" class="vn-btn" id="snOrdersBtn">My Social Numbers</button>
+                                <button type="button" class="vn-btn primary" id="snRefreshBtn">Refresh</button>
+                            </div>
+                        </div>
+                        <div id="snStatus" class="vn-status sn-status-line"></div>
+                        <div class="grid" id="snGrid">
+                            @for($i = 0; $i < 6; $i++)
+                                <div class="skeleton-card skeleton-placeholder">
+                                    <div class="card-left">
+                                        <div class="skeleton-flag skeleton"></div>
+                                        <div class="meta">
+                                            <div class="skeleton-text-lg skeleton"></div>
+                                            <div class="skeleton-text-sm skeleton"></div>
+                                        </div>
+                                    </div>
+                                    <div class="card-right">
+                                        <div class="skeleton-text-sm skeleton"></div>
+                                        <div class="skeleton-btn skeleton"></div>
+                                    </div>
+                                </div>
+                            @endfor
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Shared No Results Placeholder (Dynamic) -->
                 <div id="noResultsSearch" class="no-results hidden">
                     <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -430,9 +542,69 @@
                         <button type="button" data-esim-filter="expired">Expired</button>
                     </div>
 
-                    <div class="grid" id="myEsimsGrid"></div>
+                    @php
+                        $initialEsimItems = is_array($initialMyEsims ?? null) ? ($initialMyEsims['items'] ?? []) : [];
+                    @endphp
+                    <div class="grid" id="myEsimsGrid">
+                        @foreach($initialEsimItems as $item)
+                            @php
+                                $esim = $item['esim'] ?? [];
+                                $bundle = $item['bundle'] ?? [];
+                                $status = ($item['status'] ?? 'valid') === 'expired' ? 'expired' : 'valid';
+                                $title = trim((string) ($bundle['name'] ?? '')) ?: 'eSIM';
+                                $sub = trim(implode(' • ', array_filter([(string) ($bundle['data'] ?? ''), (string) ($bundle['validity'] ?? '')])));
+                                $qrDataUrl = trim((string) ($esim['qr_code_data_url'] ?? ''));
+                                $qrUrl = trim((string) ($esim['qr_code_url'] ?? ''));
+                                $iosUrl = trim((string) ($esim['direct_installation_link_ios'] ?? ''));
+                                $androidUrl = trim((string) ($esim['direct_installation_link_android'] ?? ''));
+                                $canRenew = (bool) ($esim['can_renew'] ?? false);
+                                $topupUrl = $canRenew && trim((string) ($item['asset_type'] ?? '')) !== '' && trim((string) ($item['asset_id'] ?? '')) !== '' && trim((string) ($esim['esim_id'] ?? '')) !== ''
+                                    ? url('/assets/'.rawurlencode((string) $item['asset_type']).'/'.rawurlencode((string) $item['asset_id']).'?topup_esim_id='.rawurlencode((string) $esim['esim_id']))
+                                    : '';
+                            @endphp
+                            <div class="esim-card">
+                                <div class="esim-top">
+                                    <div>
+                                        <div class="esim-title">{{ $title }}</div>
+                                        <div class="esim-sub">{{ $sub }}</div>
+                                    </div>
+                                    <span class="pill {{ $status === 'expired' ? 'expired' : '' }}">{{ $status === 'expired' ? 'Expired' : 'Valid' }}</span>
+                                </div>
+                                <div class="esim-meta">
+                                    <div class="kv"><div class="k">eSIM ID</div><div class="v">{{ (string) ($esim['esim_id'] ?? '-') ?: '-' }}</div></div>
+                                    <div class="kv"><div class="k">ICCID</div><div class="v">{{ (string) ($esim['iccid'] ?? '-') ?: '-' }}</div></div>
+                                    <div class="kv"><div class="k">Activation Code</div><div class="v">{{ (string) ($esim['activation_code'] ?? '-') ?: '-' }}</div></div>
+                                    <div class="kv"><div class="k">Expires</div><div class="v">{{ ! empty($item['expires_at']) ? \Illuminate\Support\Carbon::parse($item['expires_at'])->toDayDateTimeString() : '-' }}</div></div>
+                                    <div class="kv"><div class="k">SM-DP+</div><div class="v">{{ (string) ($esim['smdp_address'] ?? '-') ?: '-' }}</div></div>
+                                    <div class="kv"><div class="k">LPA</div><div class="v">{{ (string) ($esim['lpa'] ?? ($esim['qr_payload'] ?? '-')) ?: '-' }}</div></div>
+                                    <div class="kv"><div class="k">Renewable</div><div class="v">{{ $canRenew ? 'Yes' : 'No' }}</div></div>
+                                </div>
+                                @if($qrDataUrl !== '')
+                                    <div class="qr-box"><img alt="eSIM QR code" src="{{ $qrDataUrl }}"></div>
+                                @endif
+                                <div class="esim-actions">
+                                    @if($qrUrl !== '')
+                                        <a class="mini-link" href="{{ $qrUrl }}" target="_blank" rel="noopener noreferrer">Open QR</a>
+                                    @elseif($qrDataUrl !== '')
+                                        <span class="mini-link secondary">QR Ready</span>
+                                    @else
+                                        <span class="mini-link secondary">No QR</span>
+                                    @endif
+                                    @if($iosUrl !== '')
+                                        <a class="mini-link" href="{{ $iosUrl }}" target="_blank" rel="noopener noreferrer">Install iOS</a>
+                                    @endif
+                                    @if($androidUrl !== '')
+                                        <a class="mini-link" href="{{ $androidUrl }}" target="_blank" rel="noopener noreferrer">Install Android</a>
+                                    @endif
+                                    @if($topupUrl !== '')
+                                        <a class="mini-link" href="{{ $topupUrl }}">Top up</a>
+                                    @endif
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
 
-                    <div id="noEsims" class="no-results hidden">
+                    <div id="noEsims" class="no-results {{ count($initialEsimItems) > 0 ? 'hidden' : '' }}">
                         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                             <path d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z"/>
                             <path d="M9 6h6"/>
@@ -501,15 +673,84 @@
                     countries: document.getElementById('countriesGrid').querySelector('.grid'),
                     regions: document.getElementById('regionsGrid').querySelector('.grid'),
                 };
+                const socialEls = {
+                    section: document.getElementById('socialNumbersGrid'),
+                    otpModeBtn: document.getElementById('snOtpModeBtn'),
+                    rentModeBtn: document.getElementById('snRentModeBtn'),
+                    rentalsBtn: document.getElementById('snRentalsBtn'),
+                    ordersBtn: document.getElementById('snOrdersBtn'),
+                    refreshBtn: document.getElementById('snRefreshBtn'),
+                    status: document.getElementById('snStatus'),
+                    grid: document.getElementById('snGrid'),
+                    inlineSearch: document.getElementById('snInlineSearch'),
+                };
+                const socialApi = {
+                    profile: '/api/social-numbers/profile',
+                    apps: '/api/social-numbers/apps',
+                    countries: '/api/social-numbers/countries',
+                    prices: '/api/social-numbers/prices',
+                    buy: '/api/social-numbers/buy',
+                    checkBase: '/api/social-numbers/check/',
+                    orders: '/api/social-numbers/orders',
+                    finishBase: '/api/social-numbers/orders/',
+                    cancelBase: '/api/social-numbers/orders/',
+                    banBase: '/api/social-numbers/orders/',
+                    tryAnotherBase: '/api/social-numbers/orders/',
+                };
+                const socialRentApi = {
+                    apps: '/api/social-rentals/apps',
+                    countries: '/api/social-rentals/countries',
+                    quote: '/api/social-rentals/quote',
+                    buy: '/api/social-rentals/buy',
+                    list: '/api/social-rentals',
+                    activateBase: '/api/social-rentals/',
+                    smsBase: '/api/social-rentals/',
+                    cancelBase: '/api/social-rentals/',
+                };
+                const socialState = {
+                    view: 'apps',
+                    mode: 'otp',
+                    profile: null,
+                    apps: [],
+                    countries: [],
+                    countriesPage: 0,
+                    selectedApp: null,
+                    selectedCountry: '',
+                    operators: [],
+                    operatorsOffset: 0,
+                    operatorsHasMore: false,
+                    operatorsLoading: false,
+                    opsSummary: '',
+                    order: null,
+                    isBuying: false,
+                    pollTimer: null,
+                    pollingOrderId: null,
+                    countdownTimer: null,
+                    historyOffset: 0,
+                };
+                const socialRentState = {
+                    view: 'apps',
+                    apps: [],
+                    countries: [],
+                    countriesPage: 0,
+                    selectedApp: null,
+                    selectedCountry: '',
+                    selectedProvider: 'all_providers',
+                    quote: null,
+                    rentalsOffset: 0,
+                };
 
                 const state = {
                     countries: { page: 0, hasMore: true, loading: false, q: '' },
                     regions: { page: 0, hasMore: true, loading: false, q: '' },
                     virtual: { page: 0, hasMore: false, loading: false, q: '' },
+                    social: { page: 0, hasMore: false, loading: false, q: '' },
                 };
                 let activeTab = 'countries';
                 let viewMode = 'assets';
                 const esimsState = { page: 0, hasMore: true, loading: false, filter: 'valid' };
+                const initialMyEsims = @json($initialMyEsims);
+                let initialMyEsimsRendered = false;
 
                 const vnEls = {
                     countriesView: document.getElementById('vnCountriesView'),
@@ -598,8 +839,10 @@
                     return s.replace(/^"+|"+$/g, '').replace(/^'+|'+$/g, '').trim();
                 };
 
-                const paystackKey = normalizeEnvValue(@json((string) (config('services.paystack.public_key') ?: env('PAYSTACK_PUBLIC_KEY'))));
-                const csrfToken = @json(csrf_token());
+                const paystackMeta = document.querySelector('meta[name="paystack-public-key"]');
+                const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+                const paystackKey = normalizeEnvValue(paystackMeta ? (paystackMeta.getAttribute('content') || '') : '');
+                const csrfToken = csrfMeta ? (csrfMeta.getAttribute('content') || '') : '';
 
                 const walletEls = {
                     balance: document.getElementById('walletBalance'),
@@ -607,7 +850,6 @@
                     depositBtn: document.getElementById('walletDepositBtn'),
                     refreshBtn: document.getElementById('walletRefreshBtn'),
                     status: document.getElementById('walletStatus'),
-                    tx: document.getElementById('walletTx'),
                 };
 
                 const setWalletStatus = (t, tone = 'neutral') => {
@@ -622,39 +864,10 @@
                     walletEls.balance.textContent = t || '$0.00';
                 };
 
-                const renderWalletTx = (items) => {
-                    if (!walletEls.tx) return;
-                    walletEls.tx.innerHTML = '';
-                    if (!Array.isArray(items) || items.length === 0) {
-                        return;
-                    }
-                    items.slice(0, 10).forEach((it) => {
-                        const dir = String(it.direction || '');
-                        const action = String(it.action || '');
-                        const amtMinor = Number(it.amount_minor || 0);
-                        const balMinor = Number(it.balance_after_minor || 0);
-                        const when = String(it.created_at || '');
-                        const sign = dir === 'debit' ? '-' : '+';
-                        const amt = `$${(amtMinor / 100).toFixed(2)}`;
-                        const bal = `$${(balMinor / 100).toFixed(2)}`;
-
-                        const row = document.createElement('div');
-                        row.className = 'wallet-tx-item';
-                        row.innerHTML = `
-                            <div class="wallet-tx-left">
-                                <div class="wallet-tx-action">${esc(action.replaceAll('_', ' '))}</div>
-                                <div class="wallet-tx-meta">${when ? esc(new Date(when).toLocaleString()) : ''} · Balance: ${esc(bal)}</div>
-                            </div>
-                            <div class="wallet-tx-amt">${esc(sign + amt)}</div>
-                        `;
-                        walletEls.tx.appendChild(row);
-                    });
-                };
-
                 const refreshWallet = async () => {
                     setWalletStatus('Loading wallet…', 'neutral');
                     try {
-                        const res = await fetch('/api/wallet/balance', { headers: { 'Accept': 'application/json' } });
+                        const res = await fetch('/api/wallet/balance?_t=' + Date.now(), { headers: { 'Accept': 'application/json' } });
                         const json = await res.json().catch(() => ({}));
                         if (!res.ok || !json.ok) {
                             setWalletStatus(json.message || 'Wallet unavailable.', 'error');
@@ -664,18 +877,6 @@
                         setWalletStatus('', 'neutral');
                     } catch (e) {
                         setWalletStatus('Wallet unavailable.', 'error');
-                    }
-                };
-
-                const refreshWalletTx = async () => {
-                    try {
-                        const res = await fetch('/api/wallet/transactions', { headers: { 'Accept': 'application/json' } });
-                        const json = await res.json().catch(() => ({}));
-                        if (!res.ok || !json.ok) {
-                            return;
-                        }
-                        renderWalletTx(json.items || []);
-                    } catch (e) {
                     }
                 };
 
@@ -757,8 +958,14 @@
                                     }
 
                                     setWalletStatus('Deposit successful.', 'success');
+                                    // Give some time for DB to propagate if needed, though with local DB it's instant
+                                    await new Promise(r => setTimeout(r, 500));
                                     await refreshWallet();
-                                    await refreshWalletTx();
+                                    
+                                    // Delay the reload to let the user see the success message
+                                    setTimeout(() => {
+                                        window.location.reload();
+                                    }, 2000);
                                     if (walletEls.depositBtn) walletEls.depositBtn.disabled = false;
                                     if (walletEls.refreshBtn) walletEls.refreshBtn.disabled = false;
                                 })().catch(() => {
@@ -786,15 +993,18 @@
                     card.className = type === 'virtual' ? 'vnum-card' : 'card';
                     card.setAttribute('data-search-name', String(item.name || '').toLowerCase());
 
+                    const rawName = String(item.name || '');
+                    const truncatedName = rawName.length > 12 ? rawName.substring(0, 12) + '...' : rawName;
+
                     if (type === 'virtual') {
                         const imgSrc = safeImgSrc(item.flag_url || '');
                         card.innerHTML = `
                             <div class="vnum-top">
                                 <div class="vnum-info">
                                     <div class="flag">
-                                        ${imgSrc ? `<img src="${imgSrc}" alt="${esc(item.name)}">` : `<span>${esc(item.flag || '🌐')}</span>`}
+                                        ${imgSrc ? `<img src="${imgSrc}" alt="${esc(rawName)}">` : `<span>${esc(item.flag || '🌐')}</span>`}
                                     </div>
-                                    <div class="vnum-name">${esc(item.name)}</div>
+                                    <div class="vnum-name">${esc(truncatedName)}</div>
                                 </div>
                                 <div class="vnum-price-box">
                                     <div class="vnum-price">${esc(item.price_formatted)}<span>/mo</span></div>
@@ -810,14 +1020,14 @@
                         card.innerHTML = `
                             <div class="card-left">
                                 <div class="flag">
-                                    ${imgSrc ? `<img src="${imgSrc}" alt="${esc(item.name)}">` : `<span>${esc(item.flag || '🌐')}</span>`}
+                                    ${imgSrc ? `<img src="${imgSrc}" alt="${esc(rawName)}">` : `<span>${esc(item.flag || '🌐')}</span>`}
                                 </div>
                                 <div class="meta">
-                                    <div class="name">${esc(item.name)}</div>
+                                    <div class="name">${esc(truncatedName)}</div>
                                 </div>
                             </div>
                             <div class="card-right">
-                                <a href="${url}" class="mini-btn">View Plans</a>
+                                <a href="${url}" class="mini-btn js-view-plans">View Plans</a>
                             </div>
                         `;
                     }
@@ -826,13 +1036,919 @@
 
                 const keyToTab = (key) => (key === 'virtualNumbers' ? 'virtual' : key);
                 const tabToKey = (tab) => (tab === 'virtual' ? 'virtualNumbers' : tab);
+                const socialQuery = () => {
+                    const v = socialEls.inlineSearch ? (socialEls.inlineSearch.value || '') : '';
+                    return String(v).trim();
+                };
+                const socialIconUrl = (key) => {
+                    const k = String(key || '').toLowerCase();
+                    const map = {
+                        whatsapp: 'simple-icons:whatsapp',
+                        telegram: 'simple-icons:telegram',
+                        instagram: 'simple-icons:instagram',
+                        facebook: 'simple-icons:facebook',
+                        tiktok: 'simple-icons:tiktok',
+                        twitter: 'simple-icons:x',
+                    };
+                    const icon = map[k] || 'mdi:message-text-outline';
+                    return `https://api.iconify.design/${icon}.svg?color=%23ffffff`;
+                };
+                const socialBrandBg = (key) => {
+                    const k = String(key || '').toLowerCase();
+                    if (k === 'whatsapp') return '#25D366';
+                    if (k === 'telegram') return '#229ED9';
+                    if (k === 'instagram') return '#E4405F';
+                    if (k === 'facebook') return '#1877F2';
+                    if (k === 'tiktok') return '#111827';
+                    if (k === 'twitter') return '#111827';
+                    return '#111827';
+                };
+                const renderSocialNumbersPlaceholder = () => {
+                    if (!socialEls.grid || !socialEls.status) return;
+                    const q = socialQuery();
+                    socialEls.status.textContent = 'Loading social numbers…';
+                    socialEls.grid.innerHTML = '';
+
+                    if (!socialState.apps || socialState.apps.length === 0) {
+                        socialEls.grid.innerHTML = `
+                            <div class="no-results" style="grid-column: 1 / -1; padding: 44px 12px">
+                                <p>Click Refresh to load available apps.</p>
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    const needle = q.toLowerCase();
+                    const filtered = needle
+                        ? socialState.apps.filter((a) => String(a.name || '').toLowerCase().includes(needle))
+                        : socialState.apps;
+
+                    if (filtered.length === 0) {
+                        socialEls.grid.innerHTML = `<div class="no-results" style="grid-column: 1 / -1; padding: 44px 12px"><p>No matches found.</p></div>`;
+                        return;
+                    }
+
+                    socialEls.status.textContent = '';
+
+                    filtered.forEach((app) => {
+                        const card = document.createElement('div');
+                        const available = app.available === true;
+                        const qty = Number(app.qty || 0);
+                        const price = app.price !== null && app.price !== undefined ? String(app.price) : '';
+                        const iconSrc = safeImgSrc(socialIconUrl(app.key || ''));
+                        const bg = socialBrandBg(app.key || '');
+                        card.className = 'card';
+                        card.setAttribute('data-search-name', String(app.name || '').toLowerCase());
+                        card.innerHTML = `
+                            <div class="card-left">
+                                <div class="flag" style="background:${esc(bg)};border-color:rgba(255,255,255,.16)">
+                                    ${iconSrc ? `<img src="${iconSrc}" alt="${esc(String(app.name || ''))}">` : `<span>💬</span>`}
+                                </div>
+                                <div class="meta">
+                                    <div class="name">${esc(String(app.name || 'App'))}</div>
+                                    <div class="subtext">${esc(String(app.description || ''))}</div>
+                                    <div class="subtext">${available ? `${qty} available${price ? ` • from ${price}` : ''}` : `Unavailable`}</div>
+                                </div>
+                            </div>
+                            <div class="card-right">
+                                <button class="mini-btn" type="button" data-sn-app="${esc(String(app.key || ''))}" ${available ? '' : 'disabled'} style="${available ? '' : 'opacity:.6;cursor:not-allowed'}">Select</button>
+                            </div>
+                        `;
+                        socialEls.grid.appendChild(card);
+                        const btn = card.querySelector('[data-sn-app]');
+                        if (btn) {
+                            btn.addEventListener('click', () => socialShowCountries(String(app.key || '')).catch(() => {}));
+                        }
+                    });
+                };
+
+                const socialSetStatus = (t) => {
+                    if (!socialEls.status) return;
+                    socialEls.status.textContent = t || '';
+                };
+
+                const socialSetMode = (mode) => {
+                    socialState.mode = mode === 'rent' ? 'rent' : 'otp';
+                    socialEls.otpModeBtn?.classList.toggle('primary', socialState.mode === 'otp');
+                    socialEls.rentModeBtn?.classList.toggle('primary', socialState.mode === 'rent');
+                };
+
+                const socialSetHeaderDisabled = (disabled) => {
+                    [
+                        socialEls.otpModeBtn,
+                        socialEls.rentModeBtn,
+                        socialEls.rentalsBtn,
+                        socialEls.ordersBtn,
+                        socialEls.refreshBtn,
+                    ].forEach((btn) => {
+                        if (btn) btn.disabled = !!disabled;
+                    });
+                    if (socialEls.inlineSearch) {
+                        socialEls.inlineSearch.disabled = !!disabled;
+                    }
+                };
+
+                const socialFetchJson = async (url, opts = {}) => {
+                    const headers = Object.assign({ 'Accept': 'application/json' }, opts.headers || {});
+                    const res = await fetch(url, Object.assign({}, opts, { headers }));
+                    const json = await res.json().catch(() => ({}));
+                    return { ok: res.ok, status: res.status, json };
+                };
+
+                const socialEnsureProfile = async () => {
+                    const r = await socialFetchJson(socialApi.profile);
+                    if (!r.ok) return null;
+                    const prof = r.json && r.json.profile && typeof r.json.profile === 'object' ? r.json.profile : null;
+                    socialState.profile = prof;
+                    return prof;
+                };
+
+                const socialLoadApps = async () => {
+                    const url = `${socialApi.apps}?country=any&operator=any`;
+                    const r = await socialFetchJson(url);
+                    if (!r.ok) {
+                        socialSetStatus(String(r.json && r.json.message ? r.json.message : 'Failed to load apps.'));
+                        socialState.apps = [];
+                        return;
+                    }
+                    socialState.apps = Array.isArray(r.json.items) ? r.json.items : [];
+                };
+
+                const socialLoadCountries = async () => {
+                    if (socialState.countries && socialState.countries.length > 0) return;
+                    const r = await socialFetchJson(socialApi.countries);
+                    if (!r.ok) return;
+                    socialState.countries = Array.isArray(r.json.items) ? r.json.items : [];
+                };
+
+                const socialRentLoadApps = async () => {
+                    const r = await socialFetchJson(socialRentApi.apps);
+                    if (!r.ok) {
+                        socialSetStatus(String(r.json && r.json.message ? r.json.message : 'Failed to load monthly rental apps.'));
+                        socialRentState.apps = [];
+                        return;
+                    }
+                    socialRentState.apps = Array.isArray(r.json.items) ? r.json.items : [];
+                };
+                const socialRentLoadCountries = async () => {
+                    if (socialRentState.countries && socialRentState.countries.length > 0) return;
+                    const r = await socialFetchJson(socialRentApi.countries);
+                    if (!r.ok) return;
+                    socialRentState.countries = Array.isArray(r.json.items) ? r.json.items : [];
+                };
+
+                const socialFlagEmoji = (iso) => {
+                    const s = String(iso || '').toUpperCase();
+                    if (s.length !== 2) return '🌐';
+                    const a = s.charCodeAt(0);
+                    const b = s.charCodeAt(1);
+                    if (a < 65 || a > 90 || b < 65 || b > 90) return '🌐';
+                    return String.fromCodePoint(127397 + a) + String.fromCodePoint(127397 + b);
+                };
+
+                const socialRenderOrderBox = (order) => {
+                    const box = document.getElementById('snOrderBox');
+                    if (!box) return;
+                    if (!order || typeof order !== 'object') {
+                        box.innerHTML = '';
+                        return;
+                    }
+                    const sms = Array.isArray(order.sms) ? order.sms : [];
+                    const latest = sms.length ? sms[sms.length - 1] : null;
+                    const code = latest && latest.code ? String(latest.code) : '';
+                    const text = latest && latest.text ? String(latest.text) : '';
+                    const sender = latest && latest.sender ? String(latest.sender) : '';
+                    const phone = String(order.phone_display || order.phone || '').trim();
+                    const status = String(order.status || 'PENDING');
+                    const expiresAt = String(order.expires_at || '');
+                    const timedOut = status === 'TIMEOUT';
+                    const meta = [
+                        status,
+                        String(order.country || ''),
+                        String(order.operator || 'any'),
+                    ].filter(Boolean).join(' • ');
+                    box.innerHTML = `
+                        <div class="sn-otp-panel">
+                            <div class="sn-otp-head">
+                                <div>
+                                    <div class="sn-otp-title">${code ? 'OTP received' : (timedOut ? 'No SMS received' : 'Waiting for SMS code')}</div>
+                                    <div class="sn-otp-sub">Order #${esc(String(order.id || ''))}${meta ? ` • ${esc(meta)}` : ''}</div>
+                                </div>
+                                <div class="sn-countdown">
+                                    <div class="k">Time left</div>
+                                    <div class="v" data-sn-countdown="${esc(expiresAt)}">10:00</div>
+                                </div>
+                            </div>
+                            <div class="sn-otp-grid">
+                                <div class="sn-otp-box">
+                                    <div class="sn-otp-label">Generated phone number</div>
+                                    <div class="sn-phone-value">${phone ? esc(phone) : 'Number unavailable'}</div>
+                                    <div class="sn-otp-sub">Use this number on ${esc(String(order.product_name || 'the selected app'))} before the timer expires.</div>
+                                </div>
+                                <div class="sn-otp-box">
+                                    <div class="sn-otp-label">Verification code</div>
+                                    <div class="sn-code-slot ${code ? 'has-code' : ''}">
+                                        ${code ? `<div><div class="sn-code-value">${esc(code)}</div>${sender ? `<div class="sn-otp-sub">From ${esc(sender)}</div>` : ''}</div>` : `<div>${timedOut ? 'This number did not receive an OTP. Try another number.' : 'Code will appear here automatically.'}</div>`}
+                                    </div>
+                                </div>
+                            </div>
+                            ${text ? `<div class="sn-otp-box"><div class="sn-otp-label">SMS message</div><div style="margin-top:8px;color:rgba(15,31,31,.78);font-weight:800;line-height:1.5">${esc(text)}</div></div>` : ''}
+                        </div>
+                    `;
+                    socialUpdateCountdowns();
+                    if (code || ['FINISHED', 'CANCELED', 'BANNED', 'TIMEOUT', 'RECEIVED'].includes(status)) {
+                        socialStopCountdown();
+                    } else {
+                        socialStartCountdown();
+                    }
+                };
+
+                const socialFormatDuration = (ms) => {
+                    const total = Math.max(0, Math.floor(ms / 1000));
+                    const minutes = Math.floor(total / 60);
+                    const seconds = total % 60;
+                    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                };
+
+                const socialUpdateCountdowns = () => {
+                    document.querySelectorAll('[data-sn-countdown]').forEach((el) => {
+                        const raw = el.getAttribute('data-sn-countdown') || '';
+                        const end = raw ? new Date(raw).getTime() : 0;
+                        if (!end || Number.isNaN(end)) {
+                            el.textContent = '10:00';
+                            return;
+                        }
+                        const remaining = end - Date.now();
+                        el.textContent = remaining > 0 ? socialFormatDuration(remaining) : '00:00';
+                    });
+                };
+
+                const socialStartCountdown = () => {
+                    if (socialState.countdownTimer) return;
+                    socialState.countdownTimer = window.setInterval(socialUpdateCountdowns, 1000);
+                };
+
+                const socialStopCountdown = () => {
+                    if (socialState.countdownTimer) {
+                        window.clearInterval(socialState.countdownTimer);
+                        socialState.countdownTimer = null;
+                    }
+                };
+
+                const socialShowApps = async () => {
+                    socialStopPolling();
+                    socialStopCountdown();
+                    socialState.view = 'apps';
+                    socialState.selectedApp = null;
+                    socialState.selectedCountry = '';
+                    socialState.operators = [];
+                    socialState.operatorsOffset = 0;
+                    socialState.operatorsHasMore = false;
+
+                    await socialEnsureProfile();
+                    await socialLoadApps();
+                    renderSocialNumbersPlaceholder();
+                };
+
+                const socialRenderCountries = () => {
+                    if (!socialEls.grid) return;
+                    const app = socialState.selectedApp;
+                    const q = socialQuery().toLowerCase();
+                    const countries = Array.isArray(socialState.countries) ? socialState.countries : [];
+                    const filtered = q
+                        ? countries.filter((c) => String(c.name || c.country || '').toLowerCase().includes(q))
+                        : countries;
+
+                    const perPage = 30;
+                    const max = Math.min(filtered.length, (socialState.countriesPage + 1) * perPage);
+                    const slice = filtered.slice(0, max);
+
+                    socialEls.grid.innerHTML = '';
+                    socialSetStatus(app ? `Choose a country for ${String(app.name || '')}` : 'Choose a country');
+
+                    slice.forEach((c) => {
+                        const card = document.createElement('div');
+                        card.className = 'card';
+                        const flag = socialFlagEmoji(c.iso || '');
+                        card.setAttribute('data-search-name', String(c.name || c.country || '').toLowerCase());
+                        card.innerHTML = `
+                            <div class="card-left">
+                                <div class="flag"><span>${esc(flag)}</span></div>
+                                <div class="meta">
+                                    <div class="name">${esc(String(c.name || c.country || ''))}</div>
+                                    <div class="subtext">${esc(String(c.prefix || ''))}</div>
+                                </div>
+                            </div>
+                            <div class="card-right">
+                                <button class="mini-btn" type="button" data-sn-country="${esc(String(c.country || ''))}">Generate</button>
+                            </div>
+                        `;
+                        socialEls.grid.appendChild(card);
+                        const btn = card.querySelector('[data-sn-country]');
+                        if (btn) {
+                            btn.addEventListener('click', () => socialShowCountry(String(c.country || '')).catch(() => {}));
+                        }
+                    });
+
+                    const canLoadMore = max < filtered.length;
+                    if (canLoadMore) {
+                        socialEls.grid.insertAdjacentHTML('beforeend', `<div style="grid-column:1 / -1; display:flex; gap:10px; justify-content:center; margin-top:10px"><button class="load-more-btn" type="button" id="snCountriesMoreBtn">Load more</button></div>`);
+                        document.getElementById('snCountriesMoreBtn')?.addEventListener('click', () => {
+                            socialState.countriesPage += 1;
+                            socialRenderCountries();
+                        });
+                    }
+                };
+
+                const socialShowCountries = async (appKey) => {
+                    const app = socialState.apps.find((a) => String(a.key || '') === String(appKey || ''));
+                    if (!app) return;
+                    socialStopPolling();
+                    socialStopCountdown();
+                    socialState.view = 'countries';
+                    socialState.selectedApp = app;
+                    socialState.countriesPage = 0;
+                    socialState.selectedCountry = '';
+                    socialState.countrySummary = '';
+                    await socialLoadCountries();
+                    socialSetStatus('');
+                    socialRenderCountries();
+                };
+
+                const socialRenderCountry = () => {
+                    if (!socialEls.grid) return;
+                    const app = socialState.selectedApp;
+                    const countryKey = String(socialState.selectedCountry || '');
+                    const countryObj = (Array.isArray(socialState.countries) ? socialState.countries : []).find((c) => String(c.country || '') === countryKey);
+                    const countryName = countryObj ? (countryObj.name || countryKey) : countryKey;
+                    const order = socialState.order && typeof socialState.order === 'object' ? socialState.order : null;
+                    const status = order ? String(order.status || '') : '';
+                    const isFinal = ['FINISHED', 'CANCELED', 'BANNED', 'TIMEOUT'].includes(status);
+                    const hasSms = !!(order && Array.isArray(order.sms) && order.sms.length > 0);
+                    const showWaitingActions = !!(order && !isFinal && !hasSms);
+                    const showFinishAction = !!(order && !isFinal && hasSms);
+                    const showTimeoutAction = !!(order && status === 'TIMEOUT' && !hasSms);
+                    const showGenerate = !order || isFinal;
+                    const isBuying = !!socialState.isBuying;
+
+                    socialEls.grid.innerHTML = `
+                        <div class="vn-head" style="grid-column: 1 / -1; margin-bottom: 8px">
+                            <div>
+                                <div class="vn-title">${esc(String(app ? app.name : ''))} • ${esc(String(countryName || ''))}</div>
+                                <div class="vn-sub">Click Generate to get a phone number for verification.</div>
+                            </div>
+                            <div class="vn-actions">
+                                <button type="button" class="vn-btn" id="snBackToCountriesBtn" ${isBuying ? 'disabled' : ''}>Back</button>
+                                ${showGenerate ? `<button type="button" class="vn-btn primary" id="snGenerateBtn" ${isBuying ? 'disabled' : ''}>${isBuying ? '<span class="btn-spinner" aria-hidden="true"></span><span>Generating...</span>' : 'Generate'}</button>` : ''}
+                                ${showWaitingActions ? `
+                                    <button type="button" class="vn-btn" id="snCancelOrderHdr" ${isBuying ? 'disabled' : ''}>Cancel</button>
+                                    <button type="button" class="vn-btn" id="snBanOrderHdr" ${isBuying ? 'disabled' : ''}>Ban</button>
+                                    <button type="button" class="vn-btn primary" id="snTryAnotherHdr" ${isBuying ? 'disabled' : ''}>Try another</button>
+                                ` : ''}
+                                ${showTimeoutAction ? `
+                                    <button type="button" class="vn-btn primary" id="snTryAnotherHdr" ${isBuying ? 'disabled' : ''}>Try another</button>
+                                ` : ''}
+                                ${showFinishAction ? `
+                                    <button type="button" class="vn-btn primary" id="snFinishOrderHdr" ${isBuying ? 'disabled' : ''}>Finish</button>
+                                ` : ''}
+                            </div>
+                        </div>
+                        <div style="grid-column:1 / -1">
+                            <div id="snCountryStatus" class="vn-status"></div>
+                            <div id="snOrderBox"></div>
+                        </div>
+                    `;
+
+                    const st = document.getElementById('snCountryStatus');
+                    if (st) st.textContent = socialState.countrySummary || '';
+                    socialRenderOrderBox(socialState.order);
+
+                    document.getElementById('snBackToCountriesBtn')?.addEventListener('click', () => {
+                        socialStopPolling();
+                        socialStopCountdown();
+                        socialState.view = 'countries';
+                        socialState.selectedCountry = '';
+                        socialState.countrySummary = '';
+                        socialRenderCountries();
+                    });
+                    document.getElementById('snGenerateBtn')?.addEventListener('click', () => {
+                        if (socialState.isBuying) return;
+                        socialBuy(countryKey, 'any');
+                    });
+                    document.getElementById('snCancelOrderHdr')?.addEventListener('click', () => socialCancelOrder());
+                    document.getElementById('snBanOrderHdr')?.addEventListener('click', () => socialBanOrder());
+                    document.getElementById('snTryAnotherHdr')?.addEventListener('click', () => socialTryAnotherOrder());
+                    document.getElementById('snFinishOrderHdr')?.addEventListener('click', () => socialFinishOrder());
+                };
+
+                const socialLoadCountrySummary = async () => {
+                    if (!socialState.selectedApp || !socialState.selectedCountry) return;
+                    const appKey = String(socialState.selectedApp.key || '');
+                    const countryKey = String(socialState.selectedCountry || '');
+                    const url = `${socialApi.prices}?country=${encodeURIComponent(countryKey)}&product=${encodeURIComponent(appKey)}&limit=1&offset=0`;
+                    const r = await socialFetchJson(url);
+                    if (!r.ok) {
+                        socialState.countrySummary = String(r.json && r.json.message ? r.json.message : 'Unable to load availability.');
+                        socialRenderCountry();
+                        return;
+                    }
+                    const total = Number(r.json.total_count || 0);
+                    const minCost = r.json.min_cost !== null && r.json.min_cost !== undefined ? String(r.json.min_cost) : '';
+                    socialState.countrySummary = total > 0 ? `${total} available${minCost ? ` • from ${minCost}` : ''}` : 'No availability found.';
+                    socialRenderCountry();
+                };
+
+                const socialShowCountry = async (countryKey) => {
+                    if (!socialState.selectedApp) return;
+                    socialStopPolling();
+                    socialStopCountdown();
+                    socialState.view = 'country';
+                    socialState.selectedCountry = String(countryKey || '');
+                    socialState.countrySummary = 'Loading…';
+                    socialState.order = null;
+                    socialRenderCountry();
+                    await socialLoadCountrySummary();
+                };
+
+                const socialBuy = async (countryKey, operator) => {
+                    if (!socialState.selectedApp || socialState.isBuying) return;
+                    const appKey = String(socialState.selectedApp.key || '');
+                    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+                    const csrf = csrfMeta ? (csrfMeta.getAttribute('content') || '') : '';
+                    socialState.isBuying = true;
+                    socialSetHeaderDisabled(true);
+                    socialState.countrySummary = 'Buying number…';
+                    socialRenderCountry();
+                    try {
+                        const r = await socialFetchJson(socialApi.buy, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': csrf,
+                            },
+                            body: JSON.stringify({ product: appKey, country: String(countryKey || ''), operator: String(operator || 'any') }),
+                        });
+                        if (!r.ok) {
+                            socialState.countrySummary = String(r.json && r.json.message ? r.json.message : 'Buy failed.');
+                            return;
+                        }
+                        const order = r.json && r.json.order && typeof r.json.order === 'object' ? r.json.order : null;
+                        socialState.order = order;
+                        socialState.countrySummary = 'Waiting for SMS…';
+                        socialStartPolling();
+                    } catch (e) {
+                        socialState.countrySummary = 'Buy failed.';
+                    } finally {
+                        socialState.isBuying = false;
+                        socialSetHeaderDisabled(false);
+                        socialRenderCountry();
+                    }
+                };
+
+                const socialStopPolling = () => {
+                    if (socialState.pollTimer) {
+                        window.clearInterval(socialState.pollTimer);
+                        socialState.pollTimer = null;
+                    }
+                    socialState.pollingOrderId = null;
+                };
+                const socialStartPolling = () => {
+                    socialStopPolling();
+                    if (!socialState.order || !socialState.order.id) return;
+                    const id = Number(socialState.order.id);
+                    if (!id) return;
+                    socialState.pollingOrderId = id;
+                    let shouldContinue = true;
+                    const poll = async () => {
+                        if (socialState.pollingOrderId !== id) return;
+                        const r = await socialFetchJson(socialApi.checkBase + encodeURIComponent(String(id)));
+                        if (socialState.pollingOrderId !== id) return;
+                        if (!r.ok) return;
+                        const order = r.json && r.json.order && typeof r.json.order === 'object' ? r.json.order : null;
+                        if (!order) return;
+                        socialState.order = order;
+                        if (socialState.view === 'country') {
+                            socialRenderCountry();
+                        }
+                        const status = String(order.status || '');
+                        if (['RECEIVED', 'FINISHED', 'CANCELED', 'BANNED', 'TIMEOUT'].includes(status)) {
+                            shouldContinue = false;
+                            socialStopPolling();
+                        }
+                    };
+                    poll().finally(() => {
+                        if (shouldContinue && socialState.pollingOrderId === id && !socialState.pollTimer) {
+                            socialState.pollTimer = window.setInterval(poll, 5000);
+                        }
+                    });
+                };
+
+                const socialFinishOrder = async () => {
+                    if (!socialState.order || !socialState.order.id) return;
+                    const id = Number(socialState.order.id);
+                    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+                    const csrf = csrfMeta ? (csrfMeta.getAttribute('content') || '') : '';
+                    await socialFetchJson(`${socialApi.finishBase}${encodeURIComponent(String(id))}/finish`, {
+                        method: 'POST',
+                        headers: { 'X-CSRF-TOKEN': csrf },
+                    });
+                    socialStopPolling();
+                    socialStopCountdown();
+                    socialLoadHistory(true);
+                };
+                const socialCancelOrder = async () => {
+                    if (!socialState.order || !socialState.order.id) return;
+                    const id = Number(socialState.order.id);
+                    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+                    const csrf = csrfMeta ? (csrfMeta.getAttribute('content') || '') : '';
+                    await socialFetchJson(`${socialApi.cancelBase}${encodeURIComponent(String(id))}/cancel`, {
+                        method: 'POST',
+                        headers: { 'X-CSRF-TOKEN': csrf },
+                    });
+                    socialStopPolling();
+                    socialStopCountdown();
+                    socialLoadHistory(true);
+                };
+                const socialBanOrder = async () => {
+                    if (!socialState.order || !socialState.order.id) return;
+                    const id = Number(socialState.order.id);
+                    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+                    const csrf = csrfMeta ? (csrfMeta.getAttribute('content') || '') : '';
+                    await socialFetchJson(`${socialApi.banBase}${encodeURIComponent(String(id))}/ban`, {
+                        method: 'POST',
+                        headers: { 'X-CSRF-TOKEN': csrf },
+                    });
+                    socialStopPolling();
+                    socialStopCountdown();
+                    socialLoadHistory(true);
+                };
+                const socialTryAnotherOrder = async () => {
+                    if (!socialState.order || !socialState.order.id) return;
+                    const id = Number(socialState.order.id);
+                    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+                    const csrf = csrfMeta ? (csrfMeta.getAttribute('content') || '') : '';
+                    socialState.countrySummary = 'Getting another number…';
+                    socialRenderCountry();
+                    const r = await socialFetchJson(`${socialApi.tryAnotherBase}${encodeURIComponent(String(id))}/try-another`, {
+                        method: 'POST',
+                        headers: { 'X-CSRF-TOKEN': csrf },
+                    });
+                    if (!r.ok) {
+                        socialState.countrySummary = String(r.json && r.json.message ? r.json.message : 'Unable to get another number.');
+                        socialRenderCountry();
+                        return;
+                    }
+                    const order = r.json && r.json.order && typeof r.json.order === 'object' ? r.json.order : null;
+                    socialState.order = order;
+                    socialState.countrySummary = 'Waiting for SMS…';
+                    socialRenderCountry();
+                    socialStartPolling();
+                };
+
+                const socialLoadHistory = async (reset = false) => {
+                    if (!socialEls.grid) return;
+                    socialStopPolling();
+                    socialState.view = 'history';
+                    socialState.selectedApp = null;
+                    socialStopCountdown();
+                    if (reset) {
+                        socialState.historyOffset = 0;
+                    }
+                    socialSetStatus('Loading orders…');
+                    const url = `${socialApi.orders}?limit=20&offset=${encodeURIComponent(String(socialState.historyOffset || 0))}`;
+                    const r = await socialFetchJson(url);
+                    if (!r.ok) {
+                        socialSetStatus(String(r.json && r.json.message ? r.json.message : 'Failed to load orders.'));
+                        return;
+                    }
+                    const items = Array.isArray(r.json.items) ? r.json.items : [];
+                    if (reset) {
+                        socialEls.grid.innerHTML = '';
+                    }
+                    if (items.length === 0 && reset) {
+                        socialEls.grid.innerHTML = `<div class="no-results" style="grid-column:1 / -1; padding:44px 12px"><p>No social orders yet.</p></div>`;
+                        return;
+                    }
+                    items.forEach((o) => {
+                        const card = document.createElement('div');
+                        card.className = 'card';
+                        const sms = Array.isArray(o.sms) ? o.sms : [];
+                        const last = sms.length ? sms[sms.length - 1] : null;
+                        const code = last && last.code ? String(last.code) : '';
+                        const displayProduct = String(o.product_name || o.product || '');
+                        const displayCountry = String(o.country_name || o.country || '');
+                        const iconSrc = safeImgSrc(socialIconUrl(o.product || ''));
+                        const bg = socialBrandBg(o.product || '');
+                        card.innerHTML = `
+                            <div class="card-left">
+                                <div class="flag" style="background:${esc(bg)};border-color:rgba(255,255,255,.16)">
+                                    ${iconSrc ? `<img src="${iconSrc}" alt="${esc(displayProduct)}">` : `<span>📩</span>`}
+                                </div>
+                                <div class="meta">
+                                    <div class="name">${esc(displayProduct)} • ${esc(String(o.phone || ''))}</div>
+                                    <div class="subtext">${esc(displayCountry)} • ${esc(String(o.operator || ''))} • ${esc(String(o.status || ''))}</div>
+                                    <div class="subtext">${code ? `Last code: ${esc(code)}` : 'No SMS yet.'}</div>
+                                </div>
+                            </div>
+                            <div class="card-right">
+                                <button class="mini-btn" type="button" data-sn-open="${esc(String(o.id || ''))}">Open</button>
+                            </div>
+                        `;
+                        socialEls.grid.appendChild(card);
+                    });
+                    socialState.historyOffset = (socialState.historyOffset || 0) + items.length;
+                    socialSetStatus('');
+                    socialEls.grid.insertAdjacentHTML('beforeend', `<div style="grid-column:1 / -1; display:flex; gap:10px; justify-content:center; margin-top:10px"><button class="load-more-btn" type="button" id="snMoreBtn">Load more</button><button class="load-more-btn" type="button" id="snBackToApps">Back to apps</button></div>`);
+                    document.getElementById('snMoreBtn')?.addEventListener('click', () => socialLoadHistory(false));
+                    document.getElementById('snBackToApps')?.addEventListener('click', () => { socialState.historyOffset = 0; socialShowApps().catch(() => {}); });
+                    Array.from(document.querySelectorAll('[data-sn-open]')).forEach((btn) => {
+                        btn.addEventListener('click', async () => {
+                            const id = Number(btn.getAttribute('data-sn-open') || 0);
+                            if (!id) return;
+                            socialSetStatus('Loading order…');
+                            const rr = await socialFetchJson(socialApi.checkBase + encodeURIComponent(String(id)));
+                            if (!rr.ok) {
+                                socialSetStatus(String(rr.json && rr.json.message ? rr.json.message : 'Failed to load order.'));
+                                return;
+                            }
+                            const order = rr.json && rr.json.order && typeof rr.json.order === 'object' ? rr.json.order : null;
+                            if (!order) return;
+                            socialState.order = order;
+                            const key = String(order.product || '');
+                            const countryKey = String(order.country || '');
+                            await socialLoadApps();
+                            await socialEnsureProfile();
+                            await socialShowCountries(key);
+                            await socialShowCountry(countryKey);
+                            socialState.order = order;
+                            socialStartPolling();
+                        });
+                    });
+                };
+
+                const socialRentShowApps = async () => {
+                    socialStopPolling();
+                    socialSetMode('rent');
+                    socialRentState.view = 'apps';
+                    socialRentState.selectedApp = null;
+                    socialRentState.selectedCountry = '';
+                    socialRentState.quote = null;
+                    await socialRentLoadApps();
+                    socialRentRenderApps();
+                };
+                const socialRentRenderApps = () => {
+                    if (!socialEls.grid) return;
+                    const q = socialQuery().toLowerCase();
+                    const items = q ? socialRentState.apps.filter((a) => String(a.name || '').toLowerCase().includes(q)) : socialRentState.apps;
+                    socialSetStatus('Choose an app to rent for one month');
+                    socialEls.grid.innerHTML = '';
+                    if (items.length === 0) {
+                        socialEls.grid.innerHTML = `<div class="no-results" style="grid-column:1/-1;padding:44px 12px"><p>No monthly rental apps found.</p></div>`;
+                        return;
+                    }
+                    items.forEach((app) => {
+                        const card = document.createElement('div');
+                        const iconSrc = safeImgSrc(socialIconUrl(app.key || ''));
+                        const bg = socialBrandBg(app.key || '');
+                        card.className = 'card';
+                        card.innerHTML = `
+                            <div class="card-left">
+                                <div class="flag" style="background:${esc(bg)};border-color:rgba(255,255,255,.16)">
+                                    ${iconSrc ? `<img src="${iconSrc}" alt="${esc(String(app.name || ''))}">` : `<span>📩</span>`}
+                                </div>
+                                <div class="meta">
+                                    <div class="name">${esc(String(app.name || 'App'))}</div>
+                                    <div class="subtext">Keep a number for one month with wallet renewal.</div>
+                                </div>
+                            </div>
+                            <div class="card-right">
+                                <button class="mini-btn" type="button" data-snr-app="${esc(String(app.key || ''))}">Select</button>
+                            </div>
+                        `;
+                        socialEls.grid.appendChild(card);
+                        card.querySelector('[data-snr-app]')?.addEventListener('click', () => socialRentShowCountries(String(app.key || '')).catch(() => {}));
+                    });
+                };
+                const socialRentShowCountries = async (appKey) => {
+                    const app = socialRentState.apps.find((a) => String(a.key || '') === String(appKey || ''));
+                    if (!app) return;
+                    socialSetMode('rent');
+                    socialRentState.view = 'countries';
+                    socialRentState.selectedApp = app;
+                    socialRentState.selectedCountry = '';
+                    socialRentState.quote = null;
+                    socialRentState.countriesPage = 0;
+                    await socialRentLoadCountries();
+                    socialRentRenderCountries();
+                };
+                const socialRentRenderCountries = () => {
+                    if (!socialEls.grid) return;
+                    const q = socialQuery().toLowerCase();
+                    const filtered = q ? socialRentState.countries.filter((c) => String(c.name || c.country || '').toLowerCase().includes(q)) : socialRentState.countries;
+                    const perPage = 30;
+                    const max = Math.min(filtered.length, (socialRentState.countriesPage + 1) * perPage);
+                    const slice = filtered.slice(0, max);
+                    socialSetStatus(`Choose a monthly rental country for ${String(socialRentState.selectedApp?.name || '')}`);
+                    socialEls.grid.innerHTML = '';
+                    slice.forEach((c) => {
+                        const card = document.createElement('div');
+                        card.className = 'card';
+                        card.innerHTML = `
+                            <div class="card-left">
+                                <div class="flag"><span>${esc(socialFlagEmoji(c.iso || ''))}</span></div>
+                                <div class="meta">
+                                    <div class="name">${esc(String(c.name || c.country || ''))}</div>
+                                    <div class="subtext">${esc(String(c.prefix || ''))} • one month rental</div>
+                                </div>
+                            </div>
+                            <div class="card-right">
+                                <button class="mini-btn" type="button" data-snr-country="${esc(String(c.country || ''))}">View</button>
+                            </div>
+                        `;
+                        socialEls.grid.appendChild(card);
+                        card.querySelector('[data-snr-country]')?.addEventListener('click', () => socialRentShowCountry(String(c.country || '')).catch(() => {}));
+                    });
+                    if (max < filtered.length) {
+                        socialEls.grid.insertAdjacentHTML('beforeend', `<div style="grid-column:1/-1;display:flex;justify-content:center;margin-top:10px"><button class="load-more-btn" type="button" id="snrCountriesMoreBtn">Load more</button></div>`);
+                        document.getElementById('snrCountriesMoreBtn')?.addEventListener('click', () => {
+                            socialRentState.countriesPage += 1;
+                            socialRentRenderCountries();
+                        });
+                    }
+                };
+                const socialRentShowCountry = async (countryKey) => {
+                    if (!socialRentState.selectedApp) return;
+                    socialSetMode('rent');
+                    socialRentState.view = 'country';
+                    socialRentState.selectedCountry = String(countryKey || '');
+                    socialRentState.selectedProvider = 'all_providers';
+                    socialRentState.quote = null;
+                    socialRentRenderCountry('Loading monthly price…');
+                    await socialRentLoadQuote();
+                };
+                const socialRentLoadQuote = async () => {
+                    const appKey = String(socialRentState.selectedApp?.key || '');
+                    const countryKey = String(socialRentState.selectedCountry || '');
+                    const provider = String(socialRentState.selectedProvider || 'all_providers');
+                    const url = `${socialRentApi.quote}?product=${encodeURIComponent(appKey)}&country=${encodeURIComponent(countryKey)}&provider=${encodeURIComponent(provider)}`;
+                    const r = await socialFetchJson(url);
+                    if (!r.ok) {
+                        socialRentState.quote = null;
+                        socialRentRenderCountry(String(r.json && r.json.message ? r.json.message : 'Unable to load monthly price.'));
+                        return;
+                    }
+                    socialRentState.quote = r.json;
+                    socialRentRenderCountry('');
+                };
+                const socialRentRenderCountry = (message = '') => {
+                    if (!socialEls.grid) return;
+                    const countryKey = String(socialRentState.selectedCountry || '');
+                    const countryObj = (socialRentState.countries || []).find((c) => String(c.country || '') === countryKey);
+                    const countryName = countryObj ? (countryObj.name || countryKey) : countryKey;
+                    const q = socialRentState.quote || {};
+                    const providers = Array.isArray(q.providers) ? q.providers : [];
+                    const providerOptions = ['all_providers'].concat(providers).map((p) => `<option value="${esc(String(p))}" ${String(socialRentState.selectedProvider || 'all_providers') === String(p) ? 'selected' : ''}>${esc(String(p === 'all_providers' ? 'All providers' : p))}</option>`).join('');
+                    const count = Number(q.count || 0);
+                    const price = q.monthly_amount_formatted ? String(q.monthly_amount_formatted) : '';
+                    socialSetStatus(message || (count > 0 ? `${count} monthly numbers available${price ? ` • ${price}/month` : ''}` : 'No monthly numbers found.'));
+                    socialEls.grid.innerHTML = `
+                        <div class="sn-rental-detail">
+                            <div class="sn-rental-main">
+                                <div class="sn-kicker">Monthly rental</div>
+                                <div class="sn-rental-title">${esc(String(socialRentState.selectedApp?.name || ''))} in ${esc(String(countryName || ''))}</div>
+                                <div class="sn-rental-copy">Choose a provider, rent the number for one month, then activate it when you are ready to receive messages. Auto-renew uses wallet balance.</div>
+                                <div class="sn-metric-row">
+                                    <div class="sn-metric">
+                                        <div class="k">Available</div>
+                                        <div class="v">${esc(count > 0 ? String(count) : 'None')}</div>
+                                    </div>
+                                    <div class="sn-metric">
+                                        <div class="k">Monthly price</div>
+                                        <div class="v">${esc(price || 'Unavailable')}</div>
+                                    </div>
+                                    <div class="sn-metric">
+                                        <div class="k">Period</div>
+                                        <div class="v">1 month</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="sn-rental-side">
+                                <div>
+                                    <div class="sn-field-label">Provider</div>
+                                    <select id="snrProviderSelect" class="sn-provider-select">${providerOptions}</select>
+                                    <div class="vn-status">${esc(count > 0 ? `${count} available • ${price}/month` : (message || 'No availability.'))}</div>
+                                </div>
+                                <div class="sn-rental-actions">
+                                    <button type="button" class="vn-btn" id="snrBackCountries">Back</button>
+                                    <button type="button" class="vn-btn primary" id="snrBuyBtn" ${count > 0 ? '' : 'disabled'}>Rent for 1 month</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    document.getElementById('snrBackCountries')?.addEventListener('click', () => {
+                        socialRentState.view = 'countries';
+                        socialRentRenderCountries();
+                    });
+                    document.getElementById('snrProviderSelect')?.addEventListener('change', (e) => {
+                        socialRentState.selectedProvider = String(e.target.value || 'all_providers');
+                        socialRentLoadQuote().catch(() => {});
+                    });
+                    document.getElementById('snrBuyBtn')?.addEventListener('click', () => socialRentBuy());
+                };
+                const socialRentBuy = async () => {
+                    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+                    const csrf = csrfMeta ? (csrfMeta.getAttribute('content') || '') : '';
+                    socialSetStatus('Renting monthly number…');
+                    const r = await socialFetchJson(socialRentApi.buy, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf },
+                        body: JSON.stringify({
+                            product: String(socialRentState.selectedApp?.key || ''),
+                            country: String(socialRentState.selectedCountry || ''),
+                            provider: String(socialRentState.selectedProvider || 'all_providers'),
+                        }),
+                    });
+                    if (!r.ok) {
+                        socialSetStatus(String(r.json && r.json.message ? r.json.message : 'Monthly rental failed.'));
+                        return;
+                    }
+                    socialRentLoadRentals(true).catch(() => {});
+                };
+                const socialRentRenderRentalCard = (rental) => {
+                    const card = document.createElement('div');
+                    card.className = 'card';
+                    const messages = Array.isArray(rental.sms) ? rental.sms : [];
+                    const last = messages.length ? messages[messages.length - 1] : null;
+                    card.innerHTML = `
+                        <div class="card-left">
+                            <div class="flag" style="background:${esc(socialBrandBg(rental.product || ''))};border-color:rgba(255,255,255,.16)">
+                                <img src="${safeImgSrc(socialIconUrl(rental.product || ''))}" alt="${esc(String(rental.product_name || ''))}">
+                            </div>
+                            <div class="meta">
+                                <div class="name">${esc(String(rental.product_name || rental.product || ''))} • ${esc(String(rental.phone || ''))}</div>
+                                <div class="subtext">${esc(String(rental.country_name || rental.country || ''))} • ${esc(String(rental.status || ''))} • ${esc(String(rental.monthly_amount_formatted || ''))}/month</div>
+                                <div class="subtext">${rental.current_period_end ? `Renews ${esc(new Date(rental.current_period_end).toLocaleDateString())}` : ''}${last ? ` • Last SMS: ${esc(String(last.text || ''))}` : ''}</div>
+                            </div>
+                        </div>
+                        <div class="card-right">
+                            <button class="mini-btn" type="button" data-snr-activate="${esc(String(rental.id || ''))}">Activate</button>
+                            <button class="mini-btn" type="button" data-snr-sms="${esc(String(rental.id || ''))}">SMS</button>
+                            <button class="mini-btn" type="button" data-snr-cancel="${esc(String(rental.id || ''))}">Cancel renew</button>
+                        </div>
+                    `;
+                    socialEls.grid.appendChild(card);
+                };
+                const socialRentLoadRentals = async (reset = false) => {
+                    socialSetMode('rent');
+                    socialRentState.view = 'rentals';
+                    if (reset) socialRentState.rentalsOffset = 0;
+                    socialSetStatus('Loading monthly rentals…');
+                    const r = await socialFetchJson(`${socialRentApi.list}?limit=20&offset=${encodeURIComponent(String(socialRentState.rentalsOffset || 0))}`);
+                    if (!r.ok) {
+                        socialSetStatus(String(r.json && r.json.message ? r.json.message : 'Failed to load monthly rentals.'));
+                        return;
+                    }
+                    const items = Array.isArray(r.json.items) ? r.json.items : [];
+                    if (reset) socialEls.grid.innerHTML = '';
+                    if (items.length === 0 && reset) {
+                        socialEls.grid.innerHTML = `<div class="no-results" style="grid-column:1/-1;padding:44px 12px"><p>No monthly social numbers yet.</p></div>`;
+                        socialSetStatus('');
+                        return;
+                    }
+                    items.forEach(socialRentRenderRentalCard);
+                    socialRentState.rentalsOffset = (socialRentState.rentalsOffset || 0) + items.length;
+                    socialSetStatus('');
+                    socialEls.grid.insertAdjacentHTML('beforeend', `<div style="grid-column:1/-1;display:flex;gap:10px;justify-content:center;margin-top:10px"><button class="load-more-btn" type="button" id="snrMoreBtn">Load more</button><button class="load-more-btn" type="button" id="snrBackAppsBtn">Back to monthly apps</button></div>`);
+                    document.getElementById('snrMoreBtn')?.addEventListener('click', () => socialRentLoadRentals(false));
+                    document.getElementById('snrBackAppsBtn')?.addEventListener('click', () => socialRentShowApps().catch(() => {}));
+                    Array.from(document.querySelectorAll('[data-snr-activate]')).forEach((btn) => btn.addEventListener('click', () => socialRentAction(btn.getAttribute('data-snr-activate'), 'activate')));
+                    Array.from(document.querySelectorAll('[data-snr-sms]')).forEach((btn) => btn.addEventListener('click', () => socialRentAction(btn.getAttribute('data-snr-sms'), 'sms')));
+                    Array.from(document.querySelectorAll('[data-snr-cancel]')).forEach((btn) => btn.addEventListener('click', () => socialRentAction(btn.getAttribute('data-snr-cancel'), 'cancel')));
+                };
+                const socialRentAction = async (id, action) => {
+                    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+                    const csrf = csrfMeta ? (csrfMeta.getAttribute('content') || '') : '';
+                    const method = action === 'sms' ? 'GET' : 'POST';
+                    const suffix = action === 'sms' ? '/sms' : `/${action}`;
+                    socialSetStatus(action === 'sms' ? 'Refreshing SMS…' : 'Updating rental…');
+                    await socialFetchJson(`${socialRentApi.activateBase}${encodeURIComponent(String(id || ''))}${suffix}`, {
+                        method,
+                        headers: method === 'POST' ? { 'X-CSRF-TOKEN': csrf } : {},
+                    });
+                    socialRentLoadRentals(true).catch(() => {});
+                };
+
+                const socialRenderSocialHome = async () => {
+                    socialSetMode('otp');
+                    await socialShowApps();
+                };
 
                 const updateLoadMoreUi = () => {
                     if (viewMode !== 'assets') {
                         loadMoreWrap.classList.remove('show');
                         return;
                     }
-                    if (activeTab === 'virtual') {
+                    if (activeTab === 'social') {
                         loadMoreWrap.classList.remove('show');
                         return;
                     }
@@ -986,10 +2102,13 @@
 
                 const fetchMyEsims = async ({ reset = false } = {}) => {
                     if (esimsState.loading) return;
+                    const hasRenderedCards = myEsimsGrid.querySelectorAll('.esim-card:not([data-esim-skeleton])').length > 0;
                     if (reset) {
                         esimsState.page = 0;
                         esimsState.hasMore = true;
-                        setEsimsSkeleton();
+                        if (!hasRenderedCards) {
+                            setEsimsSkeleton();
+                        }
                         noEsims.classList.add('hidden');
                     }
                     if (!esimsState.hasMore) {
@@ -1013,6 +2132,12 @@
                             return;
                         }
                         const items = Array.isArray(json.items) ? json.items : [];
+                        if (nextPage === 1 && items.length === 0 && hasRenderedCards) {
+                            esimsState.page = 1;
+                            esimsState.hasMore = false;
+                            noEsims.classList.add('hidden');
+                            return;
+                        }
                         if (nextPage === 1) {
                             myEsimsGrid.innerHTML = '';
                         }
@@ -1022,13 +2147,35 @@
                         esimsState.hasMore = !!json.has_more;
                         noEsims.classList.toggle('hidden', (items.length > 0) || nextPage > 1);
                     } catch (e) {
-                        myEsimsGrid.innerHTML = '<div class="no-results"><p>Failed to load eSIMs.</p></div>';
+                        if (!hasRenderedCards) {
+                            myEsimsGrid.innerHTML = '<div class="no-results"><p>Failed to load eSIMs.</p></div>';
+                        }
                         esimsState.hasMore = false;
                     } finally {
                         esimsState.loading = false;
                         myEsimsGrid.querySelectorAll('[data-esim-skeleton="loadmore"]').forEach((el) => el.remove());
                         updateEsimsLoadMoreUi();
                     }
+                };
+
+                const renderInitialMyEsims = () => {
+                    if (initialMyEsimsRendered || esimsState.filter !== 'valid') {
+                        return false;
+                    }
+                    const items = Array.isArray(initialMyEsims.items) ? initialMyEsims.items : [];
+                    if (items.length === 0) {
+                        return false;
+                    }
+
+                    myEsimsGrid.innerHTML = '';
+                    items.forEach((it) => myEsimsGrid.appendChild(createEsimCard(it)));
+                    esimsState.page = Number(initialMyEsims.page || 1);
+                    esimsState.hasMore = !!initialMyEsims.has_more;
+                    noEsims.classList.add('hidden');
+                    initialMyEsimsRendered = true;
+                    updateEsimsLoadMoreUi();
+
+                    return true;
                 };
 
                 const setSkeleton = (key) => {
@@ -1602,7 +2749,7 @@
                 vnEls.saveForwardBtn?.addEventListener('click', () => vnSaveForwarding());
 
                 const fetchNextPage = async (tab, { reset = false } = {}) => {
-                    if (tab === 'virtual') {
+                    if (tab === 'virtual' || tab === 'social') {
                         return;
                     }
                     const tabState = state[tab];
@@ -1663,17 +2810,15 @@
 
                 // Main Asset Toggle Logic
                 const setAssetSection = (mode) => {
+                    const normalizedMode = (mode === 'regions' || mode === 'social' || mode === 'countries') ? mode : 'countries';
+                    activeTab = normalizedMode;
+                    mode = normalizedMode;
                     assetToggles.forEach(btn => btn.classList.toggle('active', btn.getAttribute('data-asset-toggle') === mode));
                     assetSections.forEach(sec => sec.classList.toggle('hidden', sec.getAttribute('data-asset-section') !== mode));
-                    activeTab = mode === 'virtual' ? 'virtual' : mode;
-
-                    if (activeTab === 'virtual') {
+                    if (activeTab === 'social') {
                         noResultsSearch.classList.add('hidden');
                         loadMoreWrap.classList.remove('show');
-                        vnShowView(vnState.view);
-                        if (vnState.countries.page === 0 && vnEls.countriesGrid.children.length === 0) {
-                            vnLoadCountries({ reset: true });
-                        }
+                        socialRenderSocialHome().catch(() => {});
                         return;
                     }
 
@@ -1689,19 +2834,29 @@
 
                 const syncMyEsims = async () => {
                     const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-                    const res = await fetch('/api/my-esims/sync', {
-                        method: 'POST',
-                        headers: {
-                            'Accept': 'application/json',
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': csrf
-                        },
-                        body: JSON.stringify({})
-                    });
-                    if (!res.ok) {
-                        return;
+                    const controller = new AbortController();
+                    const timeout = window.setTimeout(() => controller.abort(), 12000);
+                    try {
+                        const res = await fetch('/api/my-esims/sync', {
+                            method: 'POST',
+                            headers: {
+                                'Accept': 'application/json',
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': csrf
+                            },
+                            body: JSON.stringify({}),
+                            signal: controller.signal
+                        });
+                        if (!res.ok) {
+                            return false;
+                        }
+                        const json = await res.json().catch(() => ({}));
+                        return Number(json.updated || 0) > 0;
+                    } catch (e) {
+                        return false;
+                    } finally {
+                        window.clearTimeout(timeout);
                     }
-                    await res.json().catch(() => ({}));
                 };
 
                 const setViewMode = (mode) => {
@@ -1725,9 +2880,16 @@
                         esimsState.hasMore = true;
                         esimsState.loading = false;
                         noEsims.classList.add('hidden');
-                        setEsimsSkeleton();
+                        if (!renderInitialMyEsims()) {
+                            setEsimsSkeleton();
+                        }
                         updateEsimsLoadMoreUi();
-                        syncMyEsims().finally(() => fetchMyEsims({ reset: false }));
+                        fetchMyEsims({ reset: false });
+                        syncMyEsims().then((changed) => {
+                            if (changed && viewMode === 'myesims') {
+                                fetchMyEsims({ reset: true });
+                            }
+                        });
                     }
                 };
 
@@ -1738,19 +2900,87 @@
                     });
                 });
 
+                if (socialEls.refreshBtn) {
+                    socialEls.refreshBtn.addEventListener('click', () => {
+                        if (socialState.isBuying) return;
+                        if (activeTab !== 'social') setAssetSection('social');
+                        if (socialState.mode === 'rent') {
+                            socialRentShowApps().catch(() => {});
+                        } else {
+                            socialRenderSocialHome().catch(() => {});
+                        }
+                    });
+                }
+                if (socialEls.otpModeBtn) {
+                    socialEls.otpModeBtn.addEventListener('click', () => {
+                        if (socialState.isBuying) return;
+                        if (activeTab !== 'social') setAssetSection('social');
+                        socialRenderSocialHome().catch(() => {});
+                    });
+                }
+                if (socialEls.rentModeBtn) {
+                    socialEls.rentModeBtn.addEventListener('click', () => {
+                        if (socialState.isBuying) return;
+                        if (activeTab !== 'social') setAssetSection('social');
+                        socialRentShowApps().catch(() => {});
+                    });
+                }
+                if (socialEls.rentalsBtn) {
+                    socialEls.rentalsBtn.addEventListener('click', () => {
+                        if (socialState.isBuying) return;
+                        if (activeTab !== 'social') setAssetSection('social');
+                        socialRentLoadRentals(true).catch(() => {});
+                    });
+                }
+                if (socialEls.ordersBtn) {
+                    socialEls.ordersBtn.addEventListener('click', () => {
+                        if (socialState.isBuying) return;
+                        if (activeTab !== 'social') setAssetSection('social');
+                        socialSetMode('otp');
+                        socialLoadHistory(true).catch(() => {});
+                    });
+                }
+                if (socialEls.inlineSearch) {
+                    let snTimer = null;
+                    socialEls.inlineSearch.addEventListener('input', () => {
+                        if (activeTab !== 'social') return;
+                        if (snTimer) window.clearTimeout(snTimer);
+                        snTimer = window.setTimeout(() => {
+                            if (socialState.mode === 'rent') {
+                                if (socialRentState.view === 'countries') {
+                                    socialRentRenderCountries();
+                                } else if (socialRentState.view === 'apps') {
+                                    socialRentRenderApps();
+                                }
+                            } else if (socialState.view === 'countries') {
+                                socialRenderCountries();
+                            } else if (socialState.view === 'country') {
+                                socialRenderCountry();
+                            } else {
+                                renderSocialNumbersPlaceholder();
+                            }
+                        }, 150);
+                    });
+                }
+
                 let searchTimer = null;
                 searchInput.addEventListener('input', () => {
                     if (viewMode !== 'assets') return;
                     if (searchTimer) window.clearTimeout(searchTimer);
                     searchTimer = window.setTimeout(() => {
-                        if (activeTab === 'virtual') {
-                            const q = (searchInput.value || '').trim();
-                            if (vnState.view === 'numbers') {
-                                vnEls.numbersSearch.value = q;
-                                vnLoadNumbers({ reset: true });
-                            } else if (vnState.view === 'countries') {
-                                vnEls.countriesSearch.value = q;
-                                vnLoadCountries({ reset: true });
+                        if (activeTab === 'social') {
+                            if (socialState.mode === 'rent') {
+                                if (socialRentState.view === 'countries') {
+                                    socialRentRenderCountries();
+                                } else if (socialRentState.view === 'apps') {
+                                    socialRentRenderApps();
+                                }
+                            } else if (socialState.view === 'countries') {
+                                socialRenderCountries();
+                            } else if (socialState.view === 'country') {
+                                socialRenderCountry();
+                            } else {
+                                renderSocialNumbersPlaceholder();
                             }
                             return;
                         }
@@ -1782,10 +3012,45 @@
                 if (walletEls.depositBtn) walletEls.depositBtn.addEventListener('click', depositToWallet);
                 if (walletEls.refreshBtn) walletEls.refreshBtn.addEventListener('click', () => {
                     refreshWallet();
-                    refreshWalletTx();
                 });
                 refreshWallet();
-                refreshWalletTx();
+
+                let activeLoadingLink = null;
+                const resetViewPlansLoading = (el) => {
+                    if (!el) return;
+                    if (!el.classList.contains('is-loading')) return;
+                    el.classList.remove('is-loading');
+                    el.removeAttribute('aria-busy');
+                    el.removeAttribute('aria-disabled');
+                    if (el.dataset.originalHtml) el.innerHTML = el.dataset.originalHtml;
+                };
+                const resetAllViewPlansLoading = () => {
+                    document.querySelectorAll('a.js-view-plans.is-loading').forEach(resetViewPlansLoading);
+                    activeLoadingLink = null;
+                };
+
+                window.addEventListener('pageshow', () => {
+                    resetAllViewPlansLoading();
+                });
+
+                document.addEventListener('click', (e) => {
+                    const a = e.target.closest('a.js-view-plans');
+                    if (!a) return;
+                    if (e.defaultPrevented) return;
+                    if (e.button !== 0) return;
+                    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                    const href = a.getAttribute('href');
+                    if (!href) return;
+                    e.preventDefault();
+                    if (activeLoadingLink && activeLoadingLink !== a) resetViewPlansLoading(activeLoadingLink);
+                    activeLoadingLink = a;
+                    if (!a.dataset.originalHtml) a.dataset.originalHtml = a.innerHTML;
+                    a.classList.add('is-loading');
+                    a.setAttribute('aria-busy', 'true');
+                    a.setAttribute('aria-disabled', 'true');
+                    a.innerHTML = '<span class="btn-spinner" aria-hidden="true"></span><span>Loading…</span>';
+                    window.location.assign(href);
+                });
 
                 // Initialize
                 const urlParams = new URLSearchParams(window.location.search);

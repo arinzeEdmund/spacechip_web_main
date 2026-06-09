@@ -1,0 +1,1600 @@
+# Spacechip React Native API Integration Docs
+
+Source of truth: `routes/web.php`, `routes/api.php`, `bootstrap/app.php`, `routes/auth.php`, service classes in `app/Services`.
+Generated for mobile integration. Crypto payment integration is intentionally excluded.
+
+Base URL
+- Production: `https://spacechipltd.com`
+- Local MAMP example: `http://localhost/spacechip/public`
+- Always send:
+  - `Accept: application/json`
+  - `Content-Type: application/json` for JSON bodies
+  - `Authorization: Bearer <sanctum_token>` on protected routes
+
+Authentication Model
+- Mobile auth uses Laravel Sanctum personal access tokens.
+- Store the returned `token` securely with Keychain/Keystore, for example `expo-secure-store` or `react-native-keychain`.
+- For protected routes, attach `Authorization: Bearer <token>`.
+- Routes marked `verified` require the user's email to be verified. If the API returns 403 or a verification-related redirect/HTML response, show an email verification screen and call resend verification.
+
+Money Rules
+- `*_minor` fields are minor currency units.
+- USD cents: `$12.34` is `1234`.
+- NGN kobo: `NGN 1000.00` is `100000`.
+- Wallet balance is USD minor units.
+- Paystack card payments may charge NGN or USD depending on backend config/request.
+
+Standard Error Handling
+- Validation errors usually return HTTP 422 with `{ "message": "..." }`.
+- Unauthenticated requests return 401.
+- Forbidden ownership/verification failures return 403.
+- Missing resources return 404.
+- Provider failures return 502.
+- Rate limits return 429.
+
+Latest Backend Implementation Notes
+- `routes/api.php` is now registered in `bootstrap/app.php`.
+- Mobile discovery endpoints are available:
+  - `GET /api/mobile/health`
+  - `GET /api/mobile/endpoints`
+- Existing service-backed mobile operations still use the stable `/api/...` paths documented below.
+- Mobile POST endpoints use Sanctum Bearer auth and are exempted from browser CSRF where needed.
+- CSRF exemptions are scoped to non-crypto mobile/provider paths:
+  - `/api/auth/*`
+  - `/api/airalo/webhook`
+  - `/api/my-esims/*`
+  - `/api/paystack/*`
+  - `/api/social-numbers/*`
+  - `/api/social-rentals/*`
+  - `/api/twilio/*`
+  - `/api/virtual-numbers/*`
+  - `/api/wallet/*`
+- Cryptomus/crypto endpoints are not part of the mobile API contract and are not listed in `/api/mobile/endpoints`.
+
+LIVE MOBILE API DISCOVERY
+
+1. Health
+`GET /api/mobile/health`
+
+Auth: none
+
+Response:
+```json
+{
+  "ok": true,
+  "service": "spacechip-mobile-api",
+  "version": "1.0",
+  "crypto_payments_enabled": false,
+  "auth": {
+    "type": "Bearer",
+    "header": "Authorization: Bearer <token>"
+  }
+}
+```
+
+2. Endpoint Index
+`GET /api/mobile/endpoints`
+
+Auth: none
+
+Purpose:
+- Returns the current mobile endpoint map grouped by auth, catalog, eSIMs, wallet, virtual numbers, social numbers, social rentals, and provider webhooks.
+- Explicitly excludes crypto/Cryptomus payment flows.
+
+Mobile action:
+- Use this for integration QA and quick backend capability checks.
+- Do not treat it as a replacement for this document; it is a compact machine-readable route index.
+
+Mobile API Client Skeleton
+```ts
+const API_BASE_URL = "https://spacechipltd.com";
+
+async function apiFetch(path: string, options: RequestInit = {}, token?: string) {
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    ...(options.body ? { "Content-Type": "application/json" } : {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(options.headers as Record<string, string> | undefined),
+  };
+
+  const res = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
+  const contentType = res.headers.get("content-type") || "";
+  const data = contentType.includes("application/json") ? await res.json() : await res.text();
+
+  if (!res.ok) {
+    const message = typeof data === "object" && data?.message ? data.message : "Request failed.";
+    throw Object.assign(new Error(message), { status: res.status, data });
+  }
+
+  return data;
+}
+```
+
+AUTH ENDPOINTS
+
+1. Register
+`POST /api/auth/register`
+
+Auth: none
+
+Body:
+```json
+{
+  "name": "Jane Doe",
+  "email": "jane@example.com",
+  "password": "password1234",
+  "device_name": "ios"
+}
+```
+
+Response:
+```json
+{
+  "ok": true,
+  "token_type": "Bearer",
+  "token": "plain_text_sanctum_token",
+  "user": {
+    "id": 1,
+    "name": "Jane Doe",
+    "email": "jane@example.com",
+    "email_verified": false
+  }
+}
+```
+
+Mobile action:
+- Save `token`.
+- If `email_verified` is false, allow browsing public catalog but gate verified-only purchases behind verification prompt.
+
+2. Login
+`POST /api/auth/login`
+
+Auth: none
+
+Body:
+```json
+{
+  "email": "jane@example.com",
+  "password": "password1234",
+  "device_name": "android"
+}
+```
+
+Response:
+```json
+{
+  "ok": true,
+  "token_type": "Bearer",
+  "token": "plain_text_sanctum_token",
+  "user": {
+    "id": 1,
+    "name": "Jane Doe",
+    "email": "jane@example.com",
+    "email_verified": true,
+    "wallet_balance_minor": 500
+  }
+}
+```
+
+3. Current User
+`GET /api/auth/me`
+
+Auth: Bearer token
+
+Response:
+```json
+{
+  "ok": true,
+  "user": {
+    "id": 1,
+    "name": "Jane Doe",
+    "email": "jane@example.com",
+    "email_verified": true,
+    "wallet_balance_minor": 500
+  }
+}
+```
+
+Mobile action:
+- Call on app launch when a token exists.
+- If 401, clear token and return to auth screens.
+
+4. Logout
+`POST /api/auth/logout`
+
+Auth: Bearer token
+
+Response:
+```json
+{ "ok": true }
+```
+
+Mobile action:
+- Clear local token after success.
+
+5. Resend Verification Email
+`POST /api/auth/resend-verification`
+
+Auth: Bearer token
+
+Response:
+```json
+{ "ok": true }
+```
+
+6. Forgot Password
+`POST /api/auth/forgot-password`
+
+Auth: none
+
+Body:
+```json
+{ "email": "jane@example.com" }
+```
+
+Response:
+```json
+{ "ok": true }
+```
+
+CATALOG AND LANDING ENDPOINTS
+
+1. Landing Data
+`GET /api/landing`
+
+Auth: none
+
+Response shape:
+```json
+{
+  "popularCountries": [],
+  "popularRegions": [],
+  "searchableAssets": []
+}
+```
+
+Mobile action:
+- Use for home screen highlights and global search.
+- Each asset should be opened by requesting bundles with `/api/assets/{type}/{id}/bundles`.
+
+2. All Assets
+`GET /api/allassets`
+
+Auth: none
+
+Full mode query: none
+
+Full response:
+```json
+{
+  "countries": [],
+  "regions": [],
+  "virtualNumbers": []
+}
+```
+
+Paginated mode:
+`GET /api/allassets?tab=countries&page=1&per_page=30&q=usa`
+
+Allowed `tab`: `countries`, `regions`, `virtual`
+
+Response:
+```json
+{
+  "tab": "countries",
+  "page": 1,
+  "per_page": 30,
+  "total": 100,
+  "has_more": true,
+  "items": []
+}
+```
+
+3. eSIM Bundles For Asset
+`GET /api/assets/{type}/{id}/bundles?package_type=DATA-ONLY`
+
+Auth: none
+
+Path:
+- `type`: `country`, `region`, or provider-supported asset type.
+- `id`: asset id/slug/code returned from catalog.
+
+Query:
+- `package_type`: `DATA-ONLY` or `DATA-VOICE-SMS`. Defaults to `DATA-ONLY`.
+
+Response:
+```json
+{
+  "type": "country",
+  "id": "united-states",
+  "package_type": "DATA-ONLY",
+  "bundles": [
+    {
+      "id": "bundle_id",
+      "name": "1GB - 7 Days",
+      "data": "1 GB",
+      "validity": "7 Days",
+      "price": 4.5,
+      "price_formatted": "$4.50"
+    }
+  ]
+}
+```
+
+PAYSTACK CARD PAYMENT: eSIM
+
+Flow:
+1. User chooses an eSIM asset and bundle.
+2. Mobile calls initialize.
+3. Mobile opens Paystack checkout using returned `access_code`.
+4. After Paystack success callback, mobile calls verify.
+5. If fulfillment is pending, poll status every 5-10 seconds until `fulfillment.ok === true` or show support fallback.
+6. Save/display returned QR fields and refresh `/api/my-esims`.
+
+1. Initialize eSIM Card Payment
+`POST /api/paystack/initialize`
+
+Auth: Bearer token
+
+Body:
+```json
+{
+  "type": "country",
+  "id": "united-states",
+  "bundle": "bundle_id",
+  "package_type": "DATA-ONLY",
+  "currency": "NGN",
+  "topup_esim_id": null
+}
+```
+
+Notes:
+- `currency` can be `NGN` or `USD`.
+- Omit or send empty `topup_esim_id` for a new eSIM.
+- For top-up, set `topup_esim_id` to the user's existing `esim.esim_id` from `/api/my-esims`.
+
+Response:
+```json
+{
+  "reference": "uuid-reference",
+  "access_code": "paystack_access_code",
+  "amount": 100000,
+  "currency": "NGN",
+  "email": "jane@example.com",
+  "conversion": {
+    "usd_price": 5,
+    "usd_to_ngn_rate": 1500,
+    "rate_source": "api_or_fallback",
+    "ngn_amount_raw": 7500,
+    "ngn_amount_adjusted": 7500,
+    "ngn_amount_minor": 750000,
+    "currency": "NGN"
+  }
+}
+```
+
+2. Verify eSIM Card Payment And Fulfill
+`POST /api/paystack/verify`
+
+Auth: Bearer token
+
+Body:
+```json
+{ "reference": "uuid-reference" }
+```
+
+Success response:
+```json
+{
+  "ok": true,
+  "status": "success",
+  "reference": "uuid-reference",
+  "data": {},
+  "fulfillment": {
+    "ok": true,
+    "synced": true,
+    "type": "country",
+    "id": "united-states",
+    "bundle": "bundle_id",
+    "package_type": "DATA-ONLY",
+    "topup_esim_id": null,
+    "esim_id": "provider-esim-id",
+    "order_id": "provider-order-id",
+    "iccid": "iccid",
+    "activation_code": "activation-code",
+    "lpa": "lpa-string",
+    "puk_code": "",
+    "number": "",
+    "esim_status": "active",
+    "direct_installation_link_ios": "",
+    "direct_installation_link_android": "",
+    "qr_code_url": "",
+    "qr_payload": "LPA:...",
+    "qr_code_data_url": "data:image/svg+xml;base64,...",
+    "smdp_address": "smdp.example.com"
+  }
+}
+```
+
+Pending response:
+```json
+{
+  "ok": true,
+  "status": "success",
+  "reference": "uuid-reference",
+  "fulfillment": {
+    "ok": false,
+    "pending": true,
+    "synced": false,
+    "message": "Payment confirmed. Preparing your eSIM..."
+  }
+}
+```
+
+3. Poll eSIM Card Payment Status
+`POST /api/paystack/status`
+
+Auth: Bearer token
+
+Body:
+```json
+{ "reference": "uuid-reference" }
+```
+
+Response:
+- Same shape as verify.
+- Only call after verify returns a pending fulfillment payload.
+
+WALLET
+
+1. Balance
+`GET /api/wallet/balance`
+
+Auth: Bearer token + verified email
+
+Response:
+```json
+{
+  "ok": true,
+  "balance_minor": 1234,
+  "balance_formatted": "$12.34"
+}
+```
+
+2. Transactions
+`GET /api/wallet/transactions`
+
+Auth: Bearer token + verified email
+
+Response:
+```json
+{
+  "ok": true,
+  "items": [
+    {
+      "id": 10,
+      "direction": "credit",
+      "action": "deposit",
+      "amount_minor": 2000,
+      "balance_after_minor": 2500,
+      "currency": "USD",
+      "payment_id": 55,
+      "meta": {},
+      "created_at": "2026-04-11T12:34:56Z"
+    }
+  ]
+}
+```
+
+3. Initialize Wallet Deposit With Paystack
+`POST /api/wallet/deposit/paystack/initialize`
+
+Auth: Bearer token + verified email
+
+Body:
+```json
+{ "amount_usd": 20 }
+```
+
+Response:
+```json
+{
+  "ok": true,
+  "reference": "uuid-reference",
+  "access_code": "paystack_access_code",
+  "amount": 3000000,
+  "currency": "NGN",
+  "email": "jane@example.com",
+  "wallet_credit_usd_minor": 2000,
+  "wallet_credit_usd_formatted": "$20.00"
+}
+```
+
+Mobile action:
+- Open Paystack checkout with `access_code`.
+- After Paystack success, call verify.
+
+4. Verify Wallet Deposit
+`POST /api/wallet/deposit/paystack/verify`
+
+Auth: Bearer token + verified email
+
+Body:
+```json
+{ "reference": "uuid-reference" }
+```
+
+Response:
+```json
+{
+  "ok": true,
+  "wallet": {
+    "ok": true,
+    "wallet_transaction_id": 12,
+    "credited_usd_minor": 2000,
+    "credited_usd_formatted": "$20.00",
+    "balance_usd_minor": 4500,
+    "balance_usd_formatted": "$45.00"
+  }
+}
+```
+
+5. Buy eSIM With Wallet
+`POST /api/wallet/pay/esim`
+
+Auth: Bearer token + verified email
+
+Body:
+```json
+{
+  "type": "country",
+  "id": "united-states",
+  "bundle": "bundle_id",
+  "package_type": "DATA-ONLY",
+  "topup_esim_id": null
+}
+```
+
+Response:
+```json
+{
+  "ok": true,
+  "reference": "w_uuid-reference",
+  "fulfillment": {
+    "ok": true,
+    "synced": true,
+    "esim_id": "provider-esim-id",
+    "iccid": "iccid",
+    "activation_code": "activation-code",
+    "lpa": "lpa-string",
+    "qr_code_url": "",
+    "smdp_address": ""
+  }
+}
+```
+
+Pending response:
+```json
+{
+  "ok": true,
+  "reference": "w_uuid-reference",
+  "fulfillment": {
+    "ok": false,
+    "pending": true,
+    "message": "Payment confirmed. Preparing your eSIM..."
+  }
+}
+```
+
+Mobile action:
+- If fulfilled, show install screen and refresh wallet balance.
+- If pending, refresh `/api/my-esims` periodically. There is no wallet-specific status endpoint; pending records are completed by sync/list flows.
+
+MY eSIMS
+
+1. List My eSIMs
+`GET /api/my-esims?filter=valid&page=1&per_page=10`
+
+Auth: Bearer token
+
+Query:
+- `filter`: `valid` or `expired`; defaults to `valid`.
+- `page`: default `1`.
+- `per_page`: clamped between `5` and `30`.
+
+Response:
+```json
+{
+  "filter": "valid",
+  "page": 1,
+  "per_page": 10,
+  "total": 1,
+  "has_more": false,
+  "items": [
+    {
+      "id": 99,
+      "provider": "paystack",
+      "reference": "uuid-reference",
+      "asset_type": "country",
+      "asset_id": "united-states",
+      "bundle_id": "bundle_id",
+      "package_type": "DATA-ONLY",
+      "purchased_at": "2026-06-01T10:00:00Z",
+      "expires_at": "2026-06-08T10:00:00Z",
+      "status": "valid",
+      "asset": {
+        "name": "United States",
+        "code": "US",
+        "flag": "🇺🇸",
+        "flag_url": ""
+      },
+      "bundle": {
+        "name": "1GB - 7 Days",
+        "data": "1 GB",
+        "validity": "7 Days",
+        "price_formatted": "$4.50"
+      },
+      "esim": {
+        "iccid": "iccid",
+        "esim_id": "provider-esim-id",
+        "activation_code": "activation-code",
+        "lpa": "lpa-string",
+        "can_renew": true,
+        "puk_code": "",
+        "number": "",
+        "esim_status": "active",
+        "direct_installation_link_ios": "",
+        "direct_installation_link_android": "",
+        "qr_code_url": "",
+        "qr_payload": "LPA:...",
+        "smdp_address": "smdp.example.com",
+        "qr_code_data_url": "data:image/svg+xml;base64,..."
+      }
+    }
+  ]
+}
+```
+
+2. Sync My eSIMs
+`POST /api/my-esims/sync`
+
+Auth: Bearer token
+
+Body: none
+
+Response:
+```json
+{
+  "ok": true,
+  "updated": 1
+}
+```
+
+Mobile action:
+- Call after a pending eSIM purchase and before listing if the user pulls to refresh.
+- Then call `/api/my-esims`.
+
+VIRTUAL NUMBERS: TWILIO
+
+Flow:
+1. User opens virtual number catalog.
+2. Fetch countries.
+3. Fetch country metadata to get `product_id`.
+4. Fetch available numbers with `product_id`.
+5. User selects a number and pays by card or wallet.
+6. After provisioning, show subscription and inbox.
+
+1. Countries
+`GET /api/virtual-numbers/countries?page=1&per_page=60&q=&context=dashboard`
+
+Auth: Bearer token + verified email
+
+Response:
+```json
+{
+  "ok": true,
+  "page": 1,
+  "per_page": 60,
+  "total": 100,
+  "has_more": true,
+  "items": [
+    {
+      "country_code": "US",
+      "country_name": "United States",
+      "flag": "🇺🇸",
+      "starting_price_formatted": "USD 5.00",
+      "url": "https://spacechipltd.com/dashboard/virtual-numbers/US"
+    }
+  ]
+}
+```
+
+2. Country Metadata
+`GET /api/virtual-numbers/country/{country}`
+
+Auth: Bearer token + verified email
+
+Example:
+`GET /api/virtual-numbers/country/US`
+
+Response:
+```json
+{
+  "ok": true,
+  "country_code": "US",
+  "country_name": "United States",
+  "product_id": 123,
+  "starting_from": "USD 5.00"
+}
+```
+
+3. Available Numbers
+`GET /api/virtual-numbers/available?product_id=123&limit=20&page=0`
+
+Auth: Bearer token + verified email
+
+Response:
+```json
+{
+  "ok": true,
+  "items": [
+    {
+      "phone_number": "+14155552671",
+      "friendly_name": "+1 415 555 2671",
+      "number_type": "Local",
+      "capabilities": {},
+      "monthly_fee_minor": 500,
+      "monthly_fee_currency": "USD",
+      "monthly_fee_formatted": "USD 5.00"
+    }
+  ],
+  "next_page_uri": null,
+  "has_more": false,
+  "types_tried": [],
+  "modes_tried": []
+}
+```
+
+4. Initialize Virtual Number Card Payment
+`POST /api/virtual-numbers/paystack/initialize`
+
+Auth: Bearer token + verified email
+
+Body:
+```json
+{
+  "product_id": 123,
+  "phone_number": "+14155552671",
+  "number_type": "Local"
+}
+```
+
+Response:
+```json
+{
+  "reference": "uuid-reference",
+  "access_code": "paystack_access_code",
+  "amount": 750000,
+  "currency": "NGN",
+  "email": "billing@example.com"
+}
+```
+
+Mobile action:
+- Open Paystack checkout.
+- On success, call verify.
+
+5. Verify Virtual Number Card Payment
+`POST /api/virtual-numbers/paystack/verify`
+
+Auth: Bearer token + verified email
+
+Body:
+```json
+{ "reference": "uuid-reference" }
+```
+
+Response:
+```json
+{
+  "ok": true,
+  "subscription": {
+    "ok": true,
+    "subscription_id": 44,
+    "phone_number": "+14155552671",
+    "status": "active",
+    "current_period_end": "2026-07-03T12:00:00Z"
+  }
+}
+```
+
+6. Buy Virtual Number With Wallet
+`POST /api/wallet/pay/virtual-number`
+
+Auth: Bearer token + verified email
+
+Body:
+```json
+{
+  "product_id": 123,
+  "phone_number": "+14155552671",
+  "number_type": "Local"
+}
+```
+
+Response:
+```json
+{
+  "ok": true,
+  "subscription": {
+    "ok": true,
+    "subscription_id": 44,
+    "phone_number": "+14155552671",
+    "status": "active",
+    "current_period_end": "2026-07-03T12:00:00Z"
+  }
+}
+```
+
+7. My Virtual Number Subscriptions
+`GET /api/virtual-numbers/my`
+
+Auth: Bearer token + verified email
+
+Response:
+```json
+{
+  "ok": true,
+  "items": [
+    {
+      "id": 44,
+      "status": "active",
+      "phone_number": "+14155552671",
+      "country_iso": "US",
+      "plan_label": "United States Local Number",
+      "currency": "USD",
+      "monthly_amount_minor": 500,
+      "current_period_end": "2026-07-03T12:00:00Z"
+    }
+  ]
+}
+```
+
+8. Cancel Virtual Number Subscription
+`POST /api/virtual-numbers/{subscription}/cancel`
+
+Auth: Bearer token + verified email. User must own subscription.
+
+Response:
+```json
+{ "ok": true }
+```
+
+9. Inbox Messages
+`GET /api/virtual-numbers/{subscription}/messages?per_page=50`
+
+Auth: Bearer token + verified email. User must own subscription.
+
+Response:
+```json
+{
+  "ok": true,
+  "items": [
+    {
+      "id": 9,
+      "direction": "inbound",
+      "message_type": "sms",
+      "from": "+14155550000",
+      "to": "+14155552671",
+      "body": "Hello",
+      "media_count": 0,
+      "has_recording": false,
+      "created_at": "2026-06-03T10:00:00Z"
+    }
+  ]
+}
+```
+
+10. Send SMS/MMS
+`POST /api/virtual-numbers/{subscription}/messages/send`
+
+Auth: Bearer token + verified email. User must own subscription.
+
+Body:
+```json
+{
+  "to": "+14155550000",
+  "body": "Hello",
+  "media_urls": []
+}
+```
+
+Response:
+```json
+{
+  "ok": true,
+  "message": {
+    "id": 10,
+    "direction": "outbound",
+    "message_type": "sms",
+    "from": "+14155552671",
+    "to": "+14155550000",
+    "body": "Hello",
+    "created_at": "2026-06-03T10:05:00Z"
+  }
+}
+```
+
+11. Fetch MMS Media
+`GET /api/virtual-numbers/messages/{message}/media/{index}`
+
+Auth: Bearer token + verified email. User must own the message via subscription.
+
+Response:
+- Binary media stream with original content type.
+
+Mobile action:
+- Use an authenticated download request.
+- Cache locally if needed.
+
+12. Fetch Voicemail Recording
+`GET /api/virtual-numbers/messages/{message}/recording`
+
+Auth: Bearer token + verified email. User must own the message via subscription.
+
+Response:
+- `audio/mpeg` stream.
+
+13. Get Forwarding Settings
+`GET /api/virtual-numbers/{subscription}/settings`
+
+Auth: Bearer token + verified email.
+
+Response:
+```json
+{
+  "ok": true,
+  "settings": {
+    "forward_to_email": "notify@example.com",
+    "forward_to_phone": "+14155550000"
+  }
+}
+```
+
+14. Update Forwarding Settings
+`POST /api/virtual-numbers/{subscription}/settings`
+
+Auth: Bearer token + verified email.
+
+Body:
+```json
+{
+  "forward_to_email": "notify@example.com",
+  "forward_to_phone": "+14155550000"
+}
+```
+
+Rules:
+- Empty string clears a setting.
+- Phone must be E.164, for example `+14155552671`.
+
+Response:
+```json
+{
+  "ok": true,
+  "settings": {
+    "forward_to_email": "notify@example.com",
+    "forward_to_phone": "+14155550000"
+  }
+}
+```
+
+SOCIAL NUMBERS: ONE-TIME SMS ACTIVATION
+
+Provider: SMSPVA through backend. Mobile only calls Spacechip API.
+Payment method: wallet only.
+
+Flow:
+1. Fetch apps and countries.
+2. Fetch price for selected app/country.
+3. Buy number with wallet.
+4. Show phone number and countdown to `expires_at`.
+5. Poll `/api/social-numbers/check/{id}` every 5-10 seconds until SMS arrives or expires.
+6. User can finish, cancel, ban, or try another number.
+
+1. Provider Profile
+`GET /api/social-numbers/profile`
+
+Auth: Bearer token + verified email
+
+Response:
+```json
+{
+  "ok": true,
+  "profile": {}
+}
+```
+
+Mobile action:
+- Optional admin/support diagnostics. Not required for normal buyer flow.
+
+2. Apps
+`GET /api/social-numbers/apps`
+
+Auth: Bearer token + verified email
+
+Response:
+```json
+{
+  "ok": true,
+  "items": [
+    {
+      "key": "whatsapp",
+      "name": "WhatsApp",
+      "icon": "",
+      "description": "",
+      "category": "activation",
+      "qty": 1,
+      "price": null,
+      "available": true
+    }
+  ]
+}
+```
+
+3. Countries
+`GET /api/social-numbers/countries`
+
+Auth: Bearer token + verified email
+
+Response:
+```json
+{
+  "ok": true,
+  "items": []
+}
+```
+
+4. Prices
+`GET /api/social-numbers/prices?country=US&product=whatsapp`
+
+Auth: Bearer token + verified email
+
+Response:
+```json
+{
+  "ok": true,
+  "country": "US",
+  "product": "whatsapp",
+  "min_cost": "$1.00",
+  "total_count": 12,
+  "total_operators": 1,
+  "limit": 1,
+  "offset": 0,
+  "has_more": false,
+  "operators": [
+    {
+      "operator": "any",
+      "cost": "$1.00",
+      "count": 12,
+      "rate": null
+    }
+  ]
+}
+```
+
+5. Buy Social Number
+`POST /api/social-numbers/buy`
+
+Auth: Bearer token + verified email
+
+Body:
+```json
+{
+  "product": "whatsapp",
+  "country": "US",
+  "operator": "any"
+}
+```
+
+Response:
+```json
+{
+  "ok": true,
+  "order": {
+    "id": 77,
+    "provider": "smspva",
+    "provider_order_id": "provider-id",
+    "status": "PENDING",
+    "product": "whatsapp",
+    "product_name": "WhatsApp",
+    "country": "US",
+    "country_name": "United States",
+    "operator": "any",
+    "phone": "14155552671",
+    "phone_display": "+14155552671",
+    "sms": [],
+    "amount_minor": 100,
+    "amount_formatted": "$1.00",
+    "provider_cost_minor": 70,
+    "created_at": "2026-06-03T10:00:00Z",
+    "ordered_at": "2026-06-03T10:00:00Z",
+    "expires_at": "2026-06-03T10:09:40Z"
+  }
+}
+```
+
+6. Check Social Number SMS
+`GET /api/social-numbers/check/{id}`
+
+Auth: Bearer token + verified email
+
+Response:
+```json
+{
+  "ok": true,
+  "order": {
+    "id": 77,
+    "status": "RECEIVED",
+    "phone_display": "+14155552671",
+    "sms": [
+      {
+        "code": "123456",
+        "sender": "WhatsApp",
+        "text": "Your code is 123456",
+        "created_at": "2026-06-03T10:04:00Z"
+      }
+    ],
+    "expires_at": "2026-06-03T10:09:40Z"
+  }
+}
+```
+
+Mobile action:
+- If `sms.length > 0`, show OTP and stop polling.
+- If `status` is `TIMEOUT`, `CANCELED`, `BANNED`, or `FINISHED`, stop polling.
+
+7. Finish Social Number Order
+`POST /api/social-numbers/orders/{id}/finish`
+
+Auth: Bearer token + verified email
+
+Response:
+```json
+{
+  "ok": true,
+  "order": { "id": 77, "status": "FINISHED" }
+}
+```
+
+8. Cancel Social Number Order
+`POST /api/social-numbers/orders/{id}/cancel`
+
+Auth: Bearer token + verified email
+
+Response:
+```json
+{
+  "ok": true,
+  "order": { "id": 77, "status": "CANCELED" }
+}
+```
+
+9. Ban Social Number Order
+`POST /api/social-numbers/orders/{id}/ban`
+
+Auth: Bearer token + verified email
+
+Response:
+```json
+{
+  "ok": true,
+  "order": { "id": 77, "status": "BANNED" }
+}
+```
+
+10. Try Another Social Number
+`POST /api/social-numbers/orders/{id}/try-another`
+
+Auth: Bearer token + verified email
+
+Response:
+```json
+{
+  "ok": true,
+  "order": {
+    "id": 78,
+    "status": "PENDING",
+    "phone_display": "+14155559999"
+  }
+}
+```
+
+11. List Social Number Orders
+`GET /api/social-numbers/orders?limit=20&offset=0`
+
+Auth: Bearer token + verified email
+
+Response:
+```json
+{
+  "ok": true,
+  "total": 1,
+  "items": []
+}
+```
+
+SOCIAL RENTALS: MONTHLY NUMBERS
+
+Provider: SMSPVA rental API through backend.
+Payment method: wallet only.
+
+Flow:
+1. Fetch rental apps and countries.
+2. Quote product/country/provider.
+3. Buy monthly rental with wallet.
+4. Activate rental if returned as `pending_activation`.
+5. Fetch SMS as needed.
+6. Cancel turns off auto-renew and marks canceled.
+
+1. Rental Apps
+`GET /api/social-rentals/apps`
+
+Auth: Bearer token + verified email
+
+Response:
+```json
+{
+  "ok": true,
+  "items": [
+    {
+      "key": "whatsapp",
+      "name": "WhatsApp",
+      "icon": "",
+      "description": "",
+      "available": true
+    }
+  ]
+}
+```
+
+2. Rental Countries
+`GET /api/social-rentals/countries`
+
+Auth: Bearer token + verified email
+
+Response:
+```json
+{
+  "ok": true,
+  "items": []
+}
+```
+
+3. Rental Quote
+`GET /api/social-rentals/quote?product=whatsapp&country=US&provider=all_providers`
+
+Auth: Bearer token + verified email
+
+Response:
+```json
+{
+  "ok": true,
+  "product": "whatsapp",
+  "country": "US",
+  "provider": "all_providers",
+  "count": 3,
+  "providers": ["provider_name"],
+  "provider_cost_minor": 300,
+  "monthly_amount_minor": 500,
+  "monthly_amount_formatted": "$5.00",
+  "period": "1 month"
+}
+```
+
+4. Buy Rental
+`POST /api/social-rentals/buy`
+
+Auth: Bearer token + verified email
+
+Body:
+```json
+{
+  "product": "whatsapp",
+  "country": "US",
+  "provider": "all_providers"
+}
+```
+
+Response:
+```json
+{
+  "ok": true,
+  "rental": {
+    "id": 5,
+    "provider": "smspva_rent",
+    "provider_order_id": "provider-id",
+    "status": "pending_activation",
+    "product": "whatsapp",
+    "product_name": "WhatsApp",
+    "country": "US",
+    "country_name": "United States",
+    "provider_name": "",
+    "phone": "+14155552671",
+    "raw_phone": "4155552671",
+    "phone_country_code": "+1",
+    "auto_renew": true,
+    "monthly_amount_minor": 500,
+    "monthly_amount_formatted": "$5.00",
+    "current_period_start": "2026-06-03T10:00:00Z",
+    "current_period_end": "2026-07-03T10:00:00Z",
+    "activated_at": null,
+    "last_sms_sync_at": null,
+    "renewal_failed_count": 0,
+    "last_renewal_error": "",
+    "sms": [],
+    "created_at": "2026-06-03T10:00:00Z"
+  }
+}
+```
+
+5. Activate Rental
+`POST /api/social-rentals/{rental}/activate`
+
+Auth: Bearer token + verified email. User must own rental.
+
+Response:
+```json
+{
+  "ok": true,
+  "rental": {
+    "id": 5,
+    "status": "active",
+    "activated_at": "2026-06-03T10:01:00Z"
+  }
+}
+```
+
+6. Fetch Rental SMS
+`GET /api/social-rentals/{rental}/sms`
+
+Auth: Bearer token + verified email. User must own rental.
+
+Response:
+```json
+{
+  "ok": true,
+  "rental": {
+    "id": 5,
+    "sms": [
+      {
+        "sender": "WhatsApp",
+        "text": "Your code is 123456",
+        "date": 1780000000,
+        "created_at": "2026-06-03T10:05:00Z"
+      }
+    ],
+    "last_sms_sync_at": "2026-06-03T10:05:10Z"
+  }
+}
+```
+
+7. Cancel Rental
+`POST /api/social-rentals/{rental}/cancel`
+
+Auth: Bearer token + verified email. User must own rental.
+
+Response:
+```json
+{
+  "ok": true,
+  "rental": {
+    "id": 5,
+    "status": "canceled",
+    "auto_renew": false
+  }
+}
+```
+
+8. List Rentals
+`GET /api/social-rentals?limit=20&offset=0`
+
+Auth: Bearer token + verified email
+
+Response:
+```json
+{
+  "ok": true,
+  "total": 1,
+  "items": []
+}
+```
+
+BACKEND-ONLY WEBHOOKS
+
+Do not call these from the React Native app. They are listed so web and mobile teams understand how server-side sync happens.
+
+1. Airalo Webhook
+`POST /api/airalo/webhook`
+
+Caller: Airalo/provider backend.
+
+Purpose:
+- Receives eSIM events such as low-data notifications.
+- Sends user email alerts when applicable.
+
+2. Twilio SMS Webhook
+`POST /api/twilio/sms`
+
+Caller: Twilio.
+
+Purpose:
+- Receives inbound SMS/MMS.
+- Stores messages in `virtual_number_messages`.
+- Sends forwarding email/SMS when configured.
+
+3. Twilio Voice Webhook
+`POST /api/twilio/voice`
+
+Caller: Twilio.
+
+Purpose:
+- Responds with TwiML to record voicemail for owned virtual numbers.
+
+4. Twilio Recording Webhook
+`POST /api/twilio/voice/recording`
+
+Caller: Twilio.
+
+Purpose:
+- Stores voicemail metadata.
+- Enables mobile playback through `/api/virtual-numbers/messages/{message}/recording`.
+
+SERVICE MAP
+
+Mobile-facing services:
+- Laravel Sanctum: mobile token auth.
+- Paystack: card payments for eSIM, wallet deposits, and Twilio virtual numbers.
+- Airalo/eSIM provider: eSIM catalog, bundles, fulfillment, QR/install details.
+- WalletService: USD wallet ledger, deposits, wallet purchases, refunds.
+- Twilio: virtual number catalog, provisioning, SMS/MMS inbox, outbound messages, voicemail, forwarding.
+- SMSPVA activation: one-time social numbers and OTP polling.
+- SMSPVA rental: monthly social number rentals and rental SMS.
+- Mail provider: verification emails, password reset emails, fulfillment notifications, forwarding notifications.
+
+Excluded from mobile integration:
+- Crypto payment endpoints and crypto provider flows.
+- Web Blade page routes such as `/checkout`, `/dashboard`, `/assets/{type}/{id}`.
+- Admin and debug routes.
+
+REACT NATIVE SCREEN-TO-ENDPOINT MAP
+
+Auth stack:
+- Register screen: `POST /api/auth/register`
+- Login screen: `POST /api/auth/login`
+- Forgot password screen: `POST /api/auth/forgot-password`
+- Email verification screen: `POST /api/auth/resend-verification`, refresh with `GET /api/auth/me`
+- App bootstrap: `GET /api/auth/me`
+- Logout action: `POST /api/auth/logout`
+
+Home/catalog:
+- Home highlights: `GET /api/landing`
+- Browse all: `GET /api/allassets?tab=countries|regions|virtual`
+- eSIM detail: `GET /api/assets/{type}/{id}/bundles`
+
+eSIM checkout:
+- Card: `POST /api/paystack/initialize` -> Paystack SDK -> `POST /api/paystack/verify` -> optional `POST /api/paystack/status`
+- Wallet: `POST /api/wallet/pay/esim`
+- My eSIMs: `GET /api/my-esims`, `POST /api/my-esims/sync`
+
+Wallet:
+- Balance card: `GET /api/wallet/balance`
+- Ledger: `GET /api/wallet/transactions`
+- Deposit: `POST /api/wallet/deposit/paystack/initialize` -> Paystack SDK -> `POST /api/wallet/deposit/paystack/verify`
+
+Virtual numbers:
+- Countries: `GET /api/virtual-numbers/countries`
+- Country product: `GET /api/virtual-numbers/country/{country}`
+- Available numbers: `GET /api/virtual-numbers/available`
+- Card purchase: `POST /api/virtual-numbers/paystack/initialize` -> Paystack SDK -> `POST /api/virtual-numbers/paystack/verify`
+- Wallet purchase: `POST /api/wallet/pay/virtual-number`
+- My numbers: `GET /api/virtual-numbers/my`
+- Inbox: `GET /api/virtual-numbers/{subscription}/messages`
+- Send: `POST /api/virtual-numbers/{subscription}/messages/send`
+- Media: `GET /api/virtual-numbers/messages/{message}/media/{index}`
+- Voicemail: `GET /api/virtual-numbers/messages/{message}/recording`
+- Forwarding: `GET/POST /api/virtual-numbers/{subscription}/settings`
+- Cancel: `POST /api/virtual-numbers/{subscription}/cancel`
+
+Social one-time numbers:
+- Apps: `GET /api/social-numbers/apps`
+- Countries: `GET /api/social-numbers/countries`
+- Price: `GET /api/social-numbers/prices`
+- Buy: `POST /api/social-numbers/buy`
+- Poll OTP: `GET /api/social-numbers/check/{id}`
+- Finish: `POST /api/social-numbers/orders/{id}/finish`
+- Cancel: `POST /api/social-numbers/orders/{id}/cancel`
+- Ban: `POST /api/social-numbers/orders/{id}/ban`
+- Try another: `POST /api/social-numbers/orders/{id}/try-another`
+- History: `GET /api/social-numbers/orders`
+
+Social monthly rentals:
+- Apps: `GET /api/social-rentals/apps`
+- Countries: `GET /api/social-rentals/countries`
+- Quote: `GET /api/social-rentals/quote`
+- Buy: `POST /api/social-rentals/buy`
+- Activate: `POST /api/social-rentals/{rental}/activate`
+- SMS: `GET /api/social-rentals/{rental}/sms`
+- Cancel: `POST /api/social-rentals/{rental}/cancel`
+- History: `GET /api/social-rentals`
+
+MOBILE IMPLEMENTATION CHECKLIST
+
+1. Configure `API_BASE_URL`.
+2. Build one shared API client that adds JSON headers and Bearer token.
+3. Store Sanctum token securely.
+4. Add global handling for 401, 403, 422, 429, and 502.
+5. On app launch, call `/api/auth/me`.
+6. Gate verified-only screens when `user.email_verified === false`.
+7. Integrate Paystack SDK/custom checkout with returned `access_code`.
+8. Always call backend verify endpoints after Paystack success.
+9. Poll eSIM pending fulfillment using `/api/paystack/status`.
+10. Refresh wallet balance after wallet deposits and wallet purchases.
+11. Refresh `/api/my-esims` after every eSIM purchase or sync.
+12. Use authenticated fetch/blob handling for MMS media and voicemail audio.
+13. For social one-time numbers, poll check endpoint until SMS, timeout, cancel, ban, or finish.
+14. Do not call provider APIs directly from mobile. Keep provider credentials only on Laravel backend.
+
+HOSTINGER DEPLOYMENT UPDATE CHECKLIST
+
+After this latest mobile API implementation, update these files on the Hostinger server:
+
+Required runtime files:
+- `bootstrap/app.php`
+- `routes/api.php`
+- `routes/web.php`
+
+Documentation/reference files:
+- `api.docs`
+- `docs/mobile_api.md`
+- `routes/mobile_api_endpoints.txt`
+
+After upload, run these commands from the Laravel project root if your server uses cached routes/config:
+
+```bash
+php artisan optimize:clear
+php artisan route:cache
+php artisan config:cache
+```
+
+Confirm these production settings:
+- The domain document root points to Laravel `public`.
+- `APP_URL` matches the live domain, for example `https://spacechipltd.com`.
+- `APP_DEBUG=false`.
+- Paystack, Twilio, Airalo/Glo eSIM, SMSPVA, database, mail, and exchange-rate environment variables are set.
+- Twilio webhooks point to:
+  - `https://spacechipltd.com/api/twilio/sms`
+  - `https://spacechipltd.com/api/twilio/voice`
+  - `https://spacechipltd.com/api/twilio/voice/recording`
+- Airalo webhook, if enabled, points to:
+  - `https://spacechipltd.com/api/airalo/webhook`
+- The Laravel scheduler cron is active:
+  - `* * * * * cd /path/to/spacechip && php artisan schedule:run >> /dev/null 2>&1`
+
+Post-deployment smoke tests:
+- `GET https://spacechipltd.com/api/mobile/health`
+- `GET https://spacechipltd.com/api/mobile/endpoints`
+- `POST https://spacechipltd.com/api/auth/login`
+- `GET https://spacechipltd.com/api/auth/me` with `Authorization: Bearer <token>`
+
+Expected mobile base URL:
+- `https://spacechipltd.com`
+
+Expected API paths:
+- `/api/auth/login`
+- `/api/mobile/health`
+- `/api/mobile/endpoints`
+- `/api/wallet/balance`
+- `/api/my-esims`
+
+Crypto/Cryptomus remains excluded from the mobile integration.

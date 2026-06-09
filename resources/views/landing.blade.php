@@ -3,10 +3,15 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#0b1a1a">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <meta name="apple-mobile-web-app-title" content="{{ config('app.name', 'spacechip') }}">
         <title>{{ config('app.name', 'spacechip') }}</title>
         <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
         <link rel="alternate icon" href="{{ asset('favicon.svg') }}">
         <link rel="apple-touch-icon" href="{{ asset('favicon.svg') }}">
+        <link rel="manifest" href="{{ asset('manifest.json') }}">
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600" rel="stylesheet" />
         @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
@@ -99,27 +104,96 @@
                 .flag img{height:100%;width:100%;object-fit:cover;display:block}
                 .c-meta{min-width:0}
                 .c-name{font-weight:750;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-                .c-note{margin-top:2px;font-size:12px;color:rgba(15,31,31,.62)}
-                .c-pill{margin-top:8px;display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:9999px;background:rgba(242,116,87,.12);border:1px solid rgba(242,116,87,.22);font-size:12px;font-weight:700;color:rgba(15,31,31,.74)}
-                .country-right{text-align:right;display:flex;flex-direction:column;gap:8px;align-items:flex-end}
-                .price{font-weight:800;font-size:14px;color:rgba(20,84,84,.92)}
-                .price span{font-weight:650;color:rgba(15,31,31,.64);font-size:12px}
-                .mini-btn{padding:8px 12px;border-radius:9999px;background:rgba(255,255,255,.82);border:1px solid rgba(20,84,84,.14);font-size:13px;font-weight:700;color:rgba(20,84,84,.92)}
+                .c-note {
+                    font-size: 13px;
+                    color: rgba(15,31,31,.62);
+                    margin-top: 3px;
+                    font-weight: 500;
+                }
+                .c-pill {
+                    display: inline-block;
+                    margin-top: 8px;
+                    padding: 4px 10px;
+                    background: #fff1f0;
+                    color: #f27457;
+                    font-size: 11px;
+                    font-weight: 800;
+                    border-radius: 99px;
+                    text-transform: uppercase;
+                    letter-spacing: .02em;
+                }
+                .dark .c-note { color: rgba(255,255,255,.5); }
+                .dark .c-pill { background: rgba(242,116,87,.15); }
+
+                .country-right {
+                    text-align: right;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: flex-end;
+                    gap: 8px;
+                }
+                .country-right .price {
+                    font-weight: 800;
+                    font-size: 17px;
+                    color: #0b1a1a;
+                }
+                .country-right .price span {
+                    font-size: 12px;
+                    color: rgba(15,31,31,.48);
+                    font-weight: 600;
+                    margin-left: 2px;
+                }
+                .dark .country-right .price { color: #fff; }
+                .dark .country-right .price span { color: rgba(255,255,255,.4); }
+
+                .mini-btn {
+                    padding: 8px 16px;
+                    border-radius: 12px;
+                    border: 1.5px solid rgba(20,84,84,.12);
+                    font-size: 13px;
+                    font-weight: 700;
+                    color: #145454;
+                    background: #fff;
+                    transition: all .2s ease;
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 8px;
+                }
+                .mini-btn.is-loading{pointer-events:none;opacity:.75}
+                .btn-spinner{width:14px;height:14px;border-radius:9999px;border:2px solid rgba(20,84,84,.25);border-top-color:rgba(20,84,84,.92);animation:btn-spin .8s linear infinite}
+                @keyframes btn-spin{to{transform:rotate(360deg)}}
+                .mini-btn:hover {
+                    background: #f7f7f8;
+                    border-color: #145454;
+                }
+                .dark .mini-btn {
+                    background: rgba(255,255,255,.05);
+                    border-color: rgba(255,255,255,.1);
+                    color: #fff;
+                }
+                .dark .mini-btn:hover {
+                    background: rgba(255,255,255,.1);
+                    border-color: #fff;
+                }
                 .more{margin-top:14px;display:flex;justify-content:center}
                 .more .btn{padding:10px 18px;border-radius:9999px;background:rgba(255,255,255,.78);border:1px solid rgba(20,84,84,.14);box-shadow:0 12px 28px rgba(15,31,31,.06);font-weight:700;color:rgba(20,84,84,.92)}
 
                 /* Skeleton Styles */
                 .skeleton {
-                    background: #e1e1e1;
-                    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-                    background-size: 200% 100%;
-                    animation: skeleton-loading 1.5s infinite;
+                    background: linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 35%, #f3f4f6 70%, #e5e7eb 100%);
+                    background-size: 300% 100%;
+                    animation: skeleton-loading 0.8s ease-in-out infinite;
                     border-radius: 4px;
                 }
 
                 @keyframes skeleton-loading {
                     0% { background-position: 200% 0; }
                     100% { background-position: -200% 0; }
+                }
+                .dark .skeleton{
+                    background: linear-gradient(90deg, rgba(31,41,55,.55) 0%, rgba(55,65,81,.95) 35%, rgba(242,116,87,.26) 50%, rgba(55,65,81,.95) 65%, rgba(31,41,55,.55) 100%);
+                    background-size: 400% 100%;
+                    animation: skeleton-loading 0.7s ease-in-out infinite;
                 }
 
                 .skeleton-card {
@@ -240,8 +314,7 @@
                                 <div class="panel-title">Find your plan</div>
                                 <div class="segmented">
                                     <a href="/allassets?tab=countries" class="seg active" style="text-decoration:none">Data eSIMs</a>
-                                    <a href="/allassets?tab=virtual" class="seg" style="text-decoration:none">Virtual Phone Numbers</a>
-                                    <a href="/allassets?tab=countries&type=calls" class="seg" style="text-decoration:none">Data + Calls eSIMs</a>
+                                    <a href="/dashboard?tab=social" class="seg" style="text-decoration:none">Social Virtual Numbers</a>
                                 </div>
                                 <div class="search">
                                     <input type="text" id="landingSearch" placeholder="Search country or region">
@@ -338,10 +411,18 @@
                         @endfor
                     </div>
                     <div class="more" data-plan-section="countries">
-                        <a href="/allassets" class="btn" style="text-decoration:none">View More</a>
+                        @auth
+                            <a href="{{ route('dashboard', ['tab' => 'countries']) }}" class="btn" style="text-decoration:none">View More</a>
+                        @else
+                            <a href="/allassets?tab=countries" class="btn" style="text-decoration:none">View More</a>
+                        @endauth
                     </div>
                     <div class="more hidden" data-plan-section="regions">
-                        <a href="/allassets" class="btn" style="text-decoration:none">View Regional Plans</a>
+                        @auth
+                            <a href="{{ route('dashboard', ['tab' => 'regions']) }}" class="btn" style="text-decoration:none">View Regional Plans</a>
+                        @else
+                            <a href="/allassets?tab=regions" class="btn" style="text-decoration:none">View Regional Plans</a>
+                        @endauth
                     </div>
                 </div>
             </section>
@@ -464,20 +545,23 @@
                     const url = `/assets/${type}/${encodeURIComponent(id)}`;
                     const imgSrc = safeImgSrc(item.flag_url || '');
                     
+                    const rawName = String(item.name || 'Worldwide');
+                    const truncatedName = rawName.length > 12 ? rawName.substring(0, 12) + '...' : rawName;
+
                     country.innerHTML = `
                         <div class="country-left">
                             <div class="flag">
-                                ${imgSrc ? `<img src="${imgSrc}" alt="${esc(item.name)} flag" loading="lazy">` : `<span>${esc(item.flag || '🌐')}</span>`}
+                                ${imgSrc ? `<img src="${imgSrc}" alt="${esc(rawName)} flag" loading="lazy">` : `<span>${esc(item.flag || '🌐')}</span>`}
                             </div>
                             <div class="c-meta">
-                                <div class="c-name">${esc(item.name || 'Worldwide')}</div>
-                                ${item.note ? `<div class="c-note">${esc(item.note)}</div>` : ''}
-                                ${item.badge ? `<div class="c-pill">${esc(item.badge)}</div>` : ''}
+                                <div class="c-name">${esc(truncatedName)}</div>
+                                <div class="c-note">${esc(item.subtext || 'Flexible plans available')}</div>
+                                ${item.tag ? `<div class="c-pill">${esc(item.tag)}</div>` : ''}
                             </div>
                         </div>
                         <div class="country-right">
                             <div class="price">${esc(item.starting_price_formatted || 'View')} <span>${item.starting_price_formatted ? 'from' : 'plans'}</span></div>
-                            <a href="${url}" class="mini-btn" style="text-decoration:none">View plans</a>
+                            <a href="${url}" class="mini-btn js-view-plans" style="text-decoration:none">View plans</a>
                         </div>
                     `;
                     return country;
@@ -492,26 +576,74 @@
                         
                         // Render Popular Countries
                         if (popularCountriesGrid) {
-                            popularCountriesGrid.innerHTML = '';
-                            (data.popularCountries || []).forEach(country => {
-                                popularCountriesGrid.appendChild(createCountryCard(country, 'country'));
-                            });
+                            const countries = data.popularCountries || [];
+                            if (countries.length > 0) {
+                                popularCountriesGrid.innerHTML = '';
+                                countries.forEach(country => {
+                                    popularCountriesGrid.appendChild(createCountryCard(country, 'country'));
+                                });
+                            } else {
+                                popularCountriesGrid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: rgba(15,31,31,.5);">No popular countries found.</div>';
+                            }
                         }
 
                         // Render Popular Regions
                         if (popularRegionsGrid) {
-                            popularRegionsGrid.innerHTML = '';
-                            (data.popularRegions || []).forEach(region => {
-                                popularRegionsGrid.appendChild(createCountryCard(region, 'region'));
-                            });
+                            const regions = data.popularRegions || [];
+                            if (regions.length > 0) {
+                                popularRegionsGrid.innerHTML = '';
+                                regions.forEach(region => {
+                                    popularRegionsGrid.appendChild(createCountryCard(region, 'region'));
+                                });
+                            } else {
+                                popularRegionsGrid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: rgba(15,31,31,.5);">No regional plans found.</div>';
+                            }
                         }
 
                     } catch (error) {
                         console.error('Error fetching landing data:', error);
+                        if (popularCountriesGrid) popularCountriesGrid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: rgba(15,31,31,.5);">Failed to load destinations.</div>';
                     }
                 };
 
                 fetchData();
+
+                let activeLoadingLink = null;
+                const resetViewPlansLoading = (el) => {
+                    if (!el) return;
+                    if (!el.classList.contains('is-loading')) return;
+                    el.classList.remove('is-loading');
+                    el.removeAttribute('aria-busy');
+                    el.removeAttribute('aria-disabled');
+                    if (el.dataset.originalHtml) el.innerHTML = el.dataset.originalHtml;
+                };
+                const resetAllViewPlansLoading = () => {
+                    document.querySelectorAll('a.js-view-plans.is-loading').forEach(resetViewPlansLoading);
+                    activeLoadingLink = null;
+                };
+
+                window.addEventListener('pageshow', () => {
+                    resetAllViewPlansLoading();
+                });
+
+                document.addEventListener('click', (e) => {
+                    const a = e.target.closest('a.js-view-plans');
+                    if (!a) return;
+                    if (e.defaultPrevented) return;
+                    if (e.button !== 0) return;
+                    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                    const href = a.getAttribute('href');
+                    if (!href) return;
+                    e.preventDefault();
+                    if (activeLoadingLink && activeLoadingLink !== a) resetViewPlansLoading(activeLoadingLink);
+                    activeLoadingLink = a;
+                    if (!a.dataset.originalHtml) a.dataset.originalHtml = a.innerHTML;
+                    a.classList.add('is-loading');
+                    a.setAttribute('aria-busy', 'true');
+                    a.setAttribute('aria-disabled', 'true');
+                    a.innerHTML = '<span class="btn-spinner" aria-hidden="true"></span><span>Loading…</span>';
+                    window.location.assign(href);
+                });
 
                 if (searchInput) {
                     searchInput.addEventListener('input', (e) => {
@@ -577,5 +709,6 @@
                 setMode('countries');
             })();
         </script>
+        <script src="{{ asset('pwa-install.js') }}" defer></script>
     </body>
 </html>

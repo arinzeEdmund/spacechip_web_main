@@ -13,42 +13,42 @@
 @endphp
 
 @if (request()->routeIs('dashboard'))
-    <nav class="sticky top-0 z-50 border-b border-gray-100" style="background: rgba(255,255,255,.78); backdrop-filter: blur(12px);">
+    <nav class="sticky top-0 z-50 border-b border-gray-100 dark:border-white/10 bg-white/78 dark:bg-slate-900/78 backdrop-blur-md">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center flex-wrap gap-3 py-3">
                 <a href="{{ url('/') }}" class="flex items-center gap-3">
-                    <div style="height:40px;width:40px;border-radius:9999px;background:linear-gradient(90deg,#f27457,#145454);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;letter-spacing:.02em">
+                    <div class="h-10 w-10 rounded-full bg-gradient-to-r from-[#f27457] to-[#145454] flex items-center justify-center text-white font-extrabold tracking-wide">
                         SC
                     </div>
-                    <div style="font-weight:800;color:rgba(20,84,84,.92);letter-spacing:.02em">
+                    <div class="font-extrabold text-[#145454] dark:text-white tracking-wide">
                         spacechip
                     </div>
                 </a>
 
                 <div class="flex items-center gap-2 sm:gap-3">
-                    <a href="{{ route('dashboard.virtual.index') }}" style="padding:10px 14px;border-radius:9999px;background:rgba(255,255,255,.55);border:1px solid rgba(15,31,31,.10);font-weight:850;color:rgba(15,31,31,.72);text-decoration:none;display:inline-flex;align-items:center;gap:8px">
+                    <a href="{{ route('dashboard.virtual.index') }}" class="px-3.5 py-2.5 rounded-full bg-white/55 dark:bg-white/10 border border-black/10 dark:border-white/10 font-extrabold text-gray-700 dark:text-gray-200 flex items-center gap-2 transition-all hover:bg-white/70 dark:hover:bg-white/20">
                         <span class="hidden sm:inline">Numbers</span>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
                     </a>
                     @if ((bool) ($user?->is_admin ?? false) || in_array(mb_strtolower((string) ($user?->email ?? '')), array_values(array_filter(array_map(fn ($v) => trim(mb_strtolower($v)), explode(',', (string) (env('ADMIN_EMAILS', '') ?: ''))))), true))
-                        <a href="{{ route('admin.dashboard') }}" style="padding:10px 14px;border-radius:9999px;background:rgba(255,255,255,.55);border:1px solid rgba(15,31,31,.10);font-weight:850;color:rgba(15,31,31,.72);text-decoration:none;display:inline-flex;align-items:center;gap:8px">
+                        <a href="{{ route('admin.dashboard') }}" class="px-3.5 py-2.5 rounded-full bg-white/55 dark:bg-white/10 border border-black/10 dark:border-white/10 font-extrabold text-gray-700 dark:text-gray-200 flex items-center gap-2 transition-all hover:bg-white/70 dark:hover:bg-white/20">
                             <span class="hidden sm:inline">Admin</span>
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M12 2l7 4v6c0 5-3 9-7 10-4-1-7-5-7-10V6l7-4Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                             </svg>
                         </a>
                     @endif
-                    <div class="hidden sm:flex" style="display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:16px;border:1px solid rgba(255,255,255,.22);backdrop-filter:blur(10px)">
-                        <div style="height:44px;width:44px;border-radius:9999px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.20);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;letter-spacing:.02em">
+                    <div class="hidden sm:flex items-center gap-3 p-2 rounded-2xl border border-black/5 dark:border-white/10 bg-black/5 dark:bg-white/5">
+                        <div class="h-10 w-10 rounded-full bg-white/20 dark:bg-white/10 border border-white/20 flex items-center justify-center text-gray-700 dark:text-white font-black">
                             {{ $initials }}
                         </div>
-                        <div class="hidden sm:block" style="line-height:1.15">
-                            <div style="font-weight:900;color:#194436;font-size:14px">
+                        <div class="hidden sm:block leading-none">
+                            <div class="font-black text-gray-800 dark:text-white text-sm">
                                 {{ $fullName }}
                             </div>
-                            <div style="font-weight:650;color:#194436;font-size:12px">
+                            <div class="font-bold text-gray-500 dark:text-gray-400 text-xs mt-0.5">
                                 {{ $user->email }}
                             </div>
                         </div>
@@ -56,7 +56,7 @@
 
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf
-                        <button type="submit" style="padding:10px 14px;border-radius:9999px;background:linear-gradient(90deg,#f27457,#145454);color:#fff;font-size:14px;font-weight:700;box-shadow:0 14px 35px rgba(20,84,84,.14),0 2px 6px rgba(0,0,0,.06);text-decoration:none;display:inline-flex;align-items:center;gap:8px">
+                        <button type="submit" class="px-4 py-2.5 rounded-full bg-gradient-to-r from-[#f27457] to-[#145454] text-white text-sm font-bold shadow-lg shadow-[#145454]/20 flex items-center gap-2 transition-all hover:brightness-110">
                             <span class="hidden sm:inline">Logout</span>
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -68,16 +68,16 @@
         </div>
     </nav>
 @else
-    <nav x-data="{ open: false }" class="sticky top-0 z-50 bg-white border-b border-gray-100" style="background: radial-gradient(700px 220px at 18% 0%, rgba(255,255,255,.22) 0%, rgba(255,255,255,0) 60%), radial-gradient(560px 240px at 82% 100%, rgba(0,0,0,.16) 0%, rgba(0,0,0,0) 62%), linear-gradient(90deg, #f27457, #145454);">
+    <nav x-data="{ open: false }" class="sticky top-0 z-50 bg-gradient-to-r from-[#f27457] to-[#145454] border-b border-white/10">
     <!-- Primary Navigation Menu -->
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between h-16">
             <div class="flex items-center">
                 <a href="{{ url('/') }}" class="flex items-center gap-3">
-                    <div class="h-9 w-9 rounded-full bg-white/20 backdrop-blur flex items-center justify-center text-white font-extrabold tracking-wide">
+                    <div class="h-9 w-9 rounded-full bg-white/20 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white font-black tracking-wide">
                         SC
                     </div>
-                    <div class="text-white font-extrabold tracking-tight">
+                    <div class="text-white font-black tracking-tight">
                         spacechip
                     </div>
                 </a>
@@ -85,15 +85,14 @@
 
             <div class="hidden sm:flex items-center gap-3">
                 <div class="flex items-center gap-3">
-                    <div class="h-11 w-11 rounded-full flex items-center justify-center text-white font-extrabold tracking-wide"
-                         style="background: rgba(242,116,87,.35); border: 1px solid rgba(255,255,255,.22);">
+                    <div class="h-10 w-10 rounded-full flex items-center justify-center text-white font-black tracking-wide bg-white/20 border border-white/20">
                         {{ $initials }}
                     </div>
-                    <div class="leading-tight">
-                        <div class="text-sm font-extrabold text-white">
+                    <div class="leading-none">
+                        <div class="text-sm font-black text-white">
                             {{ $fullName }}
                         </div>
-                        <div class="text-xs text-white/80">
+                        <div class="text-[10px] uppercase font-bold text-white/70 tracking-wider mt-0.5">
                             {{ $user->email }}
                         </div>
                     </div>
@@ -113,7 +112,7 @@
 
             <!-- Hamburger -->
             <div class="-me-2 flex items-center sm:hidden">
-                <button @click="open = ! open" class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 focus:text-gray-500 transition duration-150 ease-in-out">
+                <button @click="open = ! open" class="inline-flex items-center justify-center p-2 rounded-md text-white/80 hover:text-white hover:bg-white/10 focus:outline-none transition duration-150 ease-in-out">
                     <svg class="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24">
                         <path :class="{'hidden': open, 'inline-flex': ! open }" class="inline-flex" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
                         <path :class="{'hidden': ! open, 'inline-flex': open }" class="hidden" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -124,14 +123,14 @@
     </div>
 
     <!-- Responsive Navigation Menu -->
-    <div :class="{'block': open, 'hidden': ! open}" class="hidden sm:hidden">
+    <div :class="{'block': open, 'hidden': ! open}" class="hidden sm:hidden bg-white dark:bg-slate-900 border-t border-gray-100 dark:border-white/10">
         <!-- Responsive Settings Options -->
-        <div class="pt-4 pb-1 border-t border-gray-200">
+        <div class="pt-4 pb-1">
             <div class="px-4">
-                <div class="font-medium text-base text-gray-800">
+                <div class="font-bold text-base text-gray-800 dark:text-white">
                     {{ $fullName }}
                 </div>
-                <div class="font-medium text-sm text-gray-500">{{ $user->email }}</div>
+                <div class="font-medium text-sm text-gray-500 dark:text-gray-400">{{ $user->email }}</div>
             </div>
 
             <div class="mt-3 space-y-1">
@@ -139,7 +138,7 @@
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf
 
-                    <button type="submit" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2">
+                    <button type="submit" class="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 flex items-center gap-2">
                         <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
                         </svg>

@@ -23,8 +23,9 @@
         .load-more-wrap{margin-top:14px;display:flex;justify-content:center}
         .load-more-btn{padding:12px 16px;border-radius:9999px;border:1px solid rgba(15,31,31,.10);background:rgba(255,255,255,.65);font-weight:900;color:rgba(15,31,31,.72);cursor:pointer}
         .load-more-btn:disabled{opacity:.6;cursor:not-allowed}
-        .skeleton{background:linear-gradient(90deg, rgba(15,31,31,.06), rgba(15,31,31,.10), rgba(15,31,31,.06));background-size:200% 100%;animation:skeleton 1.1s ease-in-out infinite}
+        .skeleton{background:linear-gradient(90deg, rgba(15,31,31,.06) 0%, rgba(15,31,31,.12) 35%, rgba(15,31,31,.06) 70%, rgba(15,31,31,.12) 100%);background-size:300% 100%;animation:skeleton .95s ease-in-out infinite}
         @keyframes skeleton{0%{background-position:200% 0}100%{background-position:-200% 0}}
+        .dark .skeleton{background:linear-gradient(90deg, rgba(31,41,55,.55) 0%, rgba(55,65,81,.95) 35%, rgba(242,116,87,.26) 50%, rgba(55,65,81,.95) 65%, rgba(31,41,55,.55) 100%);background-size:400% 100%;animation:skeleton .85s ease-in-out infinite}
         .skel-card{padding:14px;border-radius:20px;border:1px solid rgba(15,31,31,.08);background:rgba(255,255,255,.6);display:flex;justify-content:space-between;align-items:center;gap:12px}
         .skel-left{display:flex;align-items:center;gap:12px}
         .skel-flag{height:40px;width:40px;border-radius:14px}
@@ -59,9 +60,14 @@
         </div>
     </div>
 
+    <script type="application/json" id="virtualNumbersIndexConfig">{!! json_encode([
+        'apiBase' => (string) ($countriesApiBase ?? '/api/virtual-numbers/countries?context=dashboard'),
+    ]) !!}</script>
     <script>
         (() => {
-            const apiBase = @json((string) ($countriesApiBase ?? '/api/virtual-numbers/countries?context=dashboard'));
+            const cfgEl = document.getElementById('virtualNumbersIndexConfig');
+            const cfg = cfgEl ? JSON.parse(cfgEl.textContent || '{}') : {};
+            const apiBase = String(cfg.apiBase || '');
             const qEl = document.getElementById('q');
             const statusEl = document.getElementById('status');
             const gridEl = document.getElementById('grid');
@@ -90,7 +96,7 @@
                 items.forEach((it) => {
                     const code = String(it.country_code || '');
                     const name = String(it.country_name || code);
-                    const displayName = name.length > 28 ? `${name.slice(0, 28)}…` : name;
+                    const displayName = name.length > 12 ? `${name.slice(0, 12)}…` : name;
                     const flag = String(it.flag || '☎️');
                     const price = String(it.starting_price_formatted || '');
                     const url = String(it.url || '');
