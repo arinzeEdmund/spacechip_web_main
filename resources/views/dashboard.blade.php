@@ -1519,20 +1519,31 @@
                     if (!id) return;
                     socialState.pollingOrderId = id;
                     let shouldContinue = true;
+                    let pollCount = 0;
+                    const startTime = Date.now();
+                    console.log(`[SocialOTP] Polling started — order #${id}`);
                     const poll = async () => {
                         if (socialState.pollingOrderId !== id) return;
+                        pollCount++;
+                        const elapsedSec = ((Date.now() - startTime) / 1000).toFixed(1);
+                        console.log(`[SocialOTP] Poll #${pollCount} — order #${id} — elapsed ${elapsedSec}s`);
                         const r = await socialFetchJson(socialApi.checkBase + encodeURIComponent(String(id)));
                         if (socialState.pollingOrderId !== id) return;
-                        if (!r.ok) return;
+                        if (!r.ok) {
+                            console.warn(`[SocialOTP] Poll #${pollCount} — order #${id} — request failed`);
+                            return;
+                        }
                         const order = r.json && r.json.order && typeof r.json.order === 'object' ? r.json.order : null;
                         if (!order) return;
                         socialState.order = order;
+                        const status = String(order.status || '');
+                        console.log(`[SocialOTP] Poll #${pollCount} — order #${id} — status: ${status}${status === 'RECEIVED' ? ` — code: ${order.sms_code || '?'}` : ''}`);
                         if (socialState.view === 'country') {
                             socialRenderCountry();
                         }
-                        const status = String(order.status || '');
                         if (['RECEIVED', 'FINISHED', 'CANCELED', 'BANNED', 'TIMEOUT'].includes(status)) {
                             shouldContinue = false;
+                            console.log(`[SocialOTP] Polling stopped — order #${id} — final status: ${status} — polls: ${pollCount} — elapsed: ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
                             socialStopPolling();
                         }
                     };
@@ -2040,6 +2051,7 @@
                     for (let i = 0; i < 6; i++) {
                         const sk = document.createElement('div');
                         sk.className = 'esim-card';
+                        sk.setAttribute('data-esim-skeleton', 'initial');
                         sk.innerHTML = `
                             <div class="esim-top">
                                 <div>
@@ -2106,9 +2118,7 @@
                     if (reset) {
                         esimsState.page = 0;
                         esimsState.hasMore = true;
-                        if (!hasRenderedCards) {
-                            setEsimsSkeleton();
-                        }
+                        setEsimsSkeleton();
                         noEsims.classList.add('hidden');
                     }
                     if (!esimsState.hasMore) {
@@ -2132,7 +2142,7 @@
                             return;
                         }
                         const items = Array.isArray(json.items) ? json.items : [];
-                        if (nextPage === 1 && items.length === 0 && hasRenderedCards) {
+                        if (nextPage === 1 && items.length === 0 && hasRenderedCards && !reset) {
                             esimsState.page = 1;
                             esimsState.hasMore = false;
                             noEsims.classList.add('hidden');

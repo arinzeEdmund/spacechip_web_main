@@ -52,6 +52,7 @@ Route::get('/mobile/endpoints', function () {
                 ['method' => 'POST', 'path' => '/auth/logout', 'auth' => true],
                 ['method' => 'POST', 'path' => '/auth/resend-verification', 'auth' => true],
                 ['method' => 'POST', 'path' => '/auth/forgot-password', 'auth' => false, 'body' => ['email']],
+                ['method' => 'DELETE', 'path' => '/auth/delete-account', 'auth' => true, 'note' => 'Permanently deletes account and all data. Web URL: https://spacechipltd.com/delete-account'],
             ],
             'catalog' => [
                 ['method' => 'GET', 'path' => '/landing', 'auth' => false],

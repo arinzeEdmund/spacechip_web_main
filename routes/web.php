@@ -39,6 +39,7 @@ Route::view('/terms', 'pages.terms')->name('terms');
 Route::view('/privacy', 'pages.privacy')->name('privacy');
 Route::view('/help-center', 'pages.help')->name('help');
 Route::view('/esim-guide', 'pages.esim-guide')->name('esim.guide');
+Route::view('/delete-account', 'pages.delete-account')->name('delete.account');
 
 if (! function_exists('social_number_order_payload')) {
     function social_number_order_payload(SocialNumberOrder $order, SmsPvaService $smsPva): array
@@ -284,6 +285,17 @@ Route::middleware(['throttle:5,1'])->post('/api/auth/forgot-password', function 
 
     return response()->json(['ok' => true]);
 })->name('api.auth.forgot_password');
+
+Route::middleware(['auth:sanctum', 'throttle:5,1'])->delete('/api/auth/delete-account', function (Request $request) {
+    $user = $request->user();
+    if (! $user) {
+        return response()->json(['message' => 'Unauthenticated.'], 401);
+    }
+    $user->tokens()->delete();
+    $user->delete();
+
+    return response()->json(['ok' => true]);
+})->name('api.auth.delete_account');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/virtual-numbers', function (Request $request) {
@@ -2111,6 +2123,18 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:60,1'])->get('/api/soci
     $order = SocialNumberOrder::query()->where('user_id', Auth::id())->findOrFail($id);
     $orderedAt = $order->ordered_at ?: $order->created_at;
     $hasExpiredLocally = $orderedAt ? $orderedAt->copy()->addSeconds(580)->isPast() : false;
+    $elapsedSeconds = $orderedAt ? (int) $orderedAt->diffInSeconds(now()) : null;
+
+    Log::info('SocialOTP poll', [
+        'order_id'         => $order->id,
+        'user_id'          => $order->user_id,
+        'provider_order'   => $order->provider_order_id,
+        'product'          => $order->product_name,
+        'country'          => $order->country,
+        'status'           => $order->status,
+        'elapsed_seconds'  => $elapsedSeconds,
+        'expired_locally'  => $hasExpiredLocally,
+    ]);
 
     if (in_array((string) $order->status, ['PENDING', 'WAITING', 'RECEIVED'], true) && $order->provider_order_id) {
         $usesV2 = (string) data_get($order->provider_payload, 'api_version') === 'v2';
@@ -2132,6 +2156,14 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:60,1'])->get('/api/soci
                 $order->sms_received_at = $order->sms_received_at ?: now();
                 $order->provider_payload = array_merge(is_array($order->provider_payload) ? $order->provider_payload : [], ['last_sms' => $json]);
                 $order->save();
+                Log::info('SocialOTP received', [
+                    'order_id'        => $order->id,
+                    'user_id'         => $order->user_id,
+                    'provider_order'  => $order->provider_order_id,
+                    'sms_code'        => $code,
+                    'sms_text'        => $text,
+                    'elapsed_seconds' => $elapsedSeconds,
+                ]);
             } elseif (($response === '3' || ($usesV2 && $foundJson === null)) && $hasExpiredLocally) {
                 if ($usesV2) {
                     $smsPva->banV2((string) $order->provider_order_id);
@@ -2142,10 +2174,23 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:60,1'])->get('/api/soci
                 $order->status = 'TIMEOUT';
                 $order->canceled_at = $order->canceled_at ?: now();
                 $order->save();
+                Log::warning('SocialOTP timeout (provider expired)', [
+                    'order_id'        => $order->id,
+                    'user_id'         => $order->user_id,
+                    'provider_order'  => $order->provider_order_id,
+                    'elapsed_seconds' => $elapsedSeconds,
+                ]);
             } elseif ($usesV2 || in_array($response, ['2', '3', '4'], true)) {
                 $order->status = $order->sms_code ? 'RECEIVED' : 'PENDING';
                 $order->save();
             }
+        } else {
+            Log::warning('SocialOTP provider poll failed', [
+                'order_id'       => $order->id,
+                'user_id'        => $order->user_id,
+                'provider_order' => $order->provider_order_id,
+                'provider_error' => $res['error'] ?? null,
+            ]);
         }
     }
 
@@ -2166,6 +2211,12 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:60,1'])->get('/api/soci
         $order->status = 'TIMEOUT';
         $order->canceled_at = $order->canceled_at ?: now();
         $order->save();
+        Log::warning('SocialOTP timeout (local expiry)', [
+            'order_id'        => $order->id,
+            'user_id'         => $order->user_id,
+            'provider_order'  => $order->provider_order_id,
+            'elapsed_seconds' => $elapsedSeconds,
+        ]);
     }
 
     return response()->json(['ok' => true, 'order' => social_number_order_payload($order->fresh(), $smsPva)]);

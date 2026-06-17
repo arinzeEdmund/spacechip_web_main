@@ -237,6 +237,22 @@ Response:
 { "ok": true }
 ```
 
+8. Delete Account
+`DELETE /api/auth/delete-account`
+
+Auth: Bearer token (required)
+
+Response:
+```json
+{ "ok": true }
+```
+
+Notes:
+- Permanently deletes the authenticated user's account and all associated data (eSIMs, wallet, virtual numbers, transaction history).
+- All Sanctum tokens for the user are revoked before deletion.
+- The app must clear local storage (token + cached user) after this call and redirect to login.
+- Web URL for Play Store Data Safety: `https://spacechipltd.com/delete-account`
+
 CATALOG AND LANDING ENDPOINTS
 
 1. Landing Data
@@ -1476,6 +1492,7 @@ Auth stack:
 - Email verification screen: `POST /api/auth/resend-verification`, refresh with `GET /api/auth/me`
 - App bootstrap: `GET /api/auth/me`
 - Logout action: `POST /api/auth/logout`
+- Delete account: `DELETE /api/auth/delete-account` (Profile screen → Delete account button)
 
 Home/catalog:
 - Home highlights: `GET /api/landing`
