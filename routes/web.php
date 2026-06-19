@@ -1946,6 +1946,17 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:30,1'])->get('/api/soci
     return response()->json(['ok' => true, 'items' => $smsPva->countries()]);
 });
 
+Route::middleware(['auth:sanctum', 'verified', 'throttle:60,1'])->get('/api/social-numbers/operators', function (Request $request, SmsPvaService $smsPva) {
+    $country = strtoupper(trim((string) $request->query('country', '')));
+    if ($country === '') {
+        return response()->json(['message' => 'Missing country.'], 422);
+    }
+
+    $operators = $smsPva->operators($country);
+
+    return response()->json(['ok' => true, 'country' => $country, 'items' => $operators]);
+});
+
 Route::middleware(['auth:sanctum', 'verified', 'throttle:30,1'])->get('/api/social-numbers/prices', function (Request $request, SmsPvaService $smsPva) {
     if (! $smsPva->isConfigured()) {
         return response()->json(['message' => 'SMSPVA is not configured.'], 500);
@@ -2137,18 +2148,18 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:60,1'])->get('/api/soci
     ]);
 
     if (in_array((string) $order->status, ['PENDING', 'WAITING', 'RECEIVED'], true) && $order->provider_order_id) {
-        $usesV2 = (string) data_get($order->provider_payload, 'api_version') === 'v2';
-        $res = $usesV2
-            ? $smsPva->findOrderV2((string) $order->provider_order_id)
-            : $smsPva->getSms((string) $order->service_code, (string) $order->country, (string) $order->provider_order_id);
+        // Always use v1 getSms for polling — it queries the order directly by ID.
+        // The v2 /activation/orders list only shows WAITING orders; once SMSPVA
+        // marks an order SMS_READY the entry disappears from that list, so findOrderV2
+        // returns null and the code is never captured. v1 getSms works for both
+        // v1 and v2 order IDs and reliably returns response "1" when SMS is ready.
+        $res = $smsPva->getSms((string) $order->service_code, (string) $order->country, (string) $order->provider_order_id);
         if (($res['ok'] ?? false) === true) {
-            $foundJson = $res['json'] ?? null;
-            $json = is_array($foundJson) ? $foundJson : [];
+            $json = is_array($res['json'] ?? null) ? $res['json'] : [];
             $order->provider_payload = array_merge(is_array($order->provider_payload) ? $order->provider_payload : [], ['last_sms_poll' => $json]);
             $response = (string) ($json['response'] ?? $json['responce'] ?? '');
             [$code, $text] = social_extract_sms_code($json);
-            $providerStatus = (string) ($json['status'] ?? '');
-            if ($response === '1' || $providerStatus === 'SMS_READY' || $code !== '') {
+            if ($response === '1' || $code !== '') {
                 $order->status = 'RECEIVED';
                 $order->sms_code = $code;
                 $order->sms_text = $text;
@@ -2156,7 +2167,12 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:60,1'])->get('/api/soci
                 $order->sms_received_at = $order->sms_received_at ?: now();
                 $order->provider_payload = array_merge(is_array($order->provider_payload) ? $order->provider_payload : [], ['last_sms' => $json]);
                 $order->save();
-                Log::info('SocialOTP received', [
+                $logMsg = sprintf(
+                    '[SocialOTP] ORDER #%s RECEIVED — Code: %s | Text: %s | Product: %s | Country: %s | Elapsed: %ss',
+                    $order->id, $code, $text, $order->product_name, $order->country, $elapsedSeconds ?? '?'
+                );
+                error_log($logMsg);
+                Log::warning($logMsg, [
                     'order_id'        => $order->id,
                     'user_id'         => $order->user_id,
                     'provider_order'  => $order->provider_order_id,
@@ -2164,12 +2180,8 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:60,1'])->get('/api/soci
                     'sms_text'        => $text,
                     'elapsed_seconds' => $elapsedSeconds,
                 ]);
-            } elseif (($response === '3' || ($usesV2 && $foundJson === null)) && $hasExpiredLocally) {
-                if ($usesV2) {
-                    $smsPva->banV2((string) $order->provider_order_id);
-                } else {
-                    $smsPva->ban((string) $order->service_code, (string) $order->provider_order_id);
-                }
+            } elseif ($response === '3' && $hasExpiredLocally) {
+                $smsPva->ban((string) $order->service_code, (string) $order->provider_order_id);
                 social_refund_order($order, $wallet, 'SMSPVA order expired before SMS arrived.');
                 $order->status = 'TIMEOUT';
                 $order->canceled_at = $order->canceled_at ?: now();
@@ -2180,7 +2192,7 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:60,1'])->get('/api/soci
                     'provider_order'  => $order->provider_order_id,
                     'elapsed_seconds' => $elapsedSeconds,
                 ]);
-            } elseif ($usesV2 || in_array($response, ['2', '3', '4'], true)) {
+            } elseif (in_array($response, ['2', '3', '4'], true)) {
                 $order->status = $order->sms_code ? 'RECEIVED' : 'PENDING';
                 $order->save();
             }
@@ -2202,11 +2214,11 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:60,1'])->get('/api/soci
         && $orderedAt
         && $orderedAt->copy()->addSeconds(580)->isPast()
     ) {
-        if ((string) data_get($order->provider_payload, 'api_version') === 'v2') {
+        $usesV2 = (string) data_get($order->provider_payload, 'api_version') === 'v2';
+        if ($usesV2) {
             $smsPva->banV2((string) $order->provider_order_id);
-        } else {
-            $smsPva->ban((string) $order->service_code, (string) $order->provider_order_id);
         }
+        $smsPva->ban((string) $order->service_code, (string) $order->country, (string) $order->provider_order_id);
         social_refund_order($order, $wallet, 'Social number OTP timed out after 10 minutes.');
         $order->status = 'TIMEOUT';
         $order->canceled_at = $order->canceled_at ?: now();

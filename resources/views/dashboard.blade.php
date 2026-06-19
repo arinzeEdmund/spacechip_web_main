@@ -688,6 +688,7 @@
                     profile: '/api/social-numbers/profile',
                     apps: '/api/social-numbers/apps',
                     countries: '/api/social-numbers/countries',
+                    operators: '/api/social-numbers/operators',
                     prices: '/api/social-numbers/prices',
                     buy: '/api/social-numbers/buy',
                     checkBase: '/api/social-numbers/check/',
@@ -716,6 +717,8 @@
                     countriesPage: 0,
                     selectedApp: null,
                     selectedCountry: '',
+                    selectedOperator: 'any',
+                    availableOperators: [],
                     operators: [],
                     operatorsOffset: 0,
                     operatorsHasMore: false,
@@ -1301,6 +1304,8 @@
                     socialState.view = 'apps';
                     socialState.selectedApp = null;
                     socialState.selectedCountry = '';
+                    socialState.selectedOperator = 'any';
+                    socialState.availableOperators = [];
                     socialState.operators = [];
                     socialState.operatorsOffset = 0;
                     socialState.operatorsHasMore = false;
@@ -1391,6 +1396,17 @@
                     const showGenerate = !order || isFinal;
                     const isBuying = !!socialState.isBuying;
 
+                    const ops = Array.isArray(socialState.availableOperators) ? socialState.availableOperators : [];
+                    const selectedOp = socialState.selectedOperator || 'any';
+                    const operatorPickerHtml = (showGenerate && ops.length > 0) ? `
+                        <div style="grid-column:1/-1;margin-bottom:12px">
+                            <div style="font-size:11px;font-weight:950;letter-spacing:.08em;text-transform:uppercase;color:rgba(15,31,31,.46);margin-bottom:8px">Select Operator</div>
+                            <div style="display:flex;flex-wrap:wrap;gap:8px" id="snOperatorPicker">
+                                <button type="button" class="vn-btn${selectedOp === 'any' ? ' primary' : ''}" data-op="any" style="font-size:12px;padding:6px 14px">Auto (any)</button>
+                                ${ops.map(o => `<button type="button" class="vn-btn${selectedOp === String(o.key || '') ? ' primary' : ''}" data-op="${esc(String(o.key || ''))}" style="font-size:12px;padding:6px 14px">${esc(String(o.name || o.key || ''))}</button>`).join('')}
+                            </div>
+                        </div>` : '';
+
                     socialEls.grid.innerHTML = `
                         <div class="vn-head" style="grid-column: 1 / -1; margin-bottom: 8px">
                             <div>
@@ -1413,6 +1429,7 @@
                                 ` : ''}
                             </div>
                         </div>
+                        ${operatorPickerHtml}
                         <div style="grid-column:1 / -1">
                             <div id="snCountryStatus" class="vn-status"></div>
                             <div id="snOrderBox"></div>
@@ -1429,11 +1446,19 @@
                         socialState.view = 'countries';
                         socialState.selectedCountry = '';
                         socialState.countrySummary = '';
+                        socialState.selectedOperator = 'any';
+                        socialState.availableOperators = [];
                         socialRenderCountries();
                     });
                     document.getElementById('snGenerateBtn')?.addEventListener('click', () => {
                         if (socialState.isBuying) return;
-                        socialBuy(countryKey, 'any');
+                        socialBuy(countryKey, socialState.selectedOperator || 'any');
+                    });
+                    document.getElementById('snOperatorPicker')?.querySelectorAll('[data-op]').forEach((btn) => {
+                        btn.addEventListener('click', () => {
+                            socialState.selectedOperator = String(btn.getAttribute('data-op') || 'any');
+                            socialRenderCountry();
+                        });
                     });
                     document.getElementById('snCancelOrderHdr')?.addEventListener('click', () => socialCancelOrder());
                     document.getElementById('snBanOrderHdr')?.addEventListener('click', () => socialBanOrder());
@@ -1458,16 +1483,26 @@
                     socialRenderCountry();
                 };
 
+                const socialLoadOperators = async (countryKey) => {
+                    socialState.availableOperators = [];
+                    const r = await socialFetchJson(`${socialApi.operators}?country=${encodeURIComponent(String(countryKey || ''))}`);
+                    if (r.ok && r.json && Array.isArray(r.json.items)) {
+                        socialState.availableOperators = r.json.items;
+                    }
+                };
+
                 const socialShowCountry = async (countryKey) => {
                     if (!socialState.selectedApp) return;
                     socialStopPolling();
                     socialStopCountdown();
                     socialState.view = 'country';
                     socialState.selectedCountry = String(countryKey || '');
+                    socialState.selectedOperator = 'any';
                     socialState.countrySummary = 'Loading…';
                     socialState.order = null;
                     socialRenderCountry();
-                    await socialLoadCountrySummary();
+                    await Promise.all([socialLoadCountrySummary(), socialLoadOperators(countryKey)]);
+                    socialRenderCountry();
                 };
 
                 const socialBuy = async (countryKey, operator) => {

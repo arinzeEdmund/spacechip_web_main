@@ -150,11 +150,138 @@ class SmsPvaService
     public function buyNumberV2(string $service, string $country, ?string $operator = null): array
     {
         $path = '/activation/number/'.rawurlencode(strtoupper($country)).'/'.rawurlencode($service);
-        if (is_string($operator) && trim($operator) !== '' && trim($operator) !== 'any') {
-            $path .= '/'.rawurlencode(trim($operator));
+        $query = [];
+        if (is_string($operator) && trim($operator) !== '' && strtolower(trim($operator)) !== 'any') {
+            $query['operator'] = trim($operator);
         }
 
-        return $this->requestV2('GET', $path);
+        return $this->requestV2('GET', $path, $query);
+    }
+
+    public function operators(string $country): array
+    {
+        $country = strtoupper(trim($country));
+
+        $map = [
+            'UK' => [
+                ['key' => 'giffgaff',  'name' => 'Giffgaff'],
+                ['key' => 'o2',        'name' => 'O2'],
+                ['key' => 'vodafone',  'name' => 'Vodafone'],
+                ['key' => 'hutchison', 'name' => 'Three (Hutchison)'],
+                ['key' => 'lycamobile','name' => 'Lycamobile'],
+            ],
+            'US' => [
+                ['key' => 'att',     'name' => 'AT&T'],
+                ['key' => 'tmobile', 'name' => 'T-Mobile'],
+                ['key' => 'verizon', 'name' => 'Verizon'],
+            ],
+            'FR' => [
+                ['key' => 'orange',   'name' => 'Orange'],
+                ['key' => 'sfr',      'name' => 'SFR'],
+                ['key' => 'bouygues', 'name' => 'Bouygues'],
+                ['key' => 'free',     'name' => 'Free'],
+            ],
+            'DE' => [
+                ['key' => 'telekom',  'name' => 'Telekom'],
+                ['key' => 'o2',       'name' => 'O2'],
+                ['key' => 'vodafone', 'name' => 'Vodafone'],
+            ],
+            'ES' => [
+                ['key' => 'movistar', 'name' => 'Movistar'],
+                ['key' => 'vodafone', 'name' => 'Vodafone'],
+                ['key' => 'orange',   'name' => 'Orange'],
+            ],
+            'IT' => [
+                ['key' => 'tim',      'name' => 'TIM'],
+                ['key' => 'vodafone', 'name' => 'Vodafone'],
+                ['key' => 'wind',     'name' => 'Wind Tre'],
+            ],
+            'AU' => [
+                ['key' => 'telstra',  'name' => 'Telstra'],
+                ['key' => 'optus',    'name' => 'Optus'],
+                ['key' => 'vodafone', 'name' => 'Vodafone'],
+            ],
+            'BR' => [
+                ['key' => 'claro', 'name' => 'Claro'],
+                ['key' => 'vivo',  'name' => 'Vivo'],
+                ['key' => 'tim',   'name' => 'TIM'],
+                ['key' => 'oi',    'name' => 'Oi'],
+            ],
+            'PH' => [
+                ['key' => 'globe', 'name' => 'Globe'],
+                ['key' => 'smart', 'name' => 'Smart'],
+                ['key' => 'sun',   'name' => 'Sun'],
+            ],
+            'ID' => [
+                ['key' => 'telkomsel', 'name' => 'Telkomsel'],
+                ['key' => 'indosat',   'name' => 'Indosat'],
+                ['key' => 'xl',        'name' => 'XL Axiata'],
+            ],
+            'JP' => [
+                ['key' => 'softbank', 'name' => 'SoftBank'],
+                ['key' => 'docomo',   'name' => 'NTT Docomo'],
+                ['key' => 'au',       'name' => 'au (KDDI)'],
+            ],
+            'RO' => [
+                ['key' => 'orange',   'name' => 'Orange'],
+                ['key' => 'vodafone', 'name' => 'Vodafone'],
+                ['key' => 'telekom',  'name' => 'Telekom'],
+                ['key' => 'digi',     'name' => 'Digi'],
+            ],
+            'PT' => [
+                ['key' => 'nos',      'name' => 'NOS'],
+                ['key' => 'meo',      'name' => 'MEO'],
+                ['key' => 'vodafone', 'name' => 'Vodafone'],
+            ],
+            'CA' => [
+                ['key' => 'rogers', 'name' => 'Rogers'],
+                ['key' => 'bell',   'name' => 'Bell'],
+                ['key' => 'telus',  'name' => 'Telus'],
+            ],
+            'AR' => [
+                ['key' => 'claro',    'name' => 'Claro'],
+                ['key' => 'personal', 'name' => 'Personal'],
+                ['key' => 'movistar', 'name' => 'Movistar'],
+            ],
+            'PL' => [
+                ['key' => 'orange',  'name' => 'Orange'],
+                ['key' => 'play',    'name' => 'Play'],
+                ['key' => 'tmobile', 'name' => 'T-Mobile'],
+                ['key' => 'plus',    'name' => 'Plus'],
+            ],
+            'NL' => [
+                ['key' => 'kpn',      'name' => 'KPN'],
+                ['key' => 'tmobile',  'name' => 'T-Mobile'],
+                ['key' => 'vodafone', 'name' => 'Vodafone'],
+            ],
+            'TR' => [
+                ['key' => 'turkcell',     'name' => 'Turkcell'],
+                ['key' => 'vodafone',     'name' => 'Vodafone'],
+                ['key' => 'turk-telekom', 'name' => 'Türk Telekom'],
+            ],
+            'UA' => [
+                ['key' => 'kyivstar', 'name' => 'Kyivstar'],
+                ['key' => 'vodafone', 'name' => 'Vodafone UA'],
+                ['key' => 'lifecell', 'name' => 'lifecell'],
+            ],
+            'VN' => [
+                ['key' => 'viettel',  'name' => 'Viettel'],
+                ['key' => 'mobifone', 'name' => 'MobiFone'],
+                ['key' => 'vinaphone','name' => 'Vinaphone'],
+            ],
+            'MX' => [
+                ['key' => 'telcel',   'name' => 'Telcel'],
+                ['key' => 'att',      'name' => 'AT&T MX'],
+                ['key' => 'movistar', 'name' => 'Movistar'],
+            ],
+            'GR' => [
+                ['key' => 'cosmote',  'name' => 'Cosmote'],
+                ['key' => 'vodafone', 'name' => 'Vodafone'],
+                ['key' => 'wind',     'name' => 'Wind'],
+            ],
+        ];
+
+        return $map[$country] ?? [];
     }
 
     public function getSms(string $service, string $country, string $providerOrderId): array
