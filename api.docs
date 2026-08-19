@@ -112,6 +112,12 @@ async function apiFetch(path: string, options: RequestInit = {}, token?: string)
 
 AUTH ENDPOINTS
 
+⚠️  REGISTRATION FLOW CHANGE — OTP-based email verification (updated)
+Registration no longer returns a token immediately. The new flow is:
+  Step 1: POST /api/auth/register  → returns user_id, no token
+  Step 2: User enters 6-digit code from their email
+  Step 3: POST /api/auth/verify-otp → returns Bearer token (auto-login)
+
 1. Register
 `POST /api/auth/register`
 
@@ -127,12 +133,13 @@ Body:
 }
 ```
 
-Response:
+Response (HTTP 201):
 ```json
 {
   "ok": true,
-  "token_type": "Bearer",
-  "token": "plain_text_sanctum_token",
+  "requires_otp": true,
+  "user_id": 1,
+  "message": "A 6-digit verification code has been sent to your email.",
   "user": {
     "id": 1,
     "name": "Jane Doe",
@@ -143,8 +150,68 @@ Response:
 ```
 
 Mobile action:
-- Save `token`.
-- If `email_verified` is false, allow browsing public catalog but gate verified-only purchases behind verification prompt.
+- Do NOT save a token yet — none is returned.
+- Store `user_id` in local state.
+- Navigate to the OTP verification screen.
+- Show a 6-digit code entry UI with a 10-minute countdown.
+
+1a. Verify OTP (complete registration / auto-login)
+`POST /api/auth/verify-otp`
+
+Auth: none
+
+Body:
+```json
+{
+  "user_id": 1,
+  "otp": "482910",
+  "device_name": "ios"
+}
+```
+
+Response (HTTP 200):
+```json
+{
+  "ok": true,
+  "token_type": "Bearer",
+  "token": "plain_text_sanctum_token",
+  "user": {
+    "id": 1,
+    "name": "Jane Doe",
+    "email": "jane@example.com",
+    "email_verified": true
+  }
+}
+```
+
+Mobile action:
+- Save `token` securely (Keychain / expo-secure-store).
+- Navigate to the main app (dashboard).
+
+Error cases:
+- HTTP 422 `{ "message": "Invalid or expired verification code." }` — show error, let user retry or resend.
+- HTTP 404 — user not found, redirect to register.
+
+1b. Resend OTP
+`POST /api/auth/resend-otp`
+
+Auth: none
+Rate limit: 3 requests per 10 minutes per user_id
+
+Body:
+```json
+{ "user_id": 1 }
+```
+
+Response:
+```json
+{ "ok": true, "message": "A new verification code has been sent." }
+```
+
+Mobile action:
+- Restart the 10-minute countdown.
+- Show a success toast/banner.
+- Rate limit: disable the resend button for 60 seconds after each tap.
 
 2. Login
 `POST /api/auth/login`

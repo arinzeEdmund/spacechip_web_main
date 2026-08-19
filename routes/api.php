@@ -46,7 +46,9 @@ Route::get('/mobile/endpoints', function () {
         ],
         'groups' => [
             'auth' => [
-                ['method' => 'POST', 'path' => '/auth/register', 'auth' => false, 'body' => ['name', 'email', 'password', 'device_name?']],
+                ['method' => 'POST', 'path' => '/auth/register', 'auth' => false, 'body' => ['name', 'email', 'password', 'device_name?'], 'note' => 'Returns requires_otp:true and user_id. No token until OTP verified.'],
+                ['method' => 'POST', 'path' => '/auth/verify-otp', 'auth' => false, 'body' => ['user_id', 'otp', 'device_name?'], 'note' => 'Verifies 6-digit email OTP. Returns Bearer token on success (auto-login).'],
+                ['method' => 'POST', 'path' => '/auth/resend-otp', 'auth' => false, 'body' => ['user_id'], 'note' => 'Resends OTP. Rate-limited to 3 per 10 minutes.'],
                 ['method' => 'POST', 'path' => '/auth/login', 'auth' => false, 'body' => ['email', 'password', 'device_name?']],
                 ['method' => 'GET', 'path' => '/auth/me', 'auth' => true],
                 ['method' => 'POST', 'path' => '/auth/logout', 'auth' => true],

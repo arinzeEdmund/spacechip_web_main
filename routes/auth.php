@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\ConfirmablePasswordController;
 use App\Http\Controllers\Auth\EmailVerificationNotificationController;
 use App\Http\Controllers\Auth\EmailVerificationPromptController;
 use App\Http\Controllers\Auth\NewPasswordController;
+use App\Http\Controllers\Auth\OtpVerificationController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisteredUserController;
@@ -41,7 +42,22 @@ Route::middleware(['guest', 'prevent-back-history'])->group(function () {
         ->name('password.store');
 });
 
+// OTP verification — accessible while guest (session holds user id, no auth yet)
+Route::middleware('guest')->group(function () {
+    Route::get('verify-otp', [OtpVerificationController::class, 'show'])
+        ->name('verification.otp');
+
+    Route::post('verify-otp', [OtpVerificationController::class, 'verify'])
+        ->middleware('throttle:10,1')
+        ->name('verification.otp.verify');
+
+    Route::post('verify-otp/resend', [OtpVerificationController::class, 'resend'])
+        ->middleware('throttle:3,10')
+        ->name('verification.otp.resend');
+});
+
 Route::middleware('auth')->group(function () {
+    // Keep legacy link-based flow for existing verified users (login redirects)
     Route::get('verify-email', EmailVerificationPromptController::class)
         ->name('verification.notice');
 

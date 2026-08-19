@@ -61,10 +61,14 @@
         .grid{display:grid;grid-template-columns:1fr;gap:14px}
         @media(min-width:640px){.grid{grid-template-columns:repeat(2,1fr)}}
         @media(min-width:1024px){.grid{grid-template-columns:repeat(3,1fr)}}
+        .card-mob-footer{display:none}
+        .card-avail{display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;color:rgba(15,31,31,.48)}
+        .card-chev{color:rgba(15,31,31,.28);flex-shrink:0}
 
         @media(max-width:640px){
+            .py-12{padding-top:8px!important}
             .container{padding:0 16px}
-            .section{padding:28px 0}
+            .section{padding:16px 0}
             .section-title{font-size:20px}
             .controls-row{margin-bottom:18px}
             .search-bar{min-width:0}
@@ -72,11 +76,76 @@
             .search-bar svg{left:16px;height:20px;width:20px}
             .asset-toggles{width:100%;border-radius:24px}
             .asset-toggles button{padding:10px 12px;font-size:13px}
-            .card{flex-direction:column;align-items:flex-start}
-            .card-left{width:100%}
-            .card-right{width:100%;flex-direction:row;align-items:center;justify-content:flex-end;text-align:left}
-            .name{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+            .grid{grid-template-columns:repeat(2,1fr);gap:10px}
+            .card{flex-direction:column;align-items:flex-start;position:relative;padding:14px;gap:0}
+            .card-left{width:100%;flex-direction:column;align-items:flex-start;gap:0}
+            .flag{width:48px;height:48px;border-radius:16px;margin-bottom:10px}
+            .name{font-size:13px;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+            .card-right{position:absolute;inset:0;opacity:0;z-index:1;width:auto;display:flex}
+            .card-right .mini-btn{flex:1;border-radius:inherit}
+            .card-mob-footer{display:flex;justify-content:space-between;align-items:center;width:100%;margin-top:10px;position:relative;z-index:0}
             .no-results{padding:42px 12px}
+
+            /* Wallet card — exact app match (mobile only) */
+            .wallet-panel{
+                padding:20px 18px 18px;
+                border-radius:24px;
+                background:
+                    radial-gradient(ellipse 220px 160px at -5% -10%, rgba(242,116,87,.14) 0%, transparent 65%),
+                    radial-gradient(ellipse 180px 140px at 105% 10%, rgba(20,84,84,.09) 0%, transparent 60%),
+                    linear-gradient(160deg, #ffffff 0%, #f4f7f7 100%);
+                border:1px solid rgba(20,84,84,.1);
+                box-shadow:0 8px 32px rgba(15,31,31,.08),0 2px 8px rgba(15,31,31,.05)
+            }
+            .wallet-panel::before{
+                background:linear-gradient(120deg, rgba(242,116,87,.22), rgba(20,84,84,.18), rgba(242,116,87,.1));
+                border-radius:26px
+            }
+            .wallet-panel::after{background:none;filter:none}
+            .wallet-inner{display:block}
+            .wallet-top{display:flex;flex-direction:row;align-items:center;gap:8px;margin-bottom:0}
+            .wallet-hdr-icon{
+                display:flex;align-items:center;justify-content:center;
+                width:36px;height:36px;flex-shrink:0;
+                background:rgba(255,255,255,.9);
+                border:1px solid rgba(20,84,84,.13);
+                border-radius:12px;
+                color:rgba(20,84,84,.75);
+                box-shadow:0 2px 8px rgba(15,31,31,.07)
+            }
+            .wallet-info-block{display:flex;flex-direction:column}
+            .wallet-title{display:block;font-size:15px;font-weight:800;color:#0b1a1a;letter-spacing:-.01em}
+            .wallet-desc{display:block;font-size:13px;font-weight:600;color:rgba(15,31,31,.55);margin-top:3px}
+            .wallet-label-sm{display:block;font-size:12px;font-weight:600;color:rgba(15,31,31,.52);margin-top:16px;margin-bottom:2px}
+            .wallet-balance{font-size:36px;font-weight:900;letter-spacing:-.03em;background:none;border:none;padding:4px 0 4px;color:#0b1a1a;text-shadow:none}
+            .wallet-status{color:rgba(15,31,31,.6)!important}
+            .wallet-actions{margin-top:14px;flex-wrap:nowrap;gap:10px}
+            .wallet-input{
+                flex:1;min-width:0;
+                padding:15px 16px;
+                background:#fff;
+                border:1px solid rgba(15,31,31,.09);
+                border-radius:16px;
+                color:#0b1a1a;
+                font-size:15px;
+                font-weight:700;
+                box-shadow:0 2px 8px rgba(15,31,31,.05)
+            }
+            .wallet-input::placeholder{color:rgba(15,31,31,.35)}
+            .wallet-ref-btn{display:none}
+            .wallet-dep-btn{
+                padding:15px 20px!important;
+                border-radius:16px!important;
+                white-space:nowrap;
+                background:linear-gradient(90deg, #c8512e 0%, #145454 100%)!important;
+                border:none!important;
+                color:#fff!important;
+                box-shadow:0 6px 20px rgba(20,84,84,.22),0 2px 6px rgba(0,0,0,.1)!important;
+                font-size:14px!important;
+                font-weight:800!important
+            }
+            .wallet-dep-btn:active{transform:translateY(1px);box-shadow:0 3px 10px rgba(20,84,84,.18)!important}
+            .dep-icon{display:inline-block}
         }
 
         @media(max-width:480px){
@@ -220,8 +289,13 @@
             backdrop-filter:blur(14px);border:1px solid rgba(20,84,84,.14);box-shadow:0 18px 45px rgba(15,31,31,.09)}
         .wallet-panel::before{content:"";position:absolute;inset:-2px;border-radius:28px;padding:1px;background:linear-gradient(120deg, rgba(242,116,87,.35), rgba(20,84,84,.28), rgba(242,116,87,.18));-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
         .wallet-panel::after{content:"";position:absolute;right:-90px;bottom:-110px;width:260px;height:260px;background:radial-gradient(circle at 30% 30%, rgba(242,116,87,.18), rgba(242,116,87,0) 70%);filter:blur(1px);pointer-events:none}
-        .wallet-row{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:flex-end;position:relative;z-index:1}
+        .wallet-inner{display:flex;align-items:flex-end;gap:14px;position:relative;z-index:1;flex-wrap:wrap}
+        .wallet-top{flex:1;min-width:180px;display:flex;align-items:center;gap:10px}
+        .wallet-info-block{display:flex;flex-direction:column}
+        .wallet-label-sm{display:none;font-size:13px;font-weight:600;color:rgba(15,31,31,.52)}
+        .wallet-hdr-icon{display:none;color:rgba(20,84,84,.65);flex-shrink:0}
         .wallet-title{font-weight:1000;color:#0b1a1a;letter-spacing:-.01em}
+        .wallet-desc{color:rgba(15,31,31,.62);font-weight:700;font-size:13px;margin-top:6px}
         .wallet-sub{color:rgba(15,31,31,.62);font-weight:700;font-size:13px;margin-top:6px}
         .wallet-status.error{color:rgba(242,116,87,.92)}
         .wallet-status.success{color:rgba(20,84,84,.92)}
@@ -231,8 +305,9 @@
         .wallet-panel .tiny-btn{padding:11px 14px;border-radius:16px;border:1px solid rgba(20,84,84,.14);background:rgba(255,255,255,.78);font-weight:950;color:rgba(20,84,84,.92)}
         .wallet-panel .tiny-btn:hover{background:rgba(255,255,255,.9)}
         .wallet-panel .tiny-btn:active{transform:translateY(1px)}
-        .wallet-panel .tiny-btn:first-of-type{background:linear-gradient(90deg, rgba(242,116,87,.95), rgba(20,84,84,.95));border:none;color:#fff;box-shadow:0 10px 28px rgba(20,84,84,.14)}
-        .wallet-panel .tiny-btn:first-of-type:hover{filter:saturate(1.05) brightness(1.02)}
+        .wallet-dep-btn{background:linear-gradient(90deg, rgba(242,116,87,.95), rgba(20,84,84,.95))!important;border:none!important;color:#fff!important;box-shadow:0 10px 28px rgba(20,84,84,.14)!important;display:inline-flex!important;align-items:center!important;gap:6px!important}
+        .wallet-dep-btn:hover{filter:saturate(1.05) brightness(1.02)!important}
+        .dep-icon{display:none}
 
         .no-results{grid-column: 1/-1; text-align: center; padding: 60px; color: rgba(15,31,31,.5);}
         .no-results svg{margin-bottom: 12px; opacity: .5;}
@@ -272,6 +347,14 @@
         }
 
         .skeleton-flag { width: 40px; height: 40px; border-radius: 14px; }
+        @media(max-width:640px){
+            .skeleton-card{flex-direction:column;align-items:flex-start;padding:14px;gap:0}
+            .skeleton-card .card-left{flex-direction:column;align-items:flex-start;gap:0;width:100%}
+            .skeleton-card .card-right{display:none}
+            .skeleton-flag{width:48px;height:48px;border-radius:16px;margin-bottom:10px}
+            .skeleton-text-lg{width:80px;height:14px}
+            .skeleton-text-sm{width:60px;height:10px;margin-top:6px}
+        }
         .skeleton-text-lg { width: 120px; height: 18px; margin-bottom: 8px; }
         .skeleton-text-sm { width: 80px; height: 12px; }
         .skeleton-btn { width: 70px; height: 32px; border-radius: 9999px; }
@@ -304,16 +387,37 @@
                 </div>
 
                 <div class="wallet-panel">
-                    <div class="wallet-row">
-                        <div>
-                            <div class="wallet-title">Wallet</div>
-                            <div class="wallet-sub">Balance in USD. Deposit with card, or pay instantly with wallet.</div>
+                    <div class="wallet-inner">
+                        <div class="wallet-top">
+                            <svg class="wallet-hdr-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <rect x="2" y="6" width="20" height="14" rx="3" stroke="currentColor" stroke-width="2"/>
+                                <path d="M2 10h20" stroke="currentColor" stroke-width="2"/>
+                                <rect x="15" y="13" width="4" height="4" rx="1.5" fill="currentColor"/>
+                            </svg>
+                            <div class="wallet-info-block">
+                                <div class="wallet-title"
+                                
+                                
+                                
+                                
+                                
+                                
+                                >Wallet</div>
+                                <div class="wallet-desc">Balance in USD. Deposit with card, or pay instantly with wallet.</div>
+                            </div>
                         </div>
+                        <div class="wallet-label-sm">USD Balance</div>
+                        <div class="wallet-balance" id="walletBalance">$0.00</div>
                         <div class="wallet-actions">
-                            <div class="wallet-balance" id="walletBalance">$0.00</div>
                             <input class="wallet-input" id="walletDepositAmount" type="number" min="1" step="1" placeholder="Deposit (USD)">
-                            <button class="tiny-btn" type="button" id="walletDepositBtn">Deposit</button>
-                            <button class="tiny-btn" type="button" id="walletRefreshBtn">Refresh</button>
+                            <button class="tiny-btn wallet-dep-btn" type="button" id="walletDepositBtn">
+                                <svg class="dep-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <rect x="2" y="6" width="20" height="14" rx="3" stroke="currentColor" stroke-width="2"/>
+                                    <path d="M2 10h20" stroke="currentColor" stroke-width="2"/>
+                                </svg>
+                                Deposit
+                            </button>
+                            <button class="tiny-btn wallet-ref-btn" type="button" id="walletRefreshBtn">Refresh</button>
                         </div>
                     </div>
                     <div id="walletStatus" class="wallet-sub wallet-status"></div>
@@ -1020,17 +1124,25 @@
                         const kind = type === 'regions' ? 'region' : 'country';
                         const url = `/assets/${kind}/${encodeURIComponent(String(item.id || ''))}`;
                         const imgSrc = safeImgSrc(item.flag_url || '');
+                        const mobLabel = type === 'regions' ? 'Regional Plans' : 'Available eSIMs';
                         card.innerHTML = `
                             <div class="card-left">
                                 <div class="flag">
                                     ${imgSrc ? `<img src="${imgSrc}" alt="${esc(rawName)}">` : `<span>${esc(item.flag || '🌐')}</span>`}
                                 </div>
                                 <div class="meta">
-                                    <div class="name">${esc(truncatedName)}</div>
+                                    <div class="name">${esc(rawName)}</div>
                                 </div>
                             </div>
                             <div class="card-right">
                                 <a href="${url}" class="mini-btn js-view-plans">View Plans</a>
+                            </div>
+                            <div class="card-mob-footer">
+                                <div class="card-avail">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.8"/><path d="M2 12h20M12 2C9 7 9 17 12 22M12 2C15 7 15 17 12 22" stroke="currentColor" stroke-width="1.5"/></svg>
+                                    ${esc(mobLabel)}
+                                </div>
+                                <svg class="card-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
                             </div>
                         `;
                     }

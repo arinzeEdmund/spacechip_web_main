@@ -1,0 +1,38 @@
+name: Deploy to Hostinger
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            cd ${{ secrets.SSH_PATH }}
+
+            # Pull latest code
+            git pull origin main
+
+            # Install/update PHP dependencies
+            composer install --no-dev --optimize-autoloader --no-interaction
+
+            # Run database migrations
+            php artisan migrate --force
+
+            # Clear and rebuild caches
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+
+            # Set correct permissions
+            chmod -R 755 storage bootstrap/cache

@@ -19,7 +19,10 @@ This document describes the HTTP APIs to implement the full Spacechip mobile exp
 
 ## Authentication
 
-### Register
+> **⚠️ Registration flow changed — OTP email verification**
+> Register no longer returns a token. After registering, the user receives a 6-digit code by email and must verify it to get a token (auto-login). See steps 1 → 1a → 1b below.
+
+### Step 1 — Register
 `POST /api/auth/register`
 
 Body:
@@ -32,15 +35,69 @@ Body:
 }
 ```
 
-Response:
+Response (HTTP 201 — no token yet):
+```json
+{
+  "ok": true,
+  "requires_otp": true,
+  "user_id": 1,
+  "message": "A 6-digit verification code has been sent to your email.",
+  "user": { "id": 1, "name": "Jane Doe", "email": "jane@example.com", "email_verified": false }
+}
+```
+
+**Mobile action:** Store `user_id`, navigate to OTP screen. Do not save a token.
+
+---
+
+### Step 1a — Verify OTP (returns token, auto-login)
+`POST /api/auth/verify-otp`
+
+Body:
+```json
+{
+  "user_id": 1,
+  "otp": "482910",
+  "device_name": "ios"
+}
+```
+
+Response (HTTP 200):
 ```json
 {
   "ok": true,
   "token_type": "Bearer",
   "token": "plain_text_token_here",
-  "user": { "id": 1, "name": "Jane Doe", "email": "jane@example.com", "email_verified": false }
+  "user": { "id": 1, "name": "Jane Doe", "email": "jane@example.com", "email_verified": true }
 }
 ```
+
+**Mobile action:** Save `token` securely, navigate to dashboard.
+
+Errors:
+- `422` — wrong or expired code → show error, allow retry or resend
+- `404` — user not found → redirect to register
+
+---
+
+### Step 1b — Resend OTP
+`POST /api/auth/resend-otp`
+
+Rate limit: 3 per 10 minutes
+
+Body:
+```json
+{ "user_id": 1 }
+```
+
+Response:
+```json
+{ "ok": true, "message": "A new verification code has been sent." }
+```
+
+**Mobile action:** Restart countdown timer. Disable resend button for 60 seconds after each tap.
+
+---
 
 ### Login
 `POST /api/auth/login`
