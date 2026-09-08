@@ -851,7 +851,7 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:10,1'])->post('/api/vir
         $amountMinor = (int) round((($twilioAmountMinor / 100) * $usdToNgnRate) * 100);
     }
 
-    $ownerEmail = trim((string) env('PAYSTACK_OWNER_EMAIL', ''));
+    $ownerEmail = trim((string) config('services.paystack.owner_email', ''));
     $email = $ownerEmail !== '' ? $ownerEmail : (string) (Auth::user()?->email ?? '');
     $email = trim($email);
     if ($email === '' || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
@@ -1165,9 +1165,9 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:30,1'])->get('/api/wall
     return response()->json(['ok' => true, 'items' => $items]);
 })->name('wallet.transactions');
 
-Route::middleware(['auth:sanctum', 'verified', 'throttle:10,1'])->post('/api/wallet/deposit/paystack/initialize', function (Request $request, WalletService $wallet) {
-    $minUsd = (float) env('WALLET_MIN_DEPOSIT_USD', 1);
-    $maxUsd = (float) env('WALLET_MAX_DEPOSIT_USD', 5000);
+Route::middleware(['auth:sanctum', 'verified', 'throttle:10,1'])->post('/api/wallet/deposit/paystack/initialize', function (Request $request, WalletService $wallet, ExchangeRateService $exchangeRates) {
+    $minUsd = (float) config('wallet.min_deposit_usd', 1);
+    $maxUsd = (float) config('wallet.max_deposit_usd', 5000);
     $usd = (float) $request->input('amount_usd', 0);
     if ($usd <= 0) {
         return response()->json(['message' => 'Invalid amount.'], 422);
@@ -1187,15 +1187,12 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:10,1'])->post('/api/wal
     $paystackCurrency = strtoupper((string) config('services.paystack.currency', 'NGN'));
     $paystackCurrency = $paystackCurrency !== '' ? $paystackCurrency : 'NGN';
 
-    $rate = (float) env('WALLET_USD_TO_NGN_RATE', 0);
-    if ($rate <= 0) {
-        $rate = (float) env('VIRTUAL_NUMBER_USD_TO_NGN_RATE', 0);
-    }
-
     $amountMinor = $usdMinor;
     if ($paystackCurrency === 'NGN') {
+        $ratePayload = $exchangeRates->usdToNgn();
+        $rate = (float) ($ratePayload['rate'] ?? 0);
         if ($rate <= 0) {
-            return response()->json(['message' => 'Set WALLET_USD_TO_NGN_RATE to enable deposits via Paystack NGN.'], 422);
+            return response()->json(['message' => 'Unable to fetch USD to NGN exchange rate. Set ESIM_USD_TO_NGN_RATE as a fallback or try again shortly.'], 422);
         }
         $amountMinor = (int) round((($usdMinor / 100) * $rate) * 100);
     }
@@ -1204,7 +1201,7 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:10,1'])->post('/api/wal
         return response()->json(['message' => 'Invalid amount.'], 422);
     }
 
-    $ownerEmail = trim((string) env('PAYSTACK_OWNER_EMAIL', ''));
+    $ownerEmail = trim((string) config('services.paystack.owner_email', ''));
     $email = $ownerEmail !== '' ? $ownerEmail : trim((string) (Auth::user()?->email ?? ''));
     if ($email === '' || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
         return response()->json(['message' => 'Please enter a valid email address.'], 422);
@@ -1508,7 +1505,7 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:10,1'])->post('/api/wal
             'package_type' => $packageType,
             'topup_esim_id' => $topupEsimId !== '' ? $topupEsimId : null,
             'reference' => $reference,
-        ], (int) $payment->id, (int) env('WALLET_MIN_BALANCE_MINOR', 0));
+        ], (int) $payment->id, (int) config('wallet.min_balance_minor', 0));
     } catch (Throwable $e) {
         $payment->status = 'failed_insufficient_wallet';
         $payment->fulfillment_payload = ['ok' => false, 'error' => $e->getMessage()];
@@ -1712,7 +1709,7 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:10,1'])->post('/api/wal
             'phone_number' => $phoneNumber,
             'number_type' => $numberType !== '' ? $numberType : null,
             'reference' => $reference,
-        ], (int) $payment->id, (int) env('WALLET_MIN_BALANCE_MINOR', 0));
+        ], (int) $payment->id, (int) config('wallet.min_balance_minor', 0));
     } catch (Throwable $e) {
         $payment->status = 'failed_insufficient_wallet';
         $payment->fulfillment_payload = ['ok' => false, 'error' => $e->getMessage()];
@@ -2139,7 +2136,7 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:15,1'])->post('/api/soc
             'product' => $product,
             'country' => $country,
             'operator' => $operator,
-        ], (int) $payment->id, (int) env('WALLET_MIN_BALANCE_MINOR', 0));
+        ], (int) $payment->id, (int) config('wallet.min_balance_minor', 0));
     } catch (Throwable $e) {
         $payment->status = 'failed_insufficient_wallet';
         $payment->fulfillment_payload = ['ok' => false, 'error' => $e->getMessage()];
@@ -2446,7 +2443,7 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:10,1'])->post('/api/soc
             'country' => $country,
             'operator' => $operator,
             'replaces_order_id' => $old->id,
-        ], (int) $payment->id, (int) env('WALLET_MIN_BALANCE_MINOR', 0));
+        ], (int) $payment->id, (int) config('wallet.min_balance_minor', 0));
     } catch (Throwable $e) {
         $payment->status = 'failed_insufficient_wallet';
         $payment->fulfillment_payload = ['ok' => false, 'error' => $e->getMessage()];
@@ -2643,7 +2640,7 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:10,1'])->post('/api/soc
             'product' => $product,
             'country' => $country,
             'selected_provider' => $provider,
-        ], (int) $payment->id, (int) env('WALLET_MIN_BALANCE_MINOR', 0));
+        ], (int) $payment->id, (int) config('wallet.min_balance_minor', 0));
     } catch (Throwable $e) {
         $payment->status = 'failed_insufficient_wallet';
         $payment->fulfillment_payload = ['ok' => false, 'error' => $e->getMessage()];

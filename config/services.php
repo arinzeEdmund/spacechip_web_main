@@ -67,6 +67,7 @@ return [
         'public_key' => env('PAYSTACK_PUBLIC_KEY'),
         'secret_key' => env('PAYSTACK_SECRET_KEY'),
         'currency' => env('PAYSTACK_CURRENCY', 'NGN'),
+        'owner_email' => env('PAYSTACK_OWNER_EMAIL'),
     ],
 
     'exchange_rates' => [
