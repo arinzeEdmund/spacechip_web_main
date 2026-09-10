@@ -207,6 +207,20 @@
         .sn-toolbox{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap}
         .sn-toolbox .vn-btn{min-height:44px}
         .sn-status-line{min-height:20px;margin-top:-6px;padding:0 2px}
+        /* Social numbers grid: allow tracks to shrink below content so long
+           catalogue names never push cards outside the panel */
+        #snGrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+        @media(min-width:1024px){#snGrid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+        /* "See more services" browse mode: bounded, scrollable inside the panel */
+        .sn-browsing #snGrid{max-height:min(62vh,600px);overflow-y:auto;overflow-x:hidden;align-content:start;padding-right:4px;scrollbar-width:thin;scrollbar-color:rgba(20,84,84,.3) transparent}
+        .sn-browsing #snGrid::-webkit-scrollbar{width:9px}
+        .sn-browsing #snGrid::-webkit-scrollbar-thumb{background:rgba(20,84,84,.22);border-radius:9px;border:2px solid transparent;background-clip:content-box}
+        .sn-browse-bar{grid-column:1/-1;position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:2px 2px 10px;margin-bottom:2px;background:linear-gradient(rgba(255,255,255,.99) 62%,rgba(255,255,255,.7))}
+        .sn-browse-bar .sn-browse-count{font-size:12px;font-weight:750;color:rgba(15,31,31,.55)}
+        .sn-browse-more{grid-column:1/-1;display:flex;justify-content:center;padding:10px 0 4px}
+        .flag.sn-mono{background:linear-gradient(135deg,rgba(20,84,84,.16),rgba(242,116,87,.16));color:rgba(20,84,84,.92);font-size:14px;font-weight:900;letter-spacing:.02em}
+        .card.sn-catalogue{align-items:center}
+        .card.sn-catalogue .name{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
         .sn-rental-detail{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(280px,.8fr);gap:18px;align-items:stretch}
         .sn-rental-main,.sn-rental-side{border:1px solid rgba(20,84,84,.12);background:rgba(255,255,255,.62);border-radius:22px;padding:22px;box-shadow:0 14px 34px rgba(15,31,31,.05)}
         .sn-rental-main{display:flex;flex-direction:column;gap:14px}
@@ -791,6 +805,7 @@
                 const socialApi = {
                     profile: '/api/social-numbers/profile',
                     apps: '/api/social-numbers/apps',
+                    services: '/api/social-numbers/services',
                     countries: '/api/social-numbers/countries',
                     operators: '/api/social-numbers/operators',
                     prices: '/api/social-numbers/prices',
@@ -817,6 +832,10 @@
                     mode: 'otp',
                     profile: null,
                     apps: [],
+                    browseAll: false,
+                    allServices: [],
+                    allServicesTotal: 0,
+                    allServicesLoading: false,
                     countries: [],
                     countriesPage: 0,
                     selectedApp: null,
@@ -1164,26 +1183,125 @@
                         facebook: 'simple-icons:facebook',
                         tiktok: 'simple-icons:tiktok',
                         twitter: 'simple-icons:x',
+                        google: 'simple-icons:google',
+                        snapchat: 'simple-icons:snapchat',
+                        discord: 'simple-icons:discord',
+                        linkedin: 'simple-icons:linkedin',
+                        wechat: 'simple-icons:wechat',
+                        viber: 'simple-icons:viber',
+                        signal: 'simple-icons:signal',
+                        truecaller: 'mdi:phone-check',
                     };
                     const icon = map[k] || 'mdi:message-text-outline';
                     return `https://api.iconify.design/${icon}.svg?color=%23ffffff`;
                 };
                 const socialBrandBg = (key) => {
                     const k = String(key || '').toLowerCase();
-                    if (k === 'whatsapp') return '#25D366';
-                    if (k === 'telegram') return '#229ED9';
-                    if (k === 'instagram') return '#E4405F';
-                    if (k === 'facebook') return '#1877F2';
-                    if (k === 'tiktok') return '#111827';
-                    if (k === 'twitter') return '#111827';
-                    return '#111827';
+                    const map = {
+                        whatsapp: '#25D366', telegram: '#229ED9', instagram: '#E4405F',
+                        facebook: '#1877F2', tiktok: '#111827', twitter: '#111827',
+                        google: '#4285F4', snapchat: '#FFFC00', discord: '#5865F2',
+                        linkedin: '#0A66C2', wechat: '#07C160', viber: '#7360F2',
+                        signal: '#3A76F0', truecaller: '#0B7DDA',
+                    };
+                    return map[k] || '#111827';
                 };
+                const socialMonogram = (name) => {
+                    const cleaned = String(name || '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+                    if (!cleaned) return '#';
+                    const words = cleaned.split(' ');
+                    const mono = words.length > 1 ? words[0][0] + words[1][0] : cleaned.slice(0, 2);
+                    return mono.toUpperCase();
+                };
+                const socialAppCard = (app) => {
+                    const card = document.createElement('div');
+                    const available = app.available === true;
+                    const key = String(app.key || '');
+                    const name = String(app.name || 'App');
+                    const isCatalogue = /^\d+$/.test(key);
+                    const price = app.price !== null && app.price !== undefined ? String(app.price) : '';
+                    const coverage = app.coverage ? String(app.coverage) : '';
+                    const iconSrc = isCatalogue ? '' : safeImgSrc(socialIconUrl(key));
+                    const bg = socialBrandBg(key);
+
+                    let detail = '';
+                    if (!available) {
+                        detail = 'Currently unavailable';
+                    } else if (!isCatalogue) {
+                        detail = [coverage, price ? `from ${price}` : ''].filter(Boolean).join(' • ') || 'Choose a country next';
+                    }
+
+                    card.className = 'card' + (isCatalogue ? ' sn-catalogue' : '');
+                    card.setAttribute('data-search-name', name.toLowerCase());
+                    card.innerHTML = `
+                        <div class="card-left">
+                            <div class="flag ${isCatalogue ? 'sn-mono' : ''}" ${isCatalogue ? '' : `style="background:${esc(bg)};border-color:rgba(255,255,255,.16)"`}>
+                                ${iconSrc ? `<img src="${iconSrc}" alt="${esc(name)}">` : (isCatalogue ? esc(socialMonogram(name)) : '<span>💬</span>')}
+                            </div>
+                            <div class="meta">
+                                <div class="name" title="${esc(name)}">${esc(name)}</div>
+                                ${(!isCatalogue && app.description) ? `<div class="subtext">${esc(String(app.description))}</div>` : ''}
+                                ${detail ? `<div class="subtext">${esc(detail)}</div>` : ''}
+                            </div>
+                        </div>
+                        <div class="card-right">
+                            <button class="mini-btn" type="button" data-sn-app="${esc(key)}" ${available ? '' : 'disabled'} style="${available ? '' : 'opacity:.6;cursor:not-allowed'}">Select</button>
+                        </div>
+                    `;
+                    const btn = card.querySelector('[data-sn-app]');
+                    if (btn) {
+                        btn.addEventListener('click', () => socialShowCountries(key).catch(() => {}));
+                    }
+                    const img = card.querySelector('.flag img');
+                    if (img) {
+                        img.addEventListener('error', () => {
+                            const span = document.createElement('span');
+                            span.textContent = isCatalogue ? socialMonogram(name) : '💬';
+                            img.replaceWith(span);
+                        });
+                    }
+                    return card;
+                };
+
                 const renderSocialNumbersPlaceholder = () => {
                     if (!socialEls.grid || !socialEls.status) return;
                     const q = socialQuery();
-                    socialEls.status.textContent = 'Loading social numbers…';
                     socialEls.grid.innerHTML = '';
+                    socialEls.section?.classList.toggle('sn-browsing', !!socialState.browseAll);
 
+                    if (socialState.browseAll) {
+                        socialEls.status.textContent = '';
+                        const bar = document.createElement('div');
+                        bar.className = 'sn-browse-bar';
+                        bar.innerHTML = `<button class="vn-btn" type="button" id="snBackToPopular">← Popular apps</button>
+                            <span class="sn-browse-count">${socialState.allServicesLoading ? 'Searching…' : `${socialState.allServicesTotal.toLocaleString()} service${socialState.allServicesTotal === 1 ? '' : 's'}${q ? ` matching “${esc(q)}”` : ''}`}</span>`;
+                        socialEls.grid.appendChild(bar);
+                        bar.querySelector('#snBackToPopular')?.addEventListener('click', () => {
+                            socialState.browseAll = false;
+                            renderSocialNumbersPlaceholder();
+                        });
+
+                        const list = Array.isArray(socialState.allServices) ? socialState.allServices : [];
+                        if (list.length === 0 && !socialState.allServicesLoading) {
+                            const empty = document.createElement('div');
+                            empty.className = 'no-results';
+                            empty.style.cssText = 'grid-column:1/-1;padding:32px 12px';
+                            empty.innerHTML = '<p>No services found.</p>';
+                            socialEls.grid.appendChild(empty);
+                            return;
+                        }
+                        list.forEach((app) => socialEls.grid.appendChild(socialAppCard(app)));
+                        if (list.length < socialState.allServicesTotal) {
+                            const more = document.createElement('div');
+                            more.className = 'sn-browse-more';
+                            more.innerHTML = '<button class="load-more-btn" type="button" id="snServicesMore">Load more</button>';
+                            socialEls.grid.appendChild(more);
+                            more.querySelector('#snServicesMore')?.addEventListener('click', () => socialLoadAllServices(q, { append: true }).catch(() => {}));
+                        }
+                        return;
+                    }
+
+                    socialEls.status.textContent = 'Loading social numbers…';
                     if (!socialState.apps || socialState.apps.length === 0) {
                         socialEls.grid.innerHTML = `
                             <div class="no-results" style="grid-column: 1 / -1; padding: 44px 12px">
@@ -1198,43 +1316,40 @@
                         ? socialState.apps.filter((a) => String(a.name || '').toLowerCase().includes(needle))
                         : socialState.apps;
 
-                    if (filtered.length === 0) {
-                        socialEls.grid.innerHTML = `<div class="no-results" style="grid-column: 1 / -1; padding: 44px 12px"><p>No matches found.</p></div>`;
+                    socialEls.status.textContent = '';
+                    filtered.forEach((app) => socialEls.grid.appendChild(socialAppCard(app)));
+
+                    const seeMore = document.createElement('div');
+                    seeMore.style.cssText = 'grid-column:1/-1;display:flex;justify-content:center;padding:10px 0 2px';
+                    seeMore.innerHTML = `<button class="vn-btn" type="button" id="snSeeMore">${filtered.length === 0 ? 'No popular matches — browse all services' : 'See more services →'}</button>`;
+                    socialEls.grid.appendChild(seeMore);
+                    seeMore.querySelector('#snSeeMore')?.addEventListener('click', () => {
+                        socialState.browseAll = true;
+                        socialLoadAllServices(socialQuery()).catch(() => {});
+                    });
+                };
+
+                const socialLoadAllServices = async (q, opts = {}) => {
+                    const append = opts.append === true;
+                    socialState.allServicesLoading = true;
+                    if (!append) {
+                        socialState.allServices = [];
+                        socialState.allServicesTotal = 0;
+                    }
+                    renderSocialNumbersPlaceholder();
+                    const offset = append ? socialState.allServices.length : 0;
+                    const url = `${socialApi.services}?q=${encodeURIComponent(String(q || ''))}&offset=${offset}&limit=60`;
+                    const r = await socialFetchJson(url);
+                    socialState.allServicesLoading = false;
+                    if (!r.ok) {
+                        socialSetStatus(String(r.json && r.json.message ? r.json.message : 'Failed to load services.'));
+                        renderSocialNumbersPlaceholder();
                         return;
                     }
-
-                    socialEls.status.textContent = '';
-
-                    filtered.forEach((app) => {
-                        const card = document.createElement('div');
-                        const available = app.available === true;
-                        const qty = Number(app.qty || 0);
-                        const price = app.price !== null && app.price !== undefined ? String(app.price) : '';
-                        const iconSrc = safeImgSrc(socialIconUrl(app.key || ''));
-                        const bg = socialBrandBg(app.key || '');
-                        card.className = 'card';
-                        card.setAttribute('data-search-name', String(app.name || '').toLowerCase());
-                        card.innerHTML = `
-                            <div class="card-left">
-                                <div class="flag" style="background:${esc(bg)};border-color:rgba(255,255,255,.16)">
-                                    ${iconSrc ? `<img src="${iconSrc}" alt="${esc(String(app.name || ''))}">` : `<span>💬</span>`}
-                                </div>
-                                <div class="meta">
-                                    <div class="name">${esc(String(app.name || 'App'))}</div>
-                                    <div class="subtext">${esc(String(app.description || ''))}</div>
-                                    <div class="subtext">${available ? `${qty} available${price ? ` • from ${price}` : ''}` : `Unavailable`}</div>
-                                </div>
-                            </div>
-                            <div class="card-right">
-                                <button class="mini-btn" type="button" data-sn-app="${esc(String(app.key || ''))}" ${available ? '' : 'disabled'} style="${available ? '' : 'opacity:.6;cursor:not-allowed'}">Select</button>
-                            </div>
-                        `;
-                        socialEls.grid.appendChild(card);
-                        const btn = card.querySelector('[data-sn-app]');
-                        if (btn) {
-                            btn.addEventListener('click', () => socialShowCountries(String(app.key || '')).catch(() => {}));
-                        }
-                    });
+                    const items = Array.isArray(r.json.items) ? r.json.items : [];
+                    socialState.allServices = append ? socialState.allServices.concat(items) : items;
+                    socialState.allServicesTotal = Number(r.json.total || socialState.allServices.length);
+                    renderSocialNumbersPlaceholder();
                 };
 
                 const socialSetStatus = (t) => {
@@ -1244,6 +1359,8 @@
 
                 const socialSetMode = (mode) => {
                     socialState.mode = mode === 'rent' ? 'rent' : 'otp';
+                    socialState.browseAll = false;
+                    socialEls.section?.classList.remove('sn-browsing');
                     socialEls.otpModeBtn?.classList.toggle('primary', socialState.mode === 'otp');
                     socialEls.rentModeBtn?.classList.toggle('primary', socialState.mode === 'rent');
                 };
@@ -1414,6 +1531,7 @@
                     socialStopPolling();
                     socialStopCountdown();
                     socialState.view = 'apps';
+                    socialState.browseAll = false;
                     socialState.selectedApp = null;
                     socialState.selectedCountry = '';
                     socialState.selectedOperator = 'any';
@@ -1478,8 +1596,11 @@
                 };
 
                 const socialShowCountries = async (appKey) => {
-                    const app = socialState.apps.find((a) => String(a.key || '') === String(appKey || ''));
+                    const wanted = String(appKey || '');
+                    const app = socialState.apps.find((a) => String(a.key || '') === wanted)
+                        || (socialState.allServices || []).find((a) => String(a.key || '') === wanted);
                     if (!app) return;
+                    socialEls.section?.classList.remove('sn-browsing');
                     socialStopPolling();
                     socialStopCountdown();
                     socialState.view = 'countries';
@@ -1765,6 +1886,8 @@
 
                 const socialLoadHistory = async (reset = false) => {
                     if (!socialEls.grid) return;
+                    socialEls.section?.classList.remove('sn-browsing');
+                    socialState.browseAll = false;
                     socialStopPolling();
                     socialState.view = 'history';
                     socialState.selectedApp = null;
@@ -3113,6 +3236,8 @@
                                 socialRenderCountries();
                             } else if (socialState.view === 'country') {
                                 socialRenderCountry();
+                            } else if (socialState.view === 'apps' && socialState.browseAll) {
+                                socialLoadAllServices(socialQuery()).catch(() => {});
                             } else {
                                 renderSocialNumbersPlaceholder();
                             }
@@ -3136,6 +3261,8 @@
                                 socialRenderCountries();
                             } else if (socialState.view === 'country') {
                                 socialRenderCountry();
+                            } else if (socialState.view === 'apps' && socialState.browseAll) {
+                                socialLoadAllServices(socialQuery()).catch(() => {});
                             } else {
                                 renderSocialNumbersPlaceholder();
                             }

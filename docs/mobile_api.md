@@ -307,7 +307,8 @@ Body:
 
 These routes use wallet balance only.
 
-- Apps: `GET /api/social-numbers/apps` (Auth + verified)
+- Apps: `GET /api/social-numbers/apps` (Auth + verified) — curated list; each item has `coverage` (country count) and `price` (from)
+- All services: `GET /api/social-numbers/services?q=&limit=60&offset=0` (Auth + verified) — full provider catalogue, searchable/paged; pass an item's `key` as `product` to `prices`/`buy`
 - Countries: `GET /api/social-numbers/countries` (Auth + verified)
 - Quote: `GET /api/social-numbers/prices?country=US&product=telegram` (Auth + verified)
 - Buy: `POST /api/social-numbers/buy` (Auth + verified)
@@ -320,13 +321,17 @@ These routes use wallet balance only.
 
 ## Social Rentals — Monthly Numbers
 
-These routes use wallet balance only.
+These routes use wallet balance only. A rental is **live on purchase** (no
+activation step); it auto-renews from wallet balance ~2 days before the period
+ends. Renewal stops and the rental is marked `expired` after repeated failures
+once the paid period has lapsed. Auto-renew requires the Laravel scheduler cron
+to be running (see Deployment).
 
 - Apps: `GET /api/social-rentals/apps` (Auth + verified)
 - Countries: `GET /api/social-rentals/countries` (Auth + verified)
 - Quote: `GET /api/social-rentals/quote?country=US&product=telegram&provider=all_providers` (Auth + verified)
-- Buy: `POST /api/social-rentals/buy` (Auth + verified)
-- Activate: `POST /api/social-rentals/{rentalId}/activate` (Auth + verified)
+- Buy: `POST /api/social-rentals/buy` (Auth + verified) — returns the rental already `active`
+- Activate: `POST /api/social-rentals/{rentalId}/activate` (Auth + verified) — no-op, kept for compatibility
 - Fetch SMS: `GET /api/social-rentals/{rentalId}/sms` (Auth + verified)
 - Cancel renewal: `POST /api/social-rentals/{rentalId}/cancel` (Auth + verified)
 - History: `GET /api/social-rentals?limit=20&offset=0` (Auth + verified)
@@ -344,7 +349,7 @@ Configure these on the provider dashboards after hosting:
 
 1. Point the domain document root to the Laravel `public` directory.
 2. Set `APP_URL=https://your-domain.com` and `APP_DEBUG=false`.
-3. Configure database, Paystack, Twilio, Airalo/Glo eSIM, SMSPVA, mail, and exchange-rate env values.
+3. Configure database, Paystack, Twilio, Airalo/Glo eSIM, SMSPool, mail, and exchange-rate env values.
 4. Run `composer install --no-dev --optimize-autoloader`, `npm install`, `npm run build`, `php artisan migrate --force`, and `php artisan storage:link`.
 5. Cache production config/routes/views after env is correct.
 6. Add the Laravel scheduler cron: `* * * * * cd /path/to/app && php artisan schedule:run >> /dev/null 2>&1`.

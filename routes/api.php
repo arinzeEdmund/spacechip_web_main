@@ -94,6 +94,7 @@ Route::get('/mobile/endpoints', function () {
             'social_numbers' => [
                 ['method' => 'GET', 'path' => '/social-numbers/profile', 'auth' => true, 'verified' => true],
                 ['method' => 'GET', 'path' => '/social-numbers/apps', 'auth' => true, 'verified' => true],
+                ['method' => 'GET', 'path' => '/social-numbers/services', 'auth' => true, 'verified' => true, 'query' => ['q?', 'limit?', 'offset?']],
                 ['method' => 'GET', 'path' => '/social-numbers/countries', 'auth' => true, 'verified' => true],
                 ['method' => 'GET', 'path' => '/social-numbers/prices', 'auth' => true, 'verified' => true, 'query' => ['country', 'product']],
                 ['method' => 'POST', 'path' => '/social-numbers/buy', 'auth' => true, 'verified' => true, 'body' => ['product', 'country', 'operator?']],

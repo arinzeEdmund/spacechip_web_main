@@ -15,8 +15,8 @@ use App\Services\ExchangeRateService;
 use App\Services\GloEsimService;
 use App\Services\MyEsimService;
 use App\Services\QrCodeService;
-use App\Services\SmsPvaRentService;
-use App\Services\SmsPvaService;
+use App\Services\SmsPoolRentService;
+use App\Services\SmsPoolService;
 use App\Services\TwilioService;
 use App\Services\WalletService;
 use Illuminate\Http\Request;
@@ -42,7 +42,7 @@ Route::view('/esim-guide', 'pages.esim-guide')->name('esim.guide');
 Route::view('/delete-account', 'pages.delete-account')->name('delete.account');
 
 if (! function_exists('social_number_order_payload')) {
-    function social_number_order_payload(SocialNumberOrder $order, SmsPvaService $smsPva): array
+    function social_number_order_payload(SocialNumberOrder $order, SmsPoolService $smsPva): array
     {
         $sms = [];
         $orderedAt = $order->ordered_at ?: $order->created_at;
@@ -116,7 +116,7 @@ if (! function_exists('social_refund_order')) {
 
         $wallet->credit((int) $order->user_id, (int) $order->sell_amount_minor, 'refund', [
             'reason' => $reason,
-            'provider' => 'smspva',
+            'provider' => 'smspool',
             'social_number_order_id' => $order->id,
             'provider_order_id' => $order->provider_order_id,
         ], $order->payment_id ? (int) $order->payment_id : null);
@@ -130,7 +130,7 @@ if (! function_exists('social_refund_order')) {
 }
 
 if (! function_exists('social_rental_payload')) {
-    function social_rental_payload(SocialNumberRental $rental, SmsPvaRentService $rent): array
+    function social_rental_payload(SocialNumberRental $rental, SmsPoolRentService $rent): array
     {
         $messages = is_array($rental->sms_messages) ? $rental->sms_messages : [];
 
@@ -221,18 +221,16 @@ Route::middleware(['throttle:10,1'])->post('/api/auth/verify-otp', function (Req
     }
 
     if ($user->hasVerifiedEmail()) {
-        // Already verified — just issue a token
-        $token = $user->createToken(trim((string) ($data['device_name'] ?? 'mobile')) ?: 'mobile')->plainTextToken;
+        // Already verified. Do NOT issue a token here — this endpoint does not
+        // authenticate the caller, so minting a session for an already-verified
+        // account without checking the OTP is an account-takeover vector.
         return response()->json([
-            'ok'         => true,
-            'token_type' => 'Bearer',
-            'token'      => $token,
-            'user'       => ['id' => (int) $user->id, 'name' => (string) $user->name, 'email' => (string) $user->email, 'email_verified' => true],
-        ]);
+            'message' => 'Email already verified. Please sign in.',
+        ], 409);
     }
 
     if (
-        $user->email_otp !== $data['otp'] ||
+        ! hash_equals((string) $user->email_otp, (string) $data['otp']) ||
         ! $user->email_otp_expires_at ||
         now()->isAfter($user->email_otp_expires_at)
     ) {
@@ -1990,9 +1988,9 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:60,1'])->get('/api/virt
     return response($res->body(), 200)->header('Content-Type', 'audio/mpeg');
 })->name('virtual.messages.recording');
 
-Route::middleware(['auth:sanctum', 'verified', 'throttle:30,1'])->get('/api/social-numbers/profile', function (SmsPvaService $smsPva) {
+Route::middleware(['auth:sanctum', 'verified', 'throttle:30,1'])->get('/api/social-numbers/profile', function (SmsPoolService $smsPva) {
     if (! $smsPva->isConfigured()) {
-        return response()->json(['message' => 'SMSPVA is not configured.'], 500);
+        return response()->json(['message' => 'The number service is not configured.'], 500);
     }
 
     $res = $smsPva->profile();
@@ -2006,28 +2004,69 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:30,1'])->get('/api/soci
     ]);
 });
 
-Route::middleware(['auth:sanctum', 'verified', 'throttle:30,1'])->get('/api/social-numbers/apps', function (SmsPvaService $smsPva) {
-    $items = array_values(array_map(function (array $app) {
+Route::middleware(['auth:sanctum', 'verified', 'throttle:30,1'])->get('/api/social-numbers/apps', function (SmsPoolService $smsPva) {
+    $coverage = $smsPva->curatedCoverage();
+
+    $items = array_values(array_map(function (array $app) use ($smsPva, $coverage) {
+        $cov = $coverage[$app['key']] ?? null;
+        $countries = $cov ? (int) $cov['countries'] : 0;
+        $minSellMinor = $cov ? $smsPva->sellAmountMinor((int) round($cov['min_price'] * 100)) : 0;
+
         return [
             'key' => (string) $app['key'],
             'name' => (string) $app['name'],
             'icon' => (string) $app['icon'],
             'description' => (string) $app['desc'],
             'category' => 'activation',
-            'qty' => 1,
-            'price' => null,
-            'available' => true,
+            'qty' => $countries,
+            'coverage' => $countries > 0 ? $countries.' '.\Illuminate\Support\Str::plural('country', $countries) : null,
+            'price' => $minSellMinor > 0 ? $smsPva->formatUsd($minSellMinor) : null,
+            'available' => $cov === null ? true : $countries > 0,
         ];
     }, $smsPva->apps()));
 
     return response()->json(['ok' => true, 'items' => $items]);
 });
 
-Route::middleware(['auth:sanctum', 'verified', 'throttle:30,1'])->get('/api/social-numbers/countries', function (SmsPvaService $smsPva) {
+Route::middleware(['auth:sanctum', 'verified', 'throttle:30,1'])->get('/api/social-numbers/services', function (Request $request, SmsPoolService $smsPva) {
+    $q = trim((string) $request->query('q', ''));
+    $limit = max(1, min(100, (int) $request->query('limit', 60)));
+    $offset = max(0, (int) $request->query('offset', 0));
+
+    $catalog = $smsPva->serviceCatalog();
+    if ($q !== '') {
+        $needle = mb_strtolower($q);
+        $catalog = array_values(array_filter($catalog, fn ($row) => str_contains(mb_strtolower($row['name']), $needle)));
+    }
+
+    $total = count($catalog);
+    $items = array_map(fn ($row) => [
+        'key' => (string) $row['id'],
+        'name' => (string) $row['name'],
+        'icon' => '',
+        'description' => '',
+        'category' => 'activation',
+        'qty' => 0,
+        'coverage' => null,
+        'price' => null,
+        'available' => true,
+    ], array_slice($catalog, $offset, $limit));
+
+    return response()->json([
+        'ok' => true,
+        'items' => $items,
+        'total' => $total,
+        'offset' => $offset,
+        'limit' => $limit,
+        'has_more' => $offset + $limit < $total,
+    ]);
+});
+
+Route::middleware(['auth:sanctum', 'verified', 'throttle:30,1'])->get('/api/social-numbers/countries', function (SmsPoolService $smsPva) {
     return response()->json(['ok' => true, 'items' => $smsPva->countries()]);
 });
 
-Route::middleware(['auth:sanctum', 'verified', 'throttle:60,1'])->get('/api/social-numbers/operators', function (Request $request, SmsPvaService $smsPva) {
+Route::middleware(['auth:sanctum', 'verified', 'throttle:60,1'])->get('/api/social-numbers/operators', function (Request $request, SmsPoolService $smsPva) {
     $country = strtoupper(trim((string) $request->query('country', '')));
     if ($country === '') {
         return response()->json(['message' => 'Missing country.'], 422);
@@ -2038,9 +2077,9 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:60,1'])->get('/api/soci
     return response()->json(['ok' => true, 'country' => $country, 'items' => $operators]);
 });
 
-Route::middleware(['auth:sanctum', 'verified', 'throttle:30,1'])->get('/api/social-numbers/prices', function (Request $request, SmsPvaService $smsPva) {
+Route::middleware(['auth:sanctum', 'verified', 'throttle:30,1'])->get('/api/social-numbers/prices', function (Request $request, SmsPoolService $smsPva) {
     if (! $smsPva->isConfigured()) {
-        return response()->json(['message' => 'SMSPVA is not configured.'], 500);
+        return response()->json(['message' => 'The number service is not configured.'], 500);
     }
 
     $country = strtoupper(trim((string) $request->query('country', '')));
@@ -2049,7 +2088,7 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:30,1'])->get('/api/soci
         return response()->json(['message' => 'Invalid country/product.'], 422);
     }
 
-    $cacheKey = 'smspva.quote.v1.'.$country.'.'.$product;
+    $cacheKey = 'smspool.quote.v1.'.$country.'.'.$product;
     $quote = Cache::remember($cacheKey, now()->addSeconds(45), fn () => $smsPva->quote($product, $country));
     if (! is_array($quote) || ($quote['ok'] ?? false) !== true) {
         return response()->json(['message' => (string) ($quote['error'] ?? 'Unable to fetch prices.')], 502);
@@ -2077,9 +2116,9 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:30,1'])->get('/api/soci
     ]);
 });
 
-Route::middleware(['auth:sanctum', 'verified', 'throttle:15,1'])->post('/api/social-numbers/buy', function (Request $request, SmsPvaService $smsPva, WalletService $wallet) {
+Route::middleware(['auth:sanctum', 'verified', 'throttle:15,1'])->post('/api/social-numbers/buy', function (Request $request, SmsPoolService $smsPva, WalletService $wallet) {
     if (! $smsPva->isConfigured()) {
-        return response()->json(['message' => 'SMSPVA is not configured.'], 500);
+        return response()->json(['message' => 'The number service is not configured.'], 500);
     }
 
     $data = $request->validate([
@@ -2121,7 +2160,7 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:15,1'])->post('/api/soc
         'currency' => 'USD',
         'amount_minor' => $amountMinor,
         'provider_payload' => [
-            'provider' => 'smspva',
+            'provider' => 'smspool',
             'product' => $product,
             'country' => $country,
             'operator' => $operator,
@@ -2132,7 +2171,7 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:15,1'])->post('/api/soc
     try {
         $wallet->debit((int) Auth::id(), $amountMinor, 'buy_social_number', [
             'reference' => $reference,
-            'provider' => 'smspva',
+            'provider' => 'smspool',
             'product' => $product,
             'country' => $country,
             'operator' => $operator,
@@ -2150,14 +2189,14 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:15,1'])->post('/api/soc
         try {
             $wallet->credit((int) Auth::id(), $amountMinor, 'refund', [
                 'reference' => $reference,
-                'provider' => 'smspva',
-                'reason' => (string) ($buy['error'] ?? 'SMSPVA purchase failed.'),
+                'provider' => 'smspool',
+                'reason' => (string) ($buy['error'] ?? 'Number purchase failed.'),
             ], (int) $payment->id);
         } catch (Throwable) {
         }
 
         $payment->status = 'paid_failed_provision_refunded';
-        $payment->fulfillment_payload = ['ok' => false, 'error' => (string) ($buy['error'] ?? 'SMSPVA purchase failed.')];
+        $payment->fulfillment_payload = ['ok' => false, 'error' => (string) ($buy['error'] ?? 'Number purchase failed.')];
         $payment->save();
 
         return response()->json(['message' => 'Number purchase failed. Wallet was refunded.'], 502);
@@ -2170,8 +2209,8 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:15,1'])->post('/api/soc
         try {
             $wallet->credit((int) Auth::id(), $amountMinor, 'refund', [
                 'reference' => $reference,
-                'provider' => 'smspva',
-                'reason' => 'SMSPVA did not return a usable number.',
+                'provider' => 'smspool',
+                'reason' => 'The provider did not return a usable number.',
             ], (int) $payment->id);
         } catch (Throwable) {
         }
@@ -2180,13 +2219,13 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:15,1'])->post('/api/soc
         $payment->fulfillment_payload = ['ok' => false, 'payload' => $payload];
         $payment->save();
 
-        return response()->json(['message' => 'SMSPVA did not return a usable number. Wallet was refunded.'], 502);
+        return response()->json(['message' => 'The provider did not return a usable number. Wallet was refunded.'], 502);
     }
 
     $order = SocialNumberOrder::create([
         'user_id' => Auth::id(),
         'payment_id' => $payment->id,
-        'provider' => 'smspva',
+        'provider' => 'smspool',
         'provider_order_id' => $providerOrderId,
         'status' => 'PENDING',
         'product' => $product,
@@ -2211,7 +2250,7 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:15,1'])->post('/api/soc
     return response()->json(['ok' => true, 'order' => social_number_order_payload($order, $smsPva)]);
 });
 
-Route::middleware(['auth:sanctum', 'verified', 'throttle:60,1'])->get('/api/social-numbers/check/{id}', function (int $id, SmsPvaService $smsPva, WalletService $wallet) {
+Route::middleware(['auth:sanctum', 'verified', 'throttle:60,1'])->get('/api/social-numbers/check/{id}', function (int $id, SmsPoolService $smsPva, WalletService $wallet) {
     $order = SocialNumberOrder::query()->where('user_id', Auth::id())->findOrFail($id);
     $orderedAt = $order->ordered_at ?: $order->created_at;
     $hasExpiredLocally = $orderedAt ? $orderedAt->copy()->addSeconds(580)->isPast() : false;
@@ -2230,7 +2269,7 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:60,1'])->get('/api/soci
 
     if (in_array((string) $order->status, ['PENDING', 'WAITING', 'RECEIVED'], true) && $order->provider_order_id) {
         // Always use v1 getSms for polling — it queries the order directly by ID.
-        // The v2 /activation/orders list only shows WAITING orders; once SMSPVA
+        // The v2 /activation/orders list only shows WAITING orders; once SMSPool
         // marks an order SMS_READY the entry disappears from that list, so findOrderV2
         // returns null and the code is never captured. v1 getSms works for both
         // v1 and v2 order IDs and reliably returns response "1" when SMS is ready.
@@ -2261,9 +2300,9 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:60,1'])->get('/api/soci
                     'sms_text'        => $text,
                     'elapsed_seconds' => $elapsedSeconds,
                 ]);
-            } elseif ($response === '3' && $hasExpiredLocally) {
+            } elseif ($response === '3' && ($hasExpiredLocally || data_get($json, 'refunded'))) {
                 $smsPva->ban((string) $order->service_code, (string) $order->provider_order_id);
-                social_refund_order($order, $wallet, 'SMSPVA order expired before SMS arrived.');
+                social_refund_order($order, $wallet, 'Number expired before the SMS arrived.');
                 $order->status = 'TIMEOUT';
                 $order->canceled_at = $order->canceled_at ?: now();
                 $order->save();
@@ -2315,7 +2354,7 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:60,1'])->get('/api/soci
     return response()->json(['ok' => true, 'order' => social_number_order_payload($order->fresh(), $smsPva)]);
 });
 
-Route::middleware(['auth:sanctum', 'verified', 'throttle:20,1'])->post('/api/social-numbers/orders/{id}/finish', function (int $id, SmsPvaService $smsPva) {
+Route::middleware(['auth:sanctum', 'verified', 'throttle:20,1'])->post('/api/social-numbers/orders/{id}/finish', function (int $id, SmsPoolService $smsPva) {
     $order = SocialNumberOrder::query()->where('user_id', Auth::id())->findOrFail($id);
     if (trim((string) $order->sms_code) === '') {
         return response()->json(['message' => 'No OTP has been received for this order yet.'], 422);
@@ -2330,7 +2369,7 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:20,1'])->post('/api/soc
     return response()->json(['ok' => true, 'order' => social_number_order_payload($order, $smsPva)]);
 });
 
-Route::middleware(['auth:sanctum', 'verified', 'throttle:20,1'])->post('/api/social-numbers/orders/{id}/cancel', function (int $id, SmsPvaService $smsPva, WalletService $wallet) {
+Route::middleware(['auth:sanctum', 'verified', 'throttle:20,1'])->post('/api/social-numbers/orders/{id}/cancel', function (int $id, SmsPoolService $smsPva, WalletService $wallet) {
     $order = SocialNumberOrder::query()->where('user_id', Auth::id())->findOrFail($id);
     if (! in_array((string) $order->status, ['FINISHED', 'CANCELED', 'BANNED', 'TIMEOUT'], true)) {
         if ((string) data_get($order->provider_payload, 'api_version') === 'v2') {
@@ -2347,7 +2386,7 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:20,1'])->post('/api/soc
     return response()->json(['ok' => true, 'order' => social_number_order_payload($order, $smsPva)]);
 });
 
-Route::middleware(['auth:sanctum', 'verified', 'throttle:20,1'])->post('/api/social-numbers/orders/{id}/ban', function (int $id, SmsPvaService $smsPva, WalletService $wallet) {
+Route::middleware(['auth:sanctum', 'verified', 'throttle:20,1'])->post('/api/social-numbers/orders/{id}/ban', function (int $id, SmsPoolService $smsPva, WalletService $wallet) {
     $order = SocialNumberOrder::query()->where('user_id', Auth::id())->findOrFail($id);
     if (! in_array((string) $order->status, ['FINISHED', 'CANCELED', 'BANNED', 'TIMEOUT'], true)) {
         if ((string) data_get($order->provider_payload, 'api_version') === 'v2') {
@@ -2364,9 +2403,9 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:20,1'])->post('/api/soc
     return response()->json(['ok' => true, 'order' => social_number_order_payload($order, $smsPva)]);
 });
 
-Route::middleware(['auth:sanctum', 'verified', 'throttle:10,1'])->post('/api/social-numbers/orders/{id}/try-another', function (int $id, SmsPvaService $smsPva, WalletService $wallet) {
+Route::middleware(['auth:sanctum', 'verified', 'throttle:10,1'])->post('/api/social-numbers/orders/{id}/try-another', function (int $id, SmsPoolService $smsPva, WalletService $wallet) {
     if (! $smsPva->isConfigured()) {
-        return response()->json(['message' => 'SMSPVA is not configured.'], 500);
+        return response()->json(['message' => 'The number service is not configured.'], 500);
     }
 
     $old = SocialNumberOrder::query()->where('user_id', Auth::id())->findOrFail($id);
@@ -2426,7 +2465,7 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:10,1'])->post('/api/soc
         'currency' => 'USD',
         'amount_minor' => $amountMinor,
         'provider_payload' => [
-            'provider' => 'smspva',
+            'provider' => 'smspool',
             'product' => $product,
             'country' => $country,
             'operator' => $operator,
@@ -2438,7 +2477,7 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:10,1'])->post('/api/soc
     try {
         $wallet->debit((int) Auth::id(), $amountMinor, 'buy_social_number', [
             'reference' => $reference,
-            'provider' => 'smspva',
+            'provider' => 'smspool',
             'product' => $product,
             'country' => $country,
             'operator' => $operator,
@@ -2457,15 +2496,15 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:10,1'])->post('/api/soc
         try {
             $wallet->credit((int) Auth::id(), $amountMinor, 'refund', [
                 'reference' => $reference,
-                'provider' => 'smspva',
-                'reason' => (string) ($buy['error'] ?? 'SMSPVA replacement purchase failed.'),
+                'provider' => 'smspool',
+                'reason' => (string) ($buy['error'] ?? 'Replacement number purchase failed.'),
                 'replaces_order_id' => $old->id,
             ], (int) $payment->id);
         } catch (Throwable) {
         }
 
         $payment->status = 'paid_failed_provision_refunded';
-        $payment->fulfillment_payload = ['ok' => false, 'error' => (string) ($buy['error'] ?? 'SMSPVA replacement purchase failed.')];
+        $payment->fulfillment_payload = ['ok' => false, 'error' => (string) ($buy['error'] ?? 'Replacement number purchase failed.')];
         $payment->save();
 
         return response()->json(['message' => 'Replacement number purchase failed. Wallet was refunded.'], 502);
@@ -2478,8 +2517,8 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:10,1'])->post('/api/soc
         try {
             $wallet->credit((int) Auth::id(), $amountMinor, 'refund', [
                 'reference' => $reference,
-                'provider' => 'smspva',
-                'reason' => 'SMSPVA did not return a usable replacement number.',
+                'provider' => 'smspool',
+                'reason' => 'The provider did not return a usable replacement number.',
                 'replaces_order_id' => $old->id,
             ], (int) $payment->id);
         } catch (Throwable) {
@@ -2489,13 +2528,13 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:10,1'])->post('/api/soc
         $payment->fulfillment_payload = ['ok' => false, 'payload' => $payload];
         $payment->save();
 
-        return response()->json(['message' => 'SMSPVA did not return a usable replacement number. Wallet was refunded.'], 502);
+        return response()->json(['message' => 'The provider did not return a usable replacement number. Wallet was refunded.'], 502);
     }
 
     $order = SocialNumberOrder::create([
         'user_id' => Auth::id(),
         'payment_id' => $payment->id,
-        'provider' => 'smspva',
+        'provider' => 'smspool',
         'provider_order_id' => $providerOrderId,
         'status' => 'PENDING',
         'product' => $product,
@@ -2520,7 +2559,7 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:10,1'])->post('/api/soc
     return response()->json(['ok' => true, 'order' => social_number_order_payload($order, $smsPva)]);
 });
 
-Route::middleware(['auth:sanctum', 'verified', 'throttle:30,1'])->get('/api/social-numbers/orders', function (Request $request, SmsPvaService $smsPva) {
+Route::middleware(['auth:sanctum', 'verified', 'throttle:30,1'])->get('/api/social-numbers/orders', function (Request $request, SmsPoolService $smsPva) {
     $limit = max(1, min(50, (int) $request->query('limit', 20)));
     $offset = max(0, (int) $request->query('offset', 0));
 
@@ -2538,7 +2577,7 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:30,1'])->get('/api/soci
     ]);
 });
 
-Route::middleware(['auth:sanctum', 'verified', 'throttle:30,1'])->get('/api/social-rentals/apps', function (SmsPvaRentService $rent) {
+Route::middleware(['auth:sanctum', 'verified', 'throttle:30,1'])->get('/api/social-rentals/apps', function (SmsPoolRentService $rent) {
     $items = array_values(array_map(function (array $app) {
         return [
             'key' => (string) $app['key'],
@@ -2552,13 +2591,13 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:30,1'])->get('/api/soci
     return response()->json(['ok' => true, 'items' => $items]);
 });
 
-Route::middleware(['auth:sanctum', 'verified', 'throttle:30,1'])->get('/api/social-rentals/countries', function (SmsPvaRentService $rent) {
+Route::middleware(['auth:sanctum', 'verified', 'throttle:30,1'])->get('/api/social-rentals/countries', function (SmsPoolRentService $rent) {
     return response()->json(['ok' => true, 'items' => $rent->countries()]);
 });
 
-Route::middleware(['auth:sanctum', 'verified', 'throttle:30,1'])->get('/api/social-rentals/quote', function (Request $request, SmsPvaRentService $rent) {
+Route::middleware(['auth:sanctum', 'verified', 'throttle:30,1'])->get('/api/social-rentals/quote', function (Request $request, SmsPoolRentService $rent) {
     if (! $rent->isConfigured()) {
-        return response()->json(['message' => 'SMSPVA is not configured.'], 500);
+        return response()->json(['message' => 'The number service is not configured.'], 500);
     }
 
     $product = trim((string) $request->query('product', ''));
@@ -2583,9 +2622,9 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:30,1'])->get('/api/soci
     ]);
 });
 
-Route::middleware(['auth:sanctum', 'verified', 'throttle:10,1'])->post('/api/social-rentals/buy', function (Request $request, SmsPvaRentService $rent, WalletService $wallet) {
+Route::middleware(['auth:sanctum', 'verified', 'throttle:10,1'])->post('/api/social-rentals/buy', function (Request $request, SmsPoolRentService $rent, WalletService $wallet) {
     if (! $rent->isConfigured()) {
-        return response()->json(['message' => 'SMSPVA is not configured.'], 500);
+        return response()->json(['message' => 'The number service is not configured.'], 500);
     }
 
     $data = $request->validate([
@@ -2625,7 +2664,7 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:10,1'])->post('/api/soc
         'currency' => 'USD',
         'amount_minor' => $amountMinor,
         'provider_payload' => [
-            'provider' => 'smspva_rent',
+            'provider' => 'smspool_rent',
             'product' => $product,
             'country' => $country,
             'selected_provider' => $provider,
@@ -2636,7 +2675,7 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:10,1'])->post('/api/soc
     try {
         $wallet->debit((int) Auth::id(), $amountMinor, 'buy_social_rental', [
             'reference' => $reference,
-            'provider' => 'smspva_rent',
+            'provider' => 'smspool_rent',
             'product' => $product,
             'country' => $country,
             'selected_provider' => $provider,
@@ -2651,20 +2690,33 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:10,1'])->post('/api/soc
 
     $create = $rent->create((string) ($app['service'] ?? ''), $country, 'month', 1, $provider);
     if (($create['ok'] ?? false) !== true) {
+        $providerReason = trim((string) ($create['error'] ?? 'Monthly rental purchase failed.'));
+        Log::warning('Social rental purchase failed at provider', [
+            'user_id'          => Auth::id(),
+            'product'          => $product,
+            'country'          => $country,
+            'sell_amount_minor' => $amountMinor,
+            'provider_reason'  => $providerReason,
+        ]);
+
         try {
             $wallet->credit((int) Auth::id(), $amountMinor, 'refund', [
                 'reference' => $reference,
-                'provider' => 'smspva_rent',
-                'reason' => (string) ($create['error'] ?? 'SMSPVA rental purchase failed.'),
+                'provider' => 'smspool_rent',
+                'reason' => $providerReason,
             ], (int) $payment->id);
         } catch (Throwable) {
         }
 
         $payment->status = 'paid_failed_provision_refunded';
-        $payment->fulfillment_payload = ['ok' => false, 'error' => (string) ($create['error'] ?? 'SMSPVA rental purchase failed.')];
+        $payment->fulfillment_payload = ['ok' => false, 'error' => $providerReason];
         $payment->save();
 
-        return response()->json(['message' => 'Monthly number rental failed. Wallet was refunded.'], 502);
+        $clientMessage = stripos($providerReason, 'balance') !== false
+            ? 'Monthly rentals are temporarily unavailable. Your wallet was not charged.'
+            : $providerReason;
+
+        return response()->json(['message' => $clientMessage], 502);
     }
 
     $payload = is_array($create['json']['data'] ?? null) ? $create['json']['data'] : [];
@@ -2675,8 +2727,8 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:10,1'])->post('/api/soc
         try {
             $wallet->credit((int) Auth::id(), $amountMinor, 'refund', [
                 'reference' => $reference,
-                'provider' => 'smspva_rent',
-                'reason' => 'SMSPVA did not return a usable monthly rental number.',
+                'provider' => 'smspool_rent',
+                'reason' => 'The provider did not return a usable monthly rental number.',
             ], (int) $payment->id);
         } catch (Throwable) {
         }
@@ -2685,16 +2737,18 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:10,1'])->post('/api/soc
         $payment->fulfillment_payload = ['ok' => false, 'payload' => $payload];
         $payment->save();
 
-        return response()->json(['message' => 'SMSPVA did not return a usable monthly rental number. Wallet was refunded.'], 502);
+        return response()->json(['message' => 'The provider did not return a usable monthly rental number. Wallet was refunded.'], 502);
     }
 
     $end = $rent->timestampToCarbon($payload['until'] ?? null) ?: now()->addMonth();
     $rental = SocialNumberRental::create([
         'user_id' => Auth::id(),
         'payment_id' => $payment->id,
-        'provider' => 'smspva_rent',
+        'provider' => 'smspool_rent',
         'provider_order_id' => $providerOrderId,
-        'status' => 'pending_activation',
+        // SMSPool rentals are live on purchase — no separate activation step.
+        'status' => 'active',
+        'activated_at' => now(),
         'product' => $product,
         'product_name' => (string) ($app['name'] ?? $product),
         'service_code' => (string) ($app['service'] ?? ''),
@@ -2721,7 +2775,7 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:10,1'])->post('/api/soc
     return response()->json(['ok' => true, 'rental' => social_rental_payload($rental, $rent)]);
 });
 
-Route::middleware(['auth:sanctum', 'verified', 'throttle:20,1'])->post('/api/social-rentals/{rental}/activate', function (SocialNumberRental $rental, SmsPvaRentService $rent) {
+Route::middleware(['auth:sanctum', 'verified', 'throttle:20,1'])->post('/api/social-rentals/{rental}/activate', function (SocialNumberRental $rental, SmsPoolRentService $rent) {
     if ((int) $rental->user_id !== (int) Auth::id()) {
         abort(403);
     }
@@ -2742,7 +2796,7 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:20,1'])->post('/api/soc
     return response()->json(['ok' => true, 'rental' => social_rental_payload($rental, $rent)]);
 });
 
-Route::middleware(['auth:sanctum', 'verified', 'throttle:30,1'])->get('/api/social-rentals/{rental}/sms', function (SocialNumberRental $rental, SmsPvaRentService $rent) {
+Route::middleware(['auth:sanctum', 'verified', 'throttle:30,1'])->get('/api/social-rentals/{rental}/sms', function (SocialNumberRental $rental, SmsPoolRentService $rent) {
     if ((int) $rental->user_id !== (int) Auth::id()) {
         abort(403);
     }
@@ -2771,7 +2825,7 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:30,1'])->get('/api/soci
     return response()->json(['ok' => true, 'rental' => social_rental_payload($rental->fresh(), $rent)]);
 });
 
-Route::middleware(['auth:sanctum', 'verified', 'throttle:20,1'])->post('/api/social-rentals/{rental}/cancel', function (SocialNumberRental $rental, SmsPvaRentService $rent) {
+Route::middleware(['auth:sanctum', 'verified', 'throttle:20,1'])->post('/api/social-rentals/{rental}/cancel', function (SocialNumberRental $rental, SmsPoolRentService $rent) {
     if ((int) $rental->user_id !== (int) Auth::id()) {
         abort(403);
     }
@@ -2786,7 +2840,7 @@ Route::middleware(['auth:sanctum', 'verified', 'throttle:20,1'])->post('/api/soc
     return response()->json(['ok' => true, 'rental' => social_rental_payload($rental, $rent)]);
 });
 
-Route::middleware(['auth:sanctum', 'verified', 'throttle:30,1'])->get('/api/social-rentals', function (Request $request, SmsPvaRentService $rent) {
+Route::middleware(['auth:sanctum', 'verified', 'throttle:30,1'])->get('/api/social-rentals', function (Request $request, SmsPoolRentService $rent) {
     $limit = max(1, min(50, (int) $request->query('limit', 20)));
     $offset = max(0, (int) $request->query('offset', 0));
 

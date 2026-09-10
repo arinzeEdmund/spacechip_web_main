@@ -97,15 +97,13 @@ return [
         'token' => env('FIVESIM_TOKEN'),
     ],
 
-    'smspva' => [
-        'base_url' => env('SMSPVA_BASE_URL', 'https://smspva.com/priemnik.php'),
-        'v2_base_url' => env('SMSPVA_V2_BASE_URL', 'https://api.smspva.com'),
-        'rent_base_url' => env('SMSPVA_RENT_BASE_URL', 'https://smspva.io/api/rent.php'),
-        'api_key' => env('SMSPVA_API_KEY'),
-        'markup_multiplier' => env('SMSPVA_MARKUP_MULTIPLIER', 1.4),
-        'minimum_sell_minor' => env('SMSPVA_MINIMUM_SELL_MINOR', 100),
-        'rent_markup_multiplier' => env('SMSPVA_RENT_MARKUP_MULTIPLIER', 1.35),
-        'rent_minimum_sell_minor' => env('SMSPVA_RENT_MINIMUM_SELL_MINOR', 500),
+    'smspool' => [
+        'base_url' => env('SMSPOOL_BASE_URL', 'https://api.smspool.net'),
+        'api_key' => env('SMSPOOL_API_KEY'),
+        'markup_multiplier' => env('SMSPOOL_MARKUP_MULTIPLIER', 1.4),
+        'minimum_sell_minor' => env('SMSPOOL_MINIMUM_SELL_MINOR', 100),
+        'rent_markup_multiplier' => env('SMSPOOL_RENT_MARKUP_MULTIPLIER', 1.35),
+        'rent_minimum_sell_minor' => env('SMSPOOL_RENT_MINIMUM_SELL_MINOR', 500),
     ],
 
 ];

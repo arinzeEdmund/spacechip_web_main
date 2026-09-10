@@ -10,7 +10,7 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('virtual-numbers:renew')->hourly();
-Schedule::command('social-rentals:renew')->hourly();
+Schedule::command('social-rentals:renew')->hourly()->withoutOverlapping();
 Schedule::command('airalo:sync-catalog')->hourly();
 
 Artisan::command('airalo:sync-catalog', function (\App\Services\AiraloService $airalo) {

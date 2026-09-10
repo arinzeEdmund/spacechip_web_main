@@ -4,24 +4,34 @@ namespace App\Console\Commands;
 
 use App\Models\Payment;
 use App\Models\SocialNumberRental;
-use App\Services\SmsPvaRentService;
+use App\Services\SmsPoolRentService;
 use App\Services\WalletService;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class RenewSocialNumberRentals extends Command
 {
     protected $signature = 'social-rentals:renew';
 
-    protected $description = 'Renew monthly SMSPVA social number rentals that are close to expiry';
+    protected $description = 'Renew monthly SMSPool social number rentals that are close to expiry';
 
-    public function handle(SmsPvaRentService $rent, WalletService $wallet): int
+    /**
+     * How many hourly renewal attempts to make once the paid period has fully
+     * lapsed before giving up and marking the rental expired.
+     */
+    private const MAX_RENEWAL_ATTEMPTS = 4;
+
+    /** Renew this many days before the current period ends. */
+    private const RENEW_LEAD_DAYS = 2;
+
+    public function handle(SmsPoolRentService $rent, WalletService $wallet): int
     {
         $due = SocialNumberRental::query()
-            ->whereIn('status', ['active', 'pending_activation', 'past_due'])
+            ->whereIn('status', ['active', 'past_due'])
             ->where('auto_renew', true)
             ->whereNotNull('current_period_end')
-            ->where('current_period_end', '<=', now()->addDays(7))
+            ->where('current_period_end', '<=', now()->addDays(self::RENEW_LEAD_DAYS))
             ->orderBy('current_period_end')
             ->limit(50)
             ->get();
@@ -33,6 +43,29 @@ class RenewSocialNumberRentals extends Command
         }
 
         foreach ($due as $rental) {
+            // Give up on a rental whose paid period lapsed over a day ago and
+            // that has already failed the renewal several times — the number is
+            // gone at the provider, so stop retrying (and stop creating wallet
+            // charges / payment rows every hour).
+            if (
+                $rental->current_period_end
+                && $rental->current_period_end->lt(now()->subDay())
+                && (int) $rental->renewal_failed_count >= self::MAX_RENEWAL_ATTEMPTS
+            ) {
+                $rental->status = 'expired';
+                $rental->auto_renew = false;
+                $rental->last_renewal_error = 'Renewal stopped after repeated failures; the number has expired.';
+                $rental->save();
+
+                Log::warning('Social rental renewal abandoned; number expired at provider', [
+                    'rental_id'    => $rental->id,
+                    'user_id'      => $rental->user_id,
+                    'failed_count' => (int) $rental->renewal_failed_count,
+                    'period_end'   => $rental->current_period_end->toIso8601String(),
+                ]);
+                continue;
+            }
+
             $amountMinor = (int) $rental->monthly_amount_minor;
             if ($amountMinor <= 0) {
                 $rental->status = 'past_due';
@@ -65,8 +98,8 @@ class RenewSocialNumberRentals extends Command
                 $wallet->debit((int) $rental->user_id, $amountMinor, 'social_rental_renewal', [
                     'rental_id' => (int) $rental->id,
                     'reference' => $reference,
-                    'provider' => 'smspva_rent',
-                ], (int) $payment->id, (int) env('WALLET_MIN_BALANCE_MINOR', 0));
+                    'provider' => 'smspool_rent',
+                ], (int) $payment->id, (int) config('wallet.min_balance_minor', 0));
             } catch (\Throwable $e) {
                 $rental->status = 'past_due';
                 $rental->renewal_failed_count = (int) $rental->renewal_failed_count + 1;
@@ -79,21 +112,24 @@ class RenewSocialNumberRentals extends Command
                 continue;
             }
 
-            $res = $rent->prolong((string) $rental->provider_order_id, 'month', 1);
+            $renewalDays = (int) (data_get($rental->provider_payload, 'create.days')
+                ?? data_get($rental->provider_payload, 'quote.days')
+                ?? 30);
+            $res = $rent->prolong((string) $rental->provider_order_id, 'month', 1, $renewalDays);
             if (($res['ok'] ?? false) !== true) {
                 try {
                     $wallet->credit((int) $rental->user_id, $amountMinor, 'refund', [
                         'rental_id' => (int) $rental->id,
                         'reference' => $reference,
-                        'provider' => 'smspva_rent',
-                        'reason' => (string) ($res['error'] ?? 'SMSPVA prolong failed.'),
+                        'provider' => 'smspool_rent',
+                        'reason' => (string) ($res['error'] ?? 'Rental extension failed.'),
                     ], (int) $payment->id);
                 } catch (\Throwable) {
                 }
 
                 $rental->status = 'past_due';
                 $rental->renewal_failed_count = (int) $rental->renewal_failed_count + 1;
-                $rental->last_renewal_error = (string) ($res['error'] ?? 'SMSPVA prolong failed.');
+                $rental->last_renewal_error = (string) ($res['error'] ?? 'Rental extension failed.');
                 $rental->save();
 
                 $payment->status = 'paid_failed_provision_refunded';
