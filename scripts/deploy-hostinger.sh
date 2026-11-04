@@ -33,9 +33,9 @@ if [ -e "$DEPLOY/$STEP.done" ] || ! mkdir "$DEPLOY/$STEP.lock" 2>/dev/null; then
     exit 0
 fi
 
-finish() { rm -f "$CNF"; touch "$DEPLOY/$STEP.done"; rmdir "$DEPLOY/$STEP.lock" 2>/dev/null; tail -n 60 "$LOG"; exit "$1"; }
+finish() { rm -f "$CNF"; touch "$DEPLOY/$STEP.done"; rmdir "$DEPLOY/$STEP.lock" 2>/dev/null; tail -n 60 "$LOG" >&3; exit "$1"; }
 fail() { echo "FAILED: $*" >>"$LOG"; finish 1; }
-exec >>"$LOG" 2>&1
+exec 3>&1 >>"$LOG" 2>&1
 echo "== $STEP $(date -u +%FT%TZ)"
 
 # Connection details go in a private options file: never on a command line, never in the log.

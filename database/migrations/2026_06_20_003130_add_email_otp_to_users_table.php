@@ -9,8 +9,13 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->string('email_otp', 6)->nullable()->after('email_verified_at');
-            $table->timestamp('email_otp_expires_at')->nullable()->after('email_otp');
+            // Production already has these columns (added by hand), so only add what is missing.
+            if (! Schema::hasColumn('users', 'email_otp')) {
+                $table->string('email_otp', 6)->nullable()->after('email_verified_at');
+            }
+            if (! Schema::hasColumn('users', 'email_otp_expires_at')) {
+                $table->timestamp('email_otp_expires_at')->nullable()->after('email_otp');
+            }
         });
     }
 

@@ -266,7 +266,7 @@
                                 <div class="stat"><strong>Instant</strong><span>activation</span></div>
                             </div>
                             <div class="cta-row">
-                                <a class="store store-hero store-hero-primary" href="#" aria-label="Download on Google Play Store">
+                                <a class="store store-hero store-hero-primary" href="https://play.google.com/store/apps/details?id=com.spacechip.app" target="_blank" rel="noopener" aria-label="Download on Google Play Store">
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                         <path d="M3 4.3c0-.8.8-1.3 1.5-1l14.9 8.6c.7.4.7 1.5 0 1.9L4.5 22.4c-.7.4-1.5-.1-1.5-1V4.3Z" fill="currentColor"/>
                                     </svg>
@@ -433,7 +433,7 @@
                             <div style="font-weight:800;color:var(--text)">Download spacechip</div>
                             <div style="margin-top:10px;color:rgb(var(--ink-rgb) / .64);font-size:14px;line-height:1.6">Get the app to manage eSIMs, numbers, and plans on the go.</div>
                             <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">
-                                <div class="store" role="button" tabindex="0" aria-label="Available on Google Play">
+                                <a class="store" href="https://play.google.com/store/apps/details?id=com.spacechip.app" target="_blank" rel="noopener" aria-label="Available on Google Play">
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                         <path d="M3 4.3c0-.8.8-1.3 1.5-1l14.9 8.6c.7.4.7 1.5 0 1.9L4.5 22.4c-.7.4-1.5-.1-1.5-1V4.3Z" fill="currentColor"/>
                                     </svg>
@@ -441,7 +441,7 @@
                                         <span style="font-size:11px;color:rgb(var(--ink-rgb) / .62);font-weight:700">Available on</span>
                                         <span style="font-size:14px;font-weight:900;color:rgb(var(--accent-text-rgb) / .92)">Google Play</span>
                                     </div>
-                                </div>
+                                </a>
                                 <div class="store" role="button" tabindex="0" aria-label="Available on App Store">
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                         <path d="M16.9 13.2c0-1.9 1.6-2.9 1.7-3-1-1.4-2.5-1.6-3-1.6-1.3-.1-2.5.8-3.1.8-.6 0-1.6-.8-2.7-.8-1.4 0-2.7.8-3.4 2.1-1.5 2.6-.4 6.5 1.1 8.6.7 1 1.6 2.2 2.7 2.1 1.1 0 1.5-.7 2.8-.7 1.3 0 1.7.7 2.9.7 1.2 0 1.9-1.1 2.6-2.1.8-1.2 1.1-2.4 1.1-2.5-.1 0-2.7-1.1-2.7-3.6Z" fill="currentColor"/>
