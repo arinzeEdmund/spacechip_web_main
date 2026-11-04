@@ -305,6 +305,13 @@ Body:
 
 ## Social Numbers — OTP Activation
 
+> **Supplier:** monthly rentals are sold by one supplier at a time (SMSPool or LongSMS),
+> chosen by an admin in Settings → Providers. The endpoints, request and response shapes below
+> are identical for both, so the mobile app needs no changes when the supplier is switched.
+> Apps, countries and prices follow the active supplier; an already-bought rental keeps its own
+> supplier for its inbox and renewals. LongSMS rentals cannot be refunded early: cancel only
+> stops auto-renew and the number works until the paid period ends.
+
 These routes use wallet balance only.
 
 - Apps: `GET /api/social-numbers/apps` (Auth + verified) — curated list; each item has `coverage` (country count) and `price` (from)

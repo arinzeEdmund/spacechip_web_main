@@ -106,4 +106,25 @@ return [
         'rent_minimum_sell_minor' => env('SMSPOOL_RENT_MINIMUM_SELL_MINOR', 500),
     ],
 
+    // LongSMS (https://longsms.net) — alternative supplier for monthly rentals. Sell price uses the SAME
+    // markup/minimum as SMSPool rentals (services.smspool.rent_*), so there is no separate margin to maintain.
+    'longsms' => [
+        'base_url' => env('LONGSMS_BASE_URL', 'https://longsms.net'),
+        'api_key' => env('LONGSMS_API_KEY'),
+        // Used only when LongSMS's previewNumber response carries no price. Leave empty to refuse selling without one.
+        'monthly_cost_usd' => env('LONGSMS_MONTHLY_COST_USD'),
+        // LongSMS has no country-list call; country_id 1 = United States. Add more as LongSMS enables them.
+        'countries' => [
+            ['id' => 1, 'iso' => 'US', 'name' => 'United States', 'prefix' => '+1'],
+        ],
+        // key => LongSMS long_project_code. Codes must match LongSMS's project list.
+        'projects' => [
+            'whatsapp' => ['name' => 'WhatsApp', 'code' => 'whatsapp', 'icon' => '💬', 'desc' => 'Long-term number for WhatsApp.'],
+            'telegram' => ['name' => 'Telegram', 'code' => 'telegram', 'icon' => '✈️', 'desc' => 'Long-term number for Telegram.'],
+            'facebook' => ['name' => 'Facebook', 'code' => 'facebook', 'icon' => '👤', 'desc' => 'Long-term number for Facebook.'],
+            'instagram' => ['name' => 'Instagram', 'code' => 'instagram', 'icon' => '📸', 'desc' => 'Long-term number for Instagram.'],
+            'google' => ['name' => 'Google / Gmail', 'code' => 'google', 'icon' => '🔷', 'desc' => 'Long-term number for Google & Gmail.'],
+        ],
+    ],
+
 ];

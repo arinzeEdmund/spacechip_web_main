@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Contracts\RentalProvider;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 
@@ -10,26 +11,33 @@ use Illuminate\Support\Facades\Cache;
  * ID") with an optional service lock; there is no separate activation step and
  * "1 month" maps to days=30.
  *
- * Public method names / return shapes mirror the previous SMSPVA rent service
- * so the /api/social-rentals/* routes and the renewal command are unchanged.
+ * Return shapes keep the envelope of the previous SMSPVA rent integration
+ * (json.data.{id,pnumber,ccode,until}) so stored rentals stay readable.
  */
-class SmsPoolRentService
+class SmsPoolRentService implements RentalProvider
 {
     private const DAYS = 30;
 
+    public function __construct(private SmsPoolService $pool) {}
+
+    public function key(): string
+    {
+        return 'smspool_rent';
+    }
+
     public function isConfigured(): bool
     {
-        return app(SmsPoolService::class)->isConfigured();
+        return $this->pool->isConfigured();
     }
 
     public function apps(): array
     {
-        return app(SmsPoolService::class)->apps();
+        return $this->pool->apps();
     }
 
     public function app(string $key): ?array
     {
-        return app(SmsPoolService::class)->app($key);
+        return $this->pool->app($key);
     }
 
     /**
@@ -39,14 +47,14 @@ class SmsPoolRentService
     public function countries(): array
     {
         return Cache::remember('smspool.rental.countries.v1', now()->addHours(6), function () {
-            $res = app(SmsPoolService::class)->http('/rental/retrieve_all', ['type' => 1]);
+            $res = $this->pool->http('/rental/retrieve_all', ['type' => 1]);
             $rows = data_get($res, 'json.data');
             if (! is_array($rows)) {
                 return [];
             }
 
             $isoByName = [];
-            foreach (app(SmsPoolService::class)->countries() as $c) {
+            foreach ($this->pool->countries() as $c) {
                 $isoByName[mb_strtolower((string) $c['name'])] = $c;
             }
 
@@ -61,14 +69,14 @@ class SmsPoolRentService
                 $pricing = is_array($row['pricing'] ?? null) ? $row['pricing'] : [];
 
                 $out[] = [
-                    'country'      => $iso,
-                    'name'         => $name,
-                    'iso'          => $iso,
-                    'prefix'       => $match['prefix'] ?? '',
-                    'rental_id'    => (int) $row['ID'],
-                    'pool'         => (int) ($row['pool'] ?? 0),
-                    'pricing'      => $pricing,
-                    'region'       => (string) ($row['region'] ?? ''),
+                    'country' => $iso,
+                    'name' => $name,
+                    'iso' => $iso,
+                    'prefix' => $match['prefix'] ?? '',
+                    'rental_id' => (int) $row['ID'],
+                    'pool' => (int) ($row['pool'] ?? 0),
+                    'pricing' => $pricing,
+                    'region' => (string) ($row['region'] ?? ''),
                     'is_refundable' => (int) ($row['is_refundable'] ?? 0) === 1,
                 ];
             }
@@ -113,7 +121,7 @@ class SmsPoolRentService
         $serviceId = $this->rentalServiceId($rentalId, (string) $app['service']);
 
         $count = 0;
-        $stock = app(SmsPoolService::class)->http('/rental/stock', ['id' => $rentalId, 'days' => $period['days']]);
+        $stock = $this->pool->http('/rental/stock', ['id' => $rentalId, 'days' => $period['days']]);
         if (($stock['ok'] ?? false) === true && is_array($stock['json'] ?? null)) {
             $count = (int) ($stock['json']['count'] ?? 0);
         }
@@ -163,7 +171,7 @@ class SmsPoolRentService
             $params['service_id'] = $serviceId;
         }
 
-        $res = app(SmsPoolService::class)->http('/purchase/rental', $params);
+        $res = $this->pool->http('/purchase/rental', $params);
         $json = is_array($res['json'] ?? null) ? $res['json'] : [];
 
         if (($res['ok'] ?? false) !== true || (int) ($json['success'] ?? 0) !== 1) {
@@ -171,12 +179,12 @@ class SmsPoolRentService
         }
 
         return ['ok' => true, 'status' => 200, 'json' => ['data' => [
-            'id'      => (string) ($json['rental_code'] ?? ''),
+            'id' => (string) ($json['rental_code'] ?? ''),
             'pnumber' => (string) ($json['phonenumber'] ?? ''),
-            'ccode'   => '',
-            'until'   => $json['expiry'] ?? null,
-            'days'    => $period['days'],
-            'raw'     => $json,
+            'ccode' => '',
+            'until' => $json['expiry'] ?? null,
+            'days' => $period['days'],
+            'raw' => $json,
         ]]];
     }
 
@@ -193,7 +201,7 @@ class SmsPoolRentService
      */
     public function sms(string|int $id): array
     {
-        $res = app(SmsPoolService::class)->http('/rental/retrieve_messages', ['rental_code' => (string) $id]);
+        $res = $this->pool->http('/rental/retrieve_messages', ['rental_code' => (string) $id]);
         $json = is_array($res['json'] ?? null) ? $res['json'] : [];
 
         if (($res['ok'] ?? false) !== true) {
@@ -209,8 +217,8 @@ class SmsPoolRentService
             $ts = isset($m['timestamp']) ? strtotime((string) $m['timestamp']) : false;
             $data[] = [
                 'sender' => (string) ($m['sender'] ?? 'SMS'),
-                'text'   => (string) ($m['message'] ?? ''),
-                'date'   => $ts !== false ? $ts : time(),
+                'text' => (string) ($m['message'] ?? ''),
+                'date' => $ts !== false ? $ts : time(),
             ];
         }
 
@@ -225,7 +233,7 @@ class SmsPoolRentService
      */
     public function prolong(string|int $id, string $dtype = 'month', int $dcount = 1, int $days = self::DAYS): array
     {
-        $res = app(SmsPoolService::class)->http('/rental/extend', ['rental_code' => (string) $id, 'days' => max(1, $days)]);
+        $res = $this->pool->http('/rental/extend', ['rental_code' => (string) $id, 'days' => max(1, $days)]);
         $json = is_array($res['json'] ?? null) ? $res['json'] : [];
 
         if (($res['ok'] ?? false) !== true || (int) ($json['success'] ?? 0) !== 1) {
@@ -234,13 +242,13 @@ class SmsPoolRentService
 
         return ['ok' => true, 'status' => 200, 'json' => ['data' => [
             'until' => $json['expiration_date'] ?? null,
-            'raw'   => $json,
+            'raw' => $json,
         ]]];
     }
 
     public function delete(string|int $id): array
     {
-        $res = app(SmsPoolService::class)->http('/rental/refund', ['rental_code' => (string) $id]);
+        $res = $this->pool->http('/rental/refund', ['rental_code' => (string) $id]);
         $json = is_array($res['json'] ?? null) ? $res['json'] : [];
 
         if (($res['ok'] ?? false) === true && (int) ($json['success'] ?? 0) === 1) {
@@ -330,7 +338,7 @@ class SmsPoolRentService
         }
 
         $map = Cache::remember("smspool.rental.services.$rentalId.v1", now()->addHours(6), function () use ($rentalId) {
-            $res = app(SmsPoolService::class)->http('/rental/retrieve_services', ['rental' => $rentalId]);
+            $res = $this->pool->http('/rental/retrieve_services', ['rental' => $rentalId]);
             $rows = is_array($res['json'] ?? null) ? $res['json'] : [];
             $map = [];
             foreach ($rows as $row) {
@@ -342,7 +350,7 @@ class SmsPoolRentService
             return $map;
         });
 
-        return app(SmsPoolService::class)->matchServiceName($map, $serviceName);
+        return $this->pool->matchServiceName($map, $serviceName);
     }
 
     private function error(array $json, string $fallback): string
