@@ -23,3 +23,15 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Never commit secrets, dumps or backups
+.env.*
+!.env.example
+*.sql
+!database/**/*.sql
+*.bak
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*

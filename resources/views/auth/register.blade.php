@@ -45,6 +45,8 @@
             <x-input-error :messages="$errors->get('accept_terms')" class="mt-2" />
         </div>
 
+        <x-turnstile />
+
         <div class="mt-6">
             <x-primary-button class="w-full justify-center">
                 {{ __('Register') }}

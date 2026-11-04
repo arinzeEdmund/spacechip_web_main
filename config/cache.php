@@ -18,6 +18,12 @@ return [
     'default' => env('CACHE_STORE', 'database'),
 
     /*
+    | Store used ONLY for rate limiting. Defaults to the file store so a flood of requests is counted without
+    | writing to the database. In production with several servers set CACHE_LIMITER_STORE=redis.
+    */
+    'limiter' => env('CACHE_LIMITER_STORE', 'file'),
+
+    /*
     |--------------------------------------------------------------------------
     | Cache Stores
     |--------------------------------------------------------------------------

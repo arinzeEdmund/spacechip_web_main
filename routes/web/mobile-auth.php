@@ -14,11 +14,11 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::controller(AuthController::class)->prefix('api/auth')->name('api.auth.')->group(function () {
-    Route::post('register', 'register')->middleware(['throttle:10,1', 'region.block'])->name('register');
+    Route::post('register', 'register')->middleware(['throttle:signup', 'region.block'])->name('register');
     Route::post('verify-otp', 'verifyOtp')->middleware('throttle:10,1')->name('verify-otp');
     Route::post('resend-otp', 'resendOtp')->middleware('throttle:3,10')->name('resend-otp');
-    Route::post('login', 'login')->middleware('throttle:20,1')->name('login');
-    Route::post('forgot-password', 'forgotPassword')->middleware('throttle:5,1')->name('forgot_password');
+    Route::post('login', 'login')->middleware('throttle:login')->name('login');
+    Route::post('forgot-password', 'forgotPassword')->middleware('throttle:password-reset')->name('forgot_password');
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('logout', 'logout')->middleware('throttle:30,1')->name('logout');

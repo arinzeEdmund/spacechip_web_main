@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Route;
 */
 Route::middleware('admin.guard')->prefix('admin')->name('admin.')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
-    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1')->name('login.attempt');
+    Route::post('/login', [AuthController::class, 'login'])->middleware(['throttle:10,1', 'turnstile'])->name('login.attempt');
     Route::get('/two-factor', [AuthController::class, 'showChallenge'])->name('two-factor');
     Route::post('/two-factor', [AuthController::class, 'verify'])->middleware('throttle:10,1')->name('two-factor.verify');
     Route::post('/two-factor/email', [AuthController::class, 'sendCode'])->middleware('throttle:5,1')->name('two-factor.email');

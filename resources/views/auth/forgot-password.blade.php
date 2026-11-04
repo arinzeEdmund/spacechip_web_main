@@ -1,8 +1,4 @@
 <x-guest-layout>
-    <div class="mb-4 text-sm text-gray-600">
-        {{ __('Forgot your password? No problem. Just let us know your email address and we will email you a password reset link that will allow you to choose a new one.') }}
-    </div>
-
     <!-- Session Status -->
     <x-auth-session-status class="mb-4" :status="session('status')" />
 
@@ -17,6 +13,7 @@
         </div>
 
         <div class="mt-6">
+        <x-turnstile />
             <x-primary-button class="w-full justify-center">
                 {{ __('Email Password Reset Link') }}
             </x-primary-button>

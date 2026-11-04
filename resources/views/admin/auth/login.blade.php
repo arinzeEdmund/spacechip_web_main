@@ -16,6 +16,8 @@
             <x-password-input id="password" name="password" required autocomplete="current-password" />
             <x-input-error :messages="$errors->get('password')" class="mt-2" />
         </div>
+        <x-turnstile />
+
         <div class="mt-6">
             <x-primary-button class="w-full justify-center">Continue</x-primary-button>
         </div>

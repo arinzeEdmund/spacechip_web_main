@@ -31,6 +31,8 @@
             </label>
         </div>
 
+        <x-turnstile />
+
         <div class="mt-6 flex flex-col gap-4">
             @if (Route::has('password.request'))
                 <a class="underline text-sm text-gray-600 hover:text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 text-center" href="{{ route('password.request') }}">
@@ -45,7 +47,7 @@
 
         <div class="mt-10 text-center text-sm text-gray-500">
             Don't have an account?
-            <a href="{{ route('register') }}" class="font-bold leading-6 text-[#145454] hover:text-[#f27457] transition-colors">Sign up</a>
+            <a href="{{ route('register') }}" class="font-bold leading-6 text-accent-text hover:text-accent-text transition-colors">Sign up</a>
         </div>
     </form>
 </x-guest-layout>

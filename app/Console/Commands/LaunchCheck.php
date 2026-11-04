@@ -51,6 +51,13 @@ class LaunchCheck extends Command
         $this->check(config('legal.country_block_enabled') && ! empty(config('legal.blocked_countries')), 'Sanctioned-country block is enabled ('.implode(',', (array) config('legal.blocked_countries')).')', 'Set COUNTRY_BLOCK_ENABLED=true and BLOCKED_COUNTRIES');
         $this->warn2(false, 'Country header available', 'The block needs a CDN/host country header (Cloudflare CF-IPCountry, Vercel X-Vercel-IP-Country, CloudFront). Put the site behind one.');
 
+        $this->line('<options=bold>Abuse protection (floods on sign-up / sign-in)</>');
+        $this->check(filled(config('security.turnstile.secret_key')), 'Bot challenge (Cloudflare Turnstile) is on for web forms', 'Set TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY (free at dash.cloudflare.com → Turnstile)', $prod);
+        $this->check(filled(env('TRUSTED_PROXIES')) || ! $prod, 'TRUSTED_PROXIES set so rate limits see real client IPs', 'Behind Cloudflare/a load balancer set TRUSTED_PROXIES to its IP ranges (or * if the origin is only reachable through it)', $prod);
+        $this->check(config('cache.limiter') !== 'database', 'Rate-limit counters are not stored in the database', 'Set CACHE_LIMITER_STORE=redis (or file on a single server)', $prod);
+        $this->warn2(config('session.driver') !== 'database', 'Sessions are not in the database', 'A flood of visitors creates one session row each; use SESSION_DRIVER=redis (or file on one server)');
+        $this->warn2(false, 'Edge DDoS protection', 'Rate limits protect the app, not the network. Put the site behind Cloudflare (or similar) with its DDoS shield and a rate-limiting rule on /login and /register.');
+
         $this->line('<options=bold>Scheduler</>');
         $beat = (int) Cache::get('scheduler:last_run');
         $this->check($beat > 0 && now()->timestamp - $beat < 300, 'Scheduler ran in the last 5 minutes', 'Add the cron entry: * * * * * cd '.base_path().' && php artisan schedule:run >> /dev/null 2>&1', $prod);
