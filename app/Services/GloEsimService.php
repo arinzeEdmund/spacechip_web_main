@@ -2,328 +2,204 @@
 
 namespace App\Services;
 
+use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
+/**
+ * GloEsim dealer API client: catalogue browsing, eSIM purchase/top-up and delivery lookups.
+ *
+ * The dealer API is loosely specified: response shapes, key casing and even endpoint names vary between
+ * environments, so most readers probe several candidate paths and keep the first non-null value.
+ * Catalogue reads never throw; they degrade to an empty list (or a static fallback for marketing tiles).
+ */
 class GloEsimService
 {
+    private const UN_FLAG = 'https://flagcdn.com/w80/un.png';
+
+    private const PURCHASE_ENDPOINT = '/developer/dealer/package/purchase';
+
+    private const VOICE_PURCHASE_ENDPOINT = '/developer/dealer/package/data_voice_sms/purchase';
+
+    /** Endpoint aliases seen across dealer environments for "list my eSIMs". */
+    private const MY_ESIMS_ENDPOINTS = ['/developer/dealer/my_esims', '/developer/dealer/my-esims', '/developer/dealer/my_esims/list'];
+
+    /** Candidate paths for each delivery field, in priority order (purchase response and details lookups). */
+    private const DELIVERY_PATHS = [
+        'iccid' => ['data.iccid', 'iccid', 'data.items.0.iccid', 'data.esim.iccid'],
+        'activation_code' => ['data.activation_code', 'activation_code', 'data.items.0.activation_code', 'data.esim.activation_code', 'data.esim.activationCode'],
+        'lpa' => ['data.lpa', 'lpa', 'data.lpa_code', 'lpa_code', 'data.lpa_string', 'lpa_string', 'data.qr_payload', 'qr_payload'],
+        'qr_code_url' => ['data.qr_code_url', 'qr_code_url', 'data.items.0.qr_code_url', 'data.esim.qr_code_url', 'data.esim.qrCodeUrl', 'data.qr_code'],
+        'puk_code' => ['data.puk_code', 'puk_code', 'data.puk', 'puk'],
+        'number' => ['data.number', 'number', 'data.msisdn', 'msisdn'],
+        'esim_status' => ['data.status', 'status'],
+        'ios' => ['data.direct_installation_link_ios', 'direct_installation_link_ios', 'data.installation_link_ios', 'installation_link_ios', 'data.ios_installation_link', 'ios_installation_link', 'data.ios_install_link', 'ios_install_link'],
+        'android' => ['data.direct_installation_link_android', 'direct_installation_link_android', 'data.installation_link_android', 'installation_link_android', 'data.android_installation_link', 'android_installation_link', 'data.android_install_link', 'android_install_link'],
+        'smdp_address' => ['data.smdp_address', 'smdp_address', 'data.smdpAddress', 'smdpAddress', 'data.smdp_plus_address', 'smdp_plus_address', 'data.smdpPlusAddress', 'smdpPlusAddress', 'data.smdp', 'smdp'],
+    ];
+
+    /** Extra paths only the my-esims/details endpoints use (list rows and universal links). */
+    private const DETAILS_EXTRA_PATHS = [
+        'iccid' => ['data.0.iccid'],
+        'activation_code' => ['data.0.activation_code'],
+        'lpa' => ['data.qr_code_text', 'qr_code_text', 'data.0.qr_code_text', 'data.items.0.qr_code_text'],
+        'qr_code_url' => ['data.0.qr_code_url'],
+        'number' => ['data.0.number', 'data.0.msisdn'],
+        'esim_status' => ['data.0.status', 'data.items.0.status'],
+        'ios' => ['data.universal_link', 'universal_link', 'data.0.universal_link', 'data.items.0.universal_link'],
+        'android' => ['data.android_universal_link', 'android_universal_link', 'data.0.android_universal_link', 'data.items.0.android_universal_link'],
+        'smdp_address' => ['data.0.smdp_address', 'data.items.0.smdp_address'],
+    ];
+
+    // ─── Marketing tiles ────────────────────────────────────────────────────────
+
     public function popularCountries(int $limit = 6): array
     {
         $limit = max(1, min(24, $limit));
 
-        $cacheKey = "gloesim.popular_countries.v3.{$limit}";
-
-        $cached = Cache::get($cacheKey);
-        if (is_array($cached) && $cached !== []) {
-            return $cached;
-        }
-
-        $countries = $this->popularCountriesFromApi($limit);
-
-        if ($countries !== []) {
-            Cache::put($cacheKey, $countries, now()->addMinutes(15));
-
-            return $countries;
-        }
-
-        return $this->fallbackPopularCountries($limit);
+        return $this->rememberNonEmpty("gloesim.popular_countries.v3.{$limit}", 15, fn () => $this->popularCountriesFromApi($limit))
+            ?: $this->fallbackPopularCountries($limit);
     }
 
     public function popularRegions(int $limit = 7): array
     {
         $limit = max(1, min(24, $limit));
 
-        $cacheKey = "gloesim.popular_regions.v1.{$limit}";
-
-        $cached = Cache::get($cacheKey);
-        if (is_array($cached) && $cached !== []) {
-            return $cached;
-        }
-
-        $regions = $this->popularRegionsFromApi($limit);
-
-        if ($regions !== []) {
-            Cache::put($cacheKey, $regions, now()->addMinutes(30));
-
-            return $regions;
-        }
-
-        return $this->fallbackPopularRegions($limit);
+        return $this->rememberNonEmpty("gloesim.popular_regions.v1.{$limit}", 30, fn () => $this->popularRegionsFromApi($limit))
+            ?: $this->fallbackPopularRegions($limit);
     }
 
     private function popularCountriesFromApi(int $limit): array
     {
+        if (! $this->liveCatalogueEnabled()) {
+            return [];
+        }
+
         try {
-            if (app()->environment('testing')) {
-                return [];
-            }
+            $byName = $this->countriesIndexByNormalizedName();
+            $byId = $this->countriesIndexById();
 
-            if (! $this->hasDealerCredentials()) {
-                return [];
-            }
+            $preferred = ['United States', 'United Kingdom', 'United Arab Emirates', 'France', 'Germany', 'Turkey', 'Saudi Arabia', 'Egypt', 'Nigeria', 'India', 'Canada', 'Australia', 'Japan', 'Thailand', 'South Africa', 'Brazil', 'Mexico', 'Italy', 'Spain'];
 
-            $countriesByName = $this->countriesIndexByNormalizedName();
-            $countriesById = $this->countriesIndexById();
+            $selected = collect($preferred)
+                ->map(fn ($name) => $byName[$this->normalizeCountryName($name)] ?? null)
+                ->filter(fn ($node) => is_array($node))
+                ->take($limit)
+                ->values();
 
-            $preferred = [
-                'United States',
-                'United Kingdom',
-                'United Arab Emirates',
-                'France',
-                'Germany',
-                'Turkey',
-                'Saudi Arabia',
-                'Egypt',
-                'Nigeria',
-                'India',
-                'Canada',
-                'Australia',
-                'Japan',
-                'Thailand',
-                'South Africa',
-                'Brazil',
-                'Mexico',
-                'Italy',
-                'Spain',
-            ];
+            $currency = $this->currency();
 
-            $selected = [];
-            foreach ($preferred as $name) {
-                $key = $this->normalizeCountryName($name);
-                $node = $countriesByName[$key] ?? null;
+            return $selected->map(function (array $country, int $rank) use ($byId, $currency) {
+                $id = $country['id'] ?? null;
+                $code = $byId[$id]['code'] ?? null;
+                $min = ($id !== null && $id !== '') ? $this->cheapest($this->packagesByCountryId($id, 'DATA-ONLY')) : null;
 
-                if (! is_array($node)) {
-                    continue;
-                }
-
-                $selected[] = $node;
-
-                if (count($selected) >= $limit) {
-                    break;
-                }
-            }
-
-            if ($selected === []) {
-                return [];
-            }
-
-            $ranked = [];
-            foreach ($selected as $i => $country) {
-                $countryId = $country['id'] ?? null;
-                $countryName = is_string($country['name'] ?? null) ? $country['name'] : null;
-                $flagUrl = is_string($country['image_url'] ?? null) ? $country['image_url'] : null;
-
-                $minAmount = null;
-                if ($countryId !== null && $countryId !== '') {
-                    $packages = $this->packagesByCountryId($countryId, 'DATA-ONLY');
-
-                    foreach ($packages as $package) {
-                        if (! is_array($package)) {
-                            continue;
-                        }
-
-                        $amount = $this->extractAmount($package);
-
-                        if ($amount === null) {
-                            continue;
-                        }
-
-                        if ($minAmount === null || $amount < $minAmount) {
-                            $minAmount = $amount;
-                        }
-                    }
-                }
-
-                $currency = (string) config('services.gloesim.currency', 'USD');
-
-                $ranked[] = [
-                    'id' => $countryId,
-                    'code' => $countriesById[$countryId]['code'] ?? null,
-                    'name' => $countryName,
-                    'flag' => $this->flagEmoji($countriesById[$countryId]['code'] ?? null),
-                    'flag_url' => $flagUrl,
-                    'note' => $this->noteForRank($i),
-                    'badge' => $this->badgeForRank($i),
-                    'starting_price' => $minAmount,
-                    'starting_price_formatted' => $this->formatMoney($minAmount, $currency),
+                return [
+                    'id' => $id,
+                    'code' => $code,
+                    'name' => is_string($country['name'] ?? null) ? $country['name'] : null,
+                    'flag' => $this->flagEmoji($code),
+                    'flag_url' => is_string($country['image_url'] ?? null) ? $country['image_url'] : null,
+                    'note' => $this->noteForRank($rank),
+                    'badge' => $this->badgeForRank($rank),
+                    'starting_price' => $min,
+                    'starting_price_formatted' => $this->formatMoney($min, $currency),
                 ];
-            }
-
-            return $ranked;
-        } catch (\Throwable $e) {
+            })->all();
+        } catch (\Throwable) {
             return [];
         }
     }
 
+    /** "Global" first, then the preferred continents (by alias), topped up with whatever else the API lists. */
     private function popularRegionsFromApi(int $limit): array
     {
+        if (! $this->liveCatalogueEnabled()) {
+            return [];
+        }
+
         try {
-            if (app()->environment('testing')) {
-                return [];
-            }
-
-            if (! $this->hasDealerCredentials()) {
-                return [];
-            }
-
-            $continents = $this->continents();
-
             $byName = [];
-            $ordered = [];
-            foreach ($continents as $continent) {
-                if (! is_array($continent)) {
-                    continue;
-                }
-
+            foreach ($this->continents() as $continent) {
                 $id = data_get($continent, 'id');
                 $name = data_get($continent, 'name');
 
-                if (! is_scalar($id) || ! is_string($name) || trim($name) === '') {
-                    continue;
-                }
-
-                $node = [
-                    'id' => trim((string) $id),
-                    'name' => trim($name),
-                ];
-
-                $key = $this->normalizeCountryName($node['name']);
-                $byName[$key] = $node;
-                $ordered[] = ['key' => $key] + $node;
-            }
-
-            $currency = (string) config('services.gloesim.currency', 'USD');
-
-            $ranked = [];
-            $globalMinAmount = null;
-
-            $globalPackages = $this->globalPackages('DATA-ONLY', 1, 200);
-            foreach ($globalPackages as $package) {
-                if (! is_array($package)) {
-                    continue;
-                }
-
-                $amount = $this->extractAmount($package);
-
-                if ($amount === null) {
-                    continue;
-                }
-
-                if ($globalMinAmount === null || $amount < $globalMinAmount) {
-                    $globalMinAmount = $amount;
+                if (is_array($continent) && is_scalar($id) && is_string($name) && trim($name) !== '') {
+                    $byName[$this->normalizeCountryName($name)] = ['id' => trim((string) $id), 'name' => trim($name)];
                 }
             }
 
-            $ranked[] = [
+            $currency = $this->currency();
+            $globalMin = $this->cheapest($this->globalPackages('DATA-ONLY', 1, 200));
+
+            $ranked = [[
                 'id' => 'global',
                 'name' => 'Global',
                 'slug' => 'global',
                 'note' => 'Best for international travel',
                 'badge' => 'World wide',
-                'starting_price' => $globalMinAmount,
-                'starting_price_formatted' => $this->formatMoney($globalMinAmount, $currency),
+                'starting_price' => $globalMin,
+                'starting_price_formatted' => $this->formatMoney($globalMin, $currency),
                 'flag' => '🌐',
-                'flag_url' => 'https://flagcdn.com/w80/un.png', // UN flag or globe placeholder
+                'flag_url' => self::UN_FLAG,
+            ]];
+
+            $slots = max(0, $limit - 1);
+            $preferred = [
+                'North America' => ['North America', 'N. America'],
+                'Asia' => ['Asia'],
+                'Europe' => ['Europe'],
+                'Latin America' => ['Latin America', 'Latin America & Caribbean', 'Latin America and Caribbean', 'South America', 'Central America'],
+                'Middle East' => ['Middle East', 'Middle East & Africa', 'Middle East and Africa', 'MENA'],
+                'Oceania' => ['Oceania', 'Australia & Oceania', 'Australia and Oceania'],
             ];
 
             $selected = [];
-            $selectedKeys = [];
-
-            $preferredGroups = [
-                ['label' => 'North America', 'aliases' => ['North America', 'N. America']],
-                ['label' => 'Asia', 'aliases' => ['Asia']],
-                ['label' => 'Europe', 'aliases' => ['Europe']],
-                ['label' => 'Latin America', 'aliases' => ['Latin America', 'Latin America & Caribbean', 'Latin America and Caribbean', 'South America', 'Central America']],
-                ['label' => 'Middle East', 'aliases' => ['Middle East', 'Middle East & Africa', 'Middle East and Africa', 'MENA']],
-                ['label' => 'Oceania', 'aliases' => ['Oceania', 'Australia & Oceania', 'Australia and Oceania']],
-            ];
-
-            foreach ($preferredGroups as $group) {
-                $aliases = $group['aliases'] ?? [];
-
+            foreach ($preferred as $label => $aliases) {
+                if (count($selected) >= $slots) {
+                    break;
+                }
                 foreach ($aliases as $alias) {
-                    $node = $byName[$this->normalizeCountryName($alias)] ?? null;
-
-                    if (! is_array($node)) {
-                        continue;
-                    }
-
-                    $key = $this->normalizeCountryName($node['name']);
-
-                    if (isset($selectedKeys[$key])) {
-                        continue;
-                    }
-
-                    $selected[] = ['key' => $key, 'label' => $group['label'] ?? null] + $node;
-                    $selectedKeys[$key] = true;
-                    break;
-                }
-
-                if (count($selected) >= max(0, $limit - count($ranked))) {
-                    break;
-                }
-            }
-
-            if (count($selected) < max(0, $limit - count($ranked))) {
-                foreach ($ordered as $node) {
-                    $key = (string) ($node['key'] ?? '');
-
-                    if ($key === '' || isset($selectedKeys[$key])) {
-                        continue;
-                    }
-
-                    $selected[] = $node;
-                    $selectedKeys[$key] = true;
-
-                    if (count($selected) >= max(0, $limit - count($ranked))) {
+                    $key = $this->normalizeCountryName($alias);
+                    if (isset($byName[$key]) && ! isset($selected[$key])) {
+                        $selected[$key] = ['label' => $label] + $byName[$key];
                         break;
                     }
                 }
             }
+            foreach ($byName as $key => $node) {
+                if (count($selected) >= $slots) {
+                    break;
+                }
+                $selected[$key] ??= $node;
+            }
 
             foreach ($selected as $node) {
-                $continentId = $node['id'] ?? null;
-                $continentName = (string) $node['name'];
-                $displayName = is_string($node['label'] ?? null) ? (string) $node['label'] : $continentName;
-
-                $packages = ($continentId !== null && $continentId !== '') ? $this->packagesByContinentId($continentId, 'DATA-ONLY') : [];
-
-                $minAmount = null;
-                foreach ($packages as $package) {
-                    if (! is_array($package)) {
-                        continue;
-                    }
-
-                    $amount = $this->extractAmount($package);
-
-                    if ($amount === null) {
-                        continue;
-                    }
-
-                    if ($minAmount === null || $amount < $minAmount) {
-                        $minAmount = $amount;
-                    }
-                }
+                $display = $node['label'] ?? $node['name'];
+                $min = $node['id'] !== '' ? $this->cheapest($this->packagesByContinentId($node['id'], 'DATA-ONLY')) : null;
 
                 $ranked[] = [
-                    'id' => $continentId,
-                    'name' => $displayName,
-                    'slug' => $this->slugify($displayName),
-                    'note' => $this->noteForRegion($displayName),
-                    'badge' => $this->badgeForRegion($displayName),
-                    'starting_price' => $minAmount,
-                    'starting_price_formatted' => $this->formatMoney($minAmount, $currency),
+                    'id' => $node['id'],
+                    'name' => $display,
+                    'slug' => $this->slugify($display),
+                    'note' => $this->noteForRegion($display),
+                    'badge' => $this->badgeForRegion($display),
+                    'starting_price' => $min,
+                    'starting_price_formatted' => $this->formatMoney($min, $currency),
                     'flag' => '🌐',
-                    'flag_url' => 'https://flagcdn.com/w80/un.png',
+                    'flag_url' => self::UN_FLAG,
                 ];
             }
 
             return array_slice($ranked, 0, $limit);
-        } catch (\Throwable $e) {
+        } catch (\Throwable) {
             return [];
         }
     }
+
+    // ─── Catalogue ──────────────────────────────────────────────────────────────
 
     public function balance(): ?array
     {
@@ -332,9 +208,7 @@ class GloEsimService
 
     public function packages(string $packageType = 'DATA-ONLY'): array
     {
-        return $this->extractList($this->getJson('/developer/dealer/packages', [
-            'package_type' => $packageType,
-        ]));
+        return $this->extractList($this->getJson('/developer/dealer/packages', ['package_type' => $packageType]));
     }
 
     public function countries(): array
@@ -347,145 +221,52 @@ class GloEsimService
         return $this->extractList($this->getJson('/developer/dealer/packages/continent'));
     }
 
+    /**
+     * Country packages, filtered client-side because the endpoint sometimes ignores `package_type`.
+     * Voice/SMS bundles are often only listed globally, so for that type we fall back to scanning
+     * global packages that cover the country.
+     */
     public function packagesByCountryId(int|string $countryId, ?string $packageType = null): array
     {
-        $query = $packageType ? ['package_type' => $packageType] : [];
-
-        $packages = $this->extractList($this->getJson('/developer/dealer/packages/country/'.urlencode((string) $countryId), $query));
+        $packages = $this->extractList($this->getJson(
+            '/developer/dealer/packages/country/'.urlencode((string) $countryId),
+            $packageType ? ['package_type' => $packageType] : [],
+        ));
 
         if (! $packageType) {
             return $packages;
         }
 
         $wanted = $this->normalizePackageType($packageType);
+        $filtered = $this->filterByType($packages, $wanted);
 
-        $filtered = array_values(array_filter($packages, function ($p) use ($wanted) {
-            if (! is_array($p)) {
-                return false;
-            }
-
-            $rawType = data_get($p, 'package_type');
-            $normalized = $this->normalizePackageType(is_string($rawType) ? $rawType : null);
-
-            if ($normalized !== '') {
-                return $normalized === $wanted || str_starts_with($normalized, $wanted);
-            }
-
-            $voice = data_get($p, 'voice');
-            $sms = data_get($p, 'sms');
-            $hasVoice = is_numeric($voice) && (float) $voice > 0;
-            $hasSms = is_numeric($sms) && (float) $sms > 0;
-
-            if ($wanted === 'DATA-VOICE-SMS') {
-                return $hasVoice || $hasSms;
-            }
-
-            if ($wanted === 'DATA-ONLY') {
-                return ! $hasVoice && ! $hasSms;
-            }
-
-            return false;
-        }));
-
-        if ($filtered !== []) {
+        if ($filtered !== [] || $wanted !== 'DATA-VOICE-SMS') {
             return $filtered;
         }
 
-        if ($wanted !== 'DATA-VOICE-SMS') {
-            return $filtered;
-        }
-
-        $perPage = 200;
-        $global = [];
-        for ($page = 1; $page <= 10; $page++) {
-            $pagePackages = $this->globalPackages($packageType, $page, $perPage);
-            if ($pagePackages === []) {
-                break;
-            }
-
-            foreach ($pagePackages as $p) {
-                if (! is_array($p)) {
-                    continue;
-                }
-
-                $countries = data_get($p, 'countries', []);
-                if (! is_array($countries)) {
-                    continue;
-                }
-
-                $matched = false;
-                foreach ($countries as $c) {
-                    $id = (string) data_get($c, 'id');
-                    if ($id !== '' && $id === (string) $countryId) {
-                        $global[] = $p;
-                        $matched = true;
-                        break;
-                    }
-                }
-
-                if ($matched) {
-                    continue;
-                }
-            }
-
-            if (count($pagePackages) < $perPage) {
-                break;
-            }
-        }
-
-        return $global;
+        return array_values(array_filter(
+            $this->allGlobalPackages($packageType),
+            fn ($p) => is_array($p) && collect((array) data_get($p, 'countries', []))
+                ->contains(fn ($c) => ($id = (string) data_get($c, 'id')) !== '' && $id === (string) $countryId),
+        ));
     }
 
     public function packagesByContinentId(int|string $continentId, ?string $packageType = null): array
     {
-        $query = $packageType ? ['package_type' => $packageType] : [];
+        $packages = $this->extractList($this->getJson(
+            '/developer/dealer/packages/continent/'.urlencode((string) $continentId),
+            $packageType ? ['package_type' => $packageType] : [],
+        ));
 
-        $packages = $this->extractList($this->getJson('/developer/dealer/packages/continent/'.urlencode((string) $continentId), $query));
-
-        if (! $packageType) {
-            return $packages;
-        }
-
-        $wanted = $this->normalizePackageType($packageType);
-
-        return array_values(array_filter($packages, function ($p) use ($wanted) {
-            if (! is_array($p)) {
-                return false;
-            }
-
-            $rawType = data_get($p, 'package_type');
-            $normalized = $this->normalizePackageType(is_string($rawType) ? $rawType : null);
-
-            if ($normalized !== '') {
-                return $normalized === $wanted || str_starts_with($normalized, $wanted);
-            }
-
-            $voice = data_get($p, 'voice');
-            $sms = data_get($p, 'sms');
-            $hasVoice = is_numeric($voice) && (float) $voice > 0;
-            $hasSms = is_numeric($sms) && (float) $sms > 0;
-
-            if ($wanted === 'DATA-VOICE-SMS') {
-                return $hasVoice || $hasSms;
-            }
-
-            if ($wanted === 'DATA-ONLY') {
-                return ! $hasVoice && ! $hasSms;
-            }
-
-            return false;
-        }));
+        return $packageType ? $this->filterByType($packages, $this->normalizePackageType($packageType)) : $packages;
     }
 
     public function globalPackages(?string $packageType = 'DATA-ONLY', int $page = 1, int $perPage = 100): array
     {
-        $page = max(1, $page);
-        $perPage = max(1, min(200, $perPage));
-
         $query = array_filter([
             'package_type' => $packageType ?: null,
-            'page' => $page,
-            'per_page' => $perPage,
+            'page' => max(1, $page),
+            'per_page' => max(1, min(200, $perPage)),
         ]);
 
         $packages = $this->extractList($this->getJson('/developer/dealer/packages/global', $query, 6));
@@ -496,31 +277,15 @@ class GloEsimService
 
         $wanted = $this->normalizePackageType($packageType);
 
+        // Untyped global packages are kept: the global endpoint already honours the filter.
         return array_values(array_filter($packages, function ($p) use ($wanted) {
-            if (! is_array($p)) {
-                return false;
-            }
+            $type = is_array($p) ? $this->normalizePackageType(data_get($p, 'package_type')) : null;
 
-            $rawType = data_get($p, 'package_type');
-            $normalized = $this->normalizePackageType(is_string($rawType) ? $rawType : null);
-
-            return $normalized === '' ? true : ($normalized === $wanted || str_starts_with($normalized, $wanted));
+            return $type !== null && ($type === '' || $type === $wanted || str_starts_with($type, $wanted));
         }));
     }
 
-    private function normalizePackageType(?string $value): string
-    {
-        if (! is_string($value)) {
-            return '';
-        }
-
-        $value = strtoupper(trim($value));
-        $value = preg_replace('/[^A-Z0-9]+/', '-', $value) ?? '';
-        $value = trim($value, '-');
-
-        return $value;
-    }
-
+    /** Every country with its cheapest global price. Countries without a price are hidden unless none are priced. */
     public function allCountriesWithPrices(string $packageType = 'DATA-ONLY'): array
     {
         $cacheKey = 'gloesim.all_countries_prices.v2.'.$packageType;
@@ -534,103 +299,49 @@ class GloEsimService
             return [];
         }
 
-        $currency = (string) config('services.gloesim.currency', 'USD');
-        $fallback = [];
+        // Cheapest price per country id across all global packages (time-boxed: this runs on page load).
+        $prices = [];
+        foreach ($this->allGlobalPackages($packageType, deadline: microtime(true) + 6.0) as $package) {
+            $amount = is_array($package) ? $this->extractAmount($package) : null;
+            if ($amount === null) {
+                continue;
+            }
+            foreach ((array) data_get($package, 'countries', []) as $c) {
+                $id = (string) data_get($c, 'id');
+                $prices[$id] = min($prices[$id] ?? INF, $amount);
+            }
+        }
+
+        $currency = $this->currency();
+        $rows = [];
         foreach ($countries as $country) {
             $id = (string) (data_get($country, 'id') ?? '');
             if ($id === '') {
                 continue;
             }
             $code = $this->extractCountryCode($country);
-            $fallback[] = [
+            $price = $prices[$id] ?? null;
+
+            $rows[] = [
                 'id' => $id,
                 'name' => (string) data_get($country, 'name'),
                 'code' => $code,
                 'flag' => $this->flagEmoji($code),
                 'flag_url' => data_get($country, 'image_url'),
-                'starting_price' => null,
-                'starting_price_formatted' => null,
+                'starting_price' => $price,
+                'starting_price_formatted' => $price !== null ? $this->formatMoney($price, $currency) : null,
             ];
         }
-        usort($fallback, fn ($a, $b) => strcmp($a['name'], $b['name']));
+        usort($rows, fn ($a, $b) => strcmp($a['name'], $b['name']));
 
-        $perPage = 200;
-        $globalPackages = [];
-        $deadline = microtime(true) + 6.0;
-
-        for ($page = 1; $page <= 10; $page++) {
-            if (microtime(true) > $deadline) {
-                break;
-            }
-
-            $pagePackages = $this->globalPackages($packageType, $page, $perPage);
-
-            if ($pagePackages === []) {
-                break;
-            }
-
-            $globalPackages = array_merge($globalPackages, $pagePackages);
-
-            if (count($pagePackages) < $perPage) {
-                break;
-            }
+        $priced = array_values(array_filter($rows, fn ($r) => $r['starting_price'] !== null));
+        if ($priced === []) {
+            return $rows;
         }
 
-        if ($globalPackages === []) {
-            return $fallback;
-        }
+        Cache::put($cacheKey, $priced, now()->addHours(6));
 
-        $pricesByCountryId = [];
-        foreach ($globalPackages as $package) {
-            $packageCountries = data_get($package, 'countries', []);
-            $amount = $this->extractAmount($package);
-            if ($amount === null) {
-                continue;
-            }
-
-            foreach ($packageCountries as $c) {
-                $id = (string) data_get($c, 'id');
-                if (! isset($pricesByCountryId[$id]) || $amount < $pricesByCountryId[$id]) {
-                    $pricesByCountryId[$id] = $amount;
-                }
-            }
-        }
-
-        $results = [];
-
-        foreach ($countries as $country) {
-            $id = (string) (data_get($country, 'id') ?? '');
-            if ($id === '') {
-                continue;
-            }
-
-            $name = (string) data_get($country, 'name');
-            $code = $this->extractCountryCode($country);
-
-            $results[] = [
-                'id' => $id,
-                'name' => $name,
-                'code' => $code,
-                'flag' => $this->flagEmoji($code),
-                'flag_url' => data_get($country, 'image_url'),
-                'starting_price' => $pricesByCountryId[$id] ?? null,
-                'starting_price_formatted' => isset($pricesByCountryId[$id]) ? $this->formatMoney($pricesByCountryId[$id], $currency) : null,
-            ];
-        }
-
-        // Filter out countries with no plans for this type
-        $results = array_filter($results, fn ($r) => $r['starting_price'] !== null);
-
-        usort($results, fn ($a, $b) => strcmp($a['name'], $b['name']));
-
-        $final = array_values($results);
-        if ($final !== []) {
-            Cache::put($cacheKey, $final, now()->addHours(6));
-
-            return $final;
-        }
-
-        return $fallback;
+        return $priced;
     }
 
     public function allRegionsWithPrices(): array
@@ -641,593 +352,150 @@ class GloEsimService
     public function allVirtualNumbers(): array
     {
         return Cache::remember('gloesim.all_virtual_numbers.v1', now()->addHours(6), function () {
-            $packages = $this->packages('VIRTUAL-PHONE-NUMBER');
-            if (empty($packages)) {
-                return [];
-            }
+            $currency = $this->currency();
 
-            $currency = (string) config('services.gloesim.currency', 'USD');
-            $results = [];
-
-            foreach ($packages as $package) {
+            return array_map(function ($package) use ($currency) {
                 $amount = $this->extractAmount($package);
-                $name = data_get($package, 'name');
-                $countries = data_get($package, 'countries', []);
-                $firstCountry = count($countries) > 0 ? reset($countries) : null;
-                $code = $firstCountry ? $this->extractCountryCode($firstCountry) : null;
+                $first = Arr::first((array) data_get($package, 'countries', []));
+                $code = $first ? $this->extractCountryCode($first) : null;
 
-                $results[] = [
+                return [
                     'id' => data_get($package, 'id'),
-                    'name' => $name,
+                    'name' => data_get($package, 'name'),
                     'description' => data_get($package, 'description'),
                     'price' => $amount,
                     'price_formatted' => $this->formatMoney($amount, $currency),
                     'flag' => $this->flagEmoji($code),
-                    'flag_url' => data_get($firstCountry, 'image_url'),
+                    'flag_url' => data_get($first, 'image_url'),
                 ];
-            }
-
-            return $results;
+            }, $this->packages('VIRTUAL-PHONE-NUMBER'));
         });
     }
 
+    /** Detail page payload for a country, a continent, or the special "global" region. */
     public function getAssetDetails(string $type, string $id, ?string $packageType = 'DATA-ONLY'): ?array
     {
         return Cache::remember("gloesim.asset_details.{$type}.{$id}.{$packageType}.v3", now()->addMinutes(15), function () use ($type, $id, $packageType) {
-            $currency = (string) config('services.gloesim.currency', 'USD');
+            $currency = $this->currency();
 
             if ($type === 'country') {
-                $countries = $this->countriesIndexById();
-                $country = $countries[$id] ?? null;
-                if (! $country) {
-                    return null;
-                }
+                $country = $this->countriesIndexById()[$id] ?? null;
 
-                $packages = $this->packagesByCountryId($id, $packageType);
-
-                return [
+                return $country ? [
                     'name' => $country['name'],
                     'code' => $country['code'],
                     'flag' => $this->flagEmoji($country['code']),
                     'flag_url' => $country['image_url'] ?? null,
                     'type' => 'Country eSIM',
-                    'bundles' => $this->formatBundles($packages, $currency),
-                ];
+                    'bundles' => $this->formatBundles($this->packagesByCountryId($id, $packageType), $currency),
+                ] : null;
             }
 
-            if ($type === 'region') {
-                // Special case for Global
-                if ($id === 'global') {
-                    $packages = $this->globalPackages($packageType, 1, 100);
+            if ($type !== 'region') {
+                return null;
+            }
 
-                    return [
-                        'name' => 'Global',
-                        'code' => 'UN',
-                        'flag' => '🌐',
-                        'flag_url' => 'https://flagcdn.com/w80/un.png',
-                        'type' => 'Regional Plan',
-                        'bundles' => $this->formatBundles($packages, $currency),
-                    ];
-                }
-
-                // Continent/Region
-                $continents = $this->continents();
-                $continent = collect($continents)->first(fn ($c) => (string) data_get($c, 'id') === $id);
+            if ($id === 'global') {
+                $name = 'Global';
+                $code = 'UN';
+                $packages = $this->globalPackages($packageType, 1, 100);
+            } else {
+                $continent = collect($this->continents())->first(fn ($c) => (string) data_get($c, 'id') === $id);
                 if (! $continent) {
                     return null;
                 }
-
+                $name = data_get($continent, 'name');
+                $code = null;
                 $packages = $this->packagesByContinentId($id, $packageType);
-
-                return [
-                    'name' => data_get($continent, 'name'),
-                    'code' => null,
-                    'flag' => '🌐',
-                    'flag_url' => 'https://flagcdn.com/w80/un.png',
-                    'type' => 'Regional Plan',
-                    'bundles' => $this->formatBundles($packages, $currency),
-                ];
-            }
-
-            return null;
-        });
-    }
-
-    private function formatBundles(array $packages, string $currency): array
-    {
-        return array_map(function ($p) use ($currency) {
-            $amount = $this->extractAmount($p);
-
-            // Get data amount from API response
-            $dataQuantity = data_get($p, 'data_quantity');
-            $dataUnit = data_get($p, 'data_unit');
-            $dataAmount = ($dataQuantity !== null && $dataUnit !== null) ? "{$dataQuantity} {$dataUnit}" : (data_get($p, 'data_amount_formatted') ?? data_get($p, 'data'));
-
-            // Get validity from API response
-            $vQuantity = data_get($p, 'package_validity');
-            $vUnit = data_get($p, 'package_validity_unit');
-
-            if ($vQuantity !== null && $vUnit !== null) {
-                $days = (int) $vQuantity;
-                $unit = (string) $vUnit;
-
-                if (strtolower($unit) === 'day') {
-                    if ($days === 1) {
-                        $validity = '1 Day';
-                    } elseif ($days === 7) {
-                        $validity = '1 Week';
-                    } elseif ($days === 14) {
-                        $validity = '2 Weeks';
-                    } elseif ($days === 30) {
-                        $validity = '30 Days';
-                    } elseif ($days >= 30 && $days % 30 === 0) {
-                        $validity = ($days / 30).' Months';
-                    } else {
-                        $validity = "{$days} Days";
-                    }
-                } else {
-                    $validity = "{$days} {$unit}".($days > 1 ? 's' : '');
-                }
-            } else {
-                $validity = data_get($p, 'validity_formatted') ?? data_get($p, 'validity');
-                // If validity is just a number, append 'Days'
-                if (is_numeric($validity)) {
-                    $days = (int) $validity;
-                    if ($days === 1) {
-                        $validity = '1 Day';
-                    } elseif ($days === 7) {
-                        $validity = '1 Week';
-                    } elseif ($days === 14) {
-                        $validity = '2 Weeks';
-                    } elseif ($days === 30) {
-                        $validity = '30 Days';
-                    } elseif ($days >= 30 && $days % 30 === 0) {
-                        $validity = ($days / 30).' Months';
-                    } else {
-                        $validity = $days.' Days';
-                    }
-                }
-            }
-
-            $canRenewRaw = data_get($p, 'can_renew');
-            if ($canRenewRaw === null) {
-                $canRenewRaw = data_get($p, 'canRenew');
-            }
-            $canRenew = null;
-            if (is_bool($canRenewRaw)) {
-                $canRenew = $canRenewRaw;
-            } elseif (is_numeric($canRenewRaw)) {
-                $canRenew = ((int) $canRenewRaw) === 1;
-            } elseif (is_string($canRenewRaw) && trim($canRenewRaw) !== '') {
-                $canRenew = in_array(mb_strtolower(trim($canRenewRaw)), ['1', 'true', 'yes'], true);
             }
 
             return [
-                'id' => data_get($p, 'id'),
-                'name' => data_get($p, 'name'),
-                'data' => $dataAmount,
-                'validity' => $validity,
-                'price' => $amount,
-                'price_formatted' => $this->formatMoney($amount, $currency),
-                'package_type' => data_get($p, 'package_type'),
-                'can_renew' => $canRenew,
-                'features' => [
-                    'Hotspot' => data_get($p, 'hotspot') ? 'Supported' : 'Check coverage',
-                    'Network' => data_get($p, 'connectivity') ?? '4G/5G',
-                    'Activation' => 'Instant',
-                    'Renewal' => $canRenew === true ? 'Yes' : 'No',
-                ],
+                'name' => $name,
+                'code' => $code,
+                'flag' => '🌐',
+                'flag_url' => self::UN_FLAG,
+                'type' => 'Regional Plan',
+                'bundles' => $this->formatBundles($packages, $currency),
             ];
-        }, $packages);
+        });
     }
 
+    /** Search index: every country and continent, plus "Global". */
     public function searchableAssets(): array
     {
         return Cache::remember('gloesim.searchable_assets.v1', now()->addHours(6), function () {
-            $countries = $this->countries();
-            $continents = $this->continents();
-
             $results = [];
 
-            foreach ($countries as $country) {
-                $id = data_get($country, 'id') ?? data_get($country, 'country_id') ?? data_get($country, 'countryId');
-                $name = data_get($country, 'name') ?? data_get($country, 'country_name') ?? data_get($country, 'countryName');
+            foreach ($this->countries() as $country) {
+                $id = $this->pick($country, ['id', 'country_id', 'countryId']);
+                $name = $this->pick($country, ['name', 'country_name', 'countryName']);
                 if ($id && $name) {
-                    $results[] = [
-                        'id' => (string) $id,
-                        'name' => (string) $name,
-                        'type' => 'country',
-                    ];
+                    $results[] = ['id' => (string) $id, 'name' => (string) $name, 'type' => 'country'];
                 }
             }
 
-            foreach ($continents as $continent) {
+            foreach ($this->continents() as $continent) {
                 $id = data_get($continent, 'id');
                 $name = data_get($continent, 'name');
                 if ($id && $name) {
-                    $results[] = [
-                        'id' => (string) $id,
-                        'name' => (string) $name,
-                        'type' => 'region',
-                    ];
+                    $results[] = ['id' => (string) $id, 'name' => (string) $name, 'type' => 'region'];
                 }
             }
 
-            // Add "Global" manually as it's a special region
-            $results[] = [
-                'id' => 'global',
-                'name' => 'Global',
-                'type' => 'region',
-            ];
+            $results[] = ['id' => 'global', 'name' => 'Global', 'type' => 'region'];
 
             return $results;
         });
     }
 
-    private function hasDealerCredentials(): bool
-    {
-        $baseUrl = config('services.gloesim.base_url');
-        $email = config('services.gloesim.dealer_email');
-        $password = config('services.gloesim.dealer_password');
+    // ─── Orders ─────────────────────────────────────────────────────────────────
 
-        return is_string($baseUrl) && trim($baseUrl) !== ''
-            && is_string($email) && trim($email) !== ''
-            && is_string($password) && trim($password) !== '';
-    }
-
-    private function getJson(string $path, array $query = [], int $timeoutSeconds = 30): ?array
-    {
-        if (! $this->hasDealerCredentials()) {
-            return null;
-        }
-
-        $baseUrl = rtrim((string) config('services.gloesim.base_url'), '/');
-
-        $doGet = function () use ($baseUrl, $path, $query, $timeoutSeconds) {
-            return Http::baseUrl($baseUrl)
-                ->acceptJson()
-                ->retry(1, 150, null, false)
-                ->timeout($timeoutSeconds)
-                ->withToken($this->dealerToken())
-                ->get($path, $query);
-        };
-
-        try {
-            $response = $doGet();
-        } catch (\Throwable) {
-            return null;
-        }
-
-        if ($response->status() === 401) {
-            Cache::forget($this->dealerTokenCacheKey());
-
-            try {
-                $response = $doGet();
-            } catch (\Throwable) {
-                return null;
-            }
-        }
-
-        if (! $response->successful()) {
-            return null;
-        }
-
-        $json = $response->json();
-
-        return is_array($json) ? $json : null;
-    }
-
-    private function postJson(string $path, array $payload = []): ?array
-    {
-        if (! $this->hasDealerCredentials()) {
-            return null;
-        }
-
-        $baseUrl = rtrim((string) config('services.gloesim.base_url'), '/');
-
-        $response = Http::baseUrl($baseUrl)
-            ->acceptJson()
-            ->retry(2, 250, null, false)
-            ->timeout(45)
-            ->withToken($this->dealerToken())
-            ->post($path, $payload);
-
-        if ($response->status() === 401) {
-            Cache::forget($this->dealerTokenCacheKey());
-
-            $response = Http::baseUrl($baseUrl)
-                ->acceptJson()
-                ->retry(2, 250, null, false)
-                ->timeout(45)
-                ->withToken($this->dealerToken())
-                ->post($path, $payload);
-        }
-
-        if (! $response->successful()) {
-            return null;
-        }
-
-        $json = $response->json();
-
-        return is_array($json) ? $json : null;
-    }
-
-    private function postFormDetailed(string $path, array $payload = [], array $query = []): array
-    {
-        if (! $this->hasDealerCredentials()) {
-            return [
-                'ok' => false,
-                'status' => null,
-                'json' => null,
-                'error' => 'Missing dealer credentials.',
-            ];
-        }
-
-        $baseUrl = rtrim((string) config('services.gloesim.base_url'), '/');
-        $urlPath = $path;
-        if ($query !== []) {
-            $urlPath .= '?'.http_build_query($query);
-        }
-
-        $doPost = function () use ($baseUrl, $urlPath, $payload) {
-            return Http::baseUrl($baseUrl)
-                ->acceptJson()
-                ->asForm()
-                ->retry(1, 200, null, false)
-                ->timeout(60)
-                ->withToken($this->dealerToken())
-                ->post($urlPath, $payload);
-        };
-
-        $response = $doPost();
-        if ($response->status() === 401) {
-            Cache::forget($this->dealerTokenCacheKey());
-            $response = $doPost();
-        }
-
-        $json = $response->json();
-        $json = is_array($json) ? $json : null;
-
-        if (! $response->successful()) {
-            $message = is_array($json) ? (string) (data_get($json, 'message') ?? '') : '';
-
-            return [
-                'ok' => false,
-                'status' => $response->status(),
-                'json' => $json,
-                'error' => trim(($message !== '' ? $message : $response->reason())),
-            ];
-        }
-
-        return [
-            'ok' => true,
-            'status' => $response->status(),
-            'json' => $json,
-            'error' => null,
-        ];
-    }
-
-    private function postJsonDetailed(string $path, array $payload = []): array
-    {
-        if (! $this->hasDealerCredentials()) {
-            return [
-                'ok' => false,
-                'status' => null,
-                'json' => null,
-                'error' => 'Missing dealer credentials.',
-            ];
-        }
-
-        $baseUrl = rtrim((string) config('services.gloesim.base_url'), '/');
-
-        $doPost = function () use ($baseUrl, $path, $payload) {
-            return Http::baseUrl($baseUrl)
-                ->acceptJson()
-                ->retry(1, 200, null, false)
-                ->timeout(60)
-                ->withToken($this->dealerToken())
-                ->post($path, $payload);
-        };
-
-        $response = $doPost();
-        if ($response->status() === 401) {
-            Cache::forget($this->dealerTokenCacheKey());
-            $response = $doPost();
-        }
-
-        $json = $response->json();
-        $json = is_array($json) ? $json : null;
-
-        if (! $response->successful()) {
-            $message = is_array($json) ? (string) (data_get($json, 'message') ?? '') : '';
-
-            return [
-                'ok' => false,
-                'status' => $response->status(),
-                'json' => $json,
-                'error' => trim(($message !== '' ? $message : $response->reason())),
-            ];
-        }
-
-        return [
-            'ok' => true,
-            'status' => $response->status(),
-            'json' => $json,
-            'error' => null,
-        ];
-    }
-
+    /**
+     * Buy a package. A purchase without an ICCID (or with sim_applied=false) is reported as
+     * `pending`: the order exists and delivery details must be polled with getEsimDetails().
+     */
     public function fulfillEsim(string $packageTypeId, string $reference, string $customerEmail, string $packageType = 'DATA-ONLY', array $customerDetails = []): array
     {
-        $normalizedType = $this->normalizePackageType($packageType);
-        $normalizedType = $normalizedType === '' ? 'DATA-ONLY' : $normalizedType;
+        $type = $this->normalizePackageType($packageType) ?: 'DATA-ONLY';
+        $isVoice = $type === 'DATA-VOICE-SMS';
 
-        $endpoint = $normalizedType === 'DATA-VOICE-SMS'
-            ? '/developer/dealer/package/data_voice_sms/purchase'
-            : '/developer/dealer/package/purchase';
+        $payload = ['package_type_id' => $packageTypeId, 'email' => $customerEmail];
+        if ($isVoice) {
+            $payload += $this->voiceCustomerFields($customerDetails);
+        }
 
-        $payload = [
-            'package_type_id' => $packageTypeId,
-            'email' => $customerEmail,
+        $response = $this->postForm($isVoice ? self::VOICE_PURCHASE_ENDPOINT : self::PURCHASE_ENDPOINT, $payload);
+        if (! $response['ok'] || ! is_array($response['json'])) {
+            return ['ok' => false, 'package_id' => $packageTypeId, 'error' => $this->describeError($response, 'Unable to fulfill eSIM.')];
+        }
+
+        $result = $response['json'];
+        $f = $this->deliveryFields($result);
+        $common = [
+            'package_id' => $packageTypeId,
+            'package_type' => $type,
+            'reference' => $reference,
+            'esim_id' => $this->pick($result, ['data.esim_id', 'esim_id', 'data.sim_id', 'sim_id']),
+            'order_id' => $this->pick($result, ['data.id', 'data.order_id', 'order_id', 'id']),
         ];
 
-        if ($normalizedType === 'DATA-VOICE-SMS') {
-            $name = trim((string) ($customerDetails['name'] ?? ''));
-            $parts = $name !== '' ? preg_split('/\s+/', $name) : [];
-            $firstName = (string) ($customerDetails['first_name'] ?? ($parts[0] ?? 'Customer'));
-            $lastName = (string) ($customerDetails['last_name'] ?? (count($parts) > 1 ? implode(' ', array_slice($parts, 1)) : ''));
-
-            $payload = array_merge($payload, [
-                'first_name' => $firstName,
-                'last_name' => $lastName,
-                'street_name' => (string) ($customerDetails['street_name'] ?? 'Unknown'),
-                'street_number' => (string) ($customerDetails['street_number'] ?? '0'),
-                'street_direction' => (string) ($customerDetails['street_direction'] ?? ''),
-                'city' => (string) ($customerDetails['city'] ?? 'Unknown'),
-                'state' => (string) ($customerDetails['state'] ?? 'Unknown'),
-                'zipcode' => (string) ($customerDetails['zipcode'] ?? '00000'),
-                'contact_number' => (string) ($customerDetails['contact_number'] ?? '0000000000'),
-                'imei' => (string) ($customerDetails['imei'] ?? '000000000000000'),
-            ]);
-        }
-
-        $resultWrapper = $this->postFormDetailed($endpoint, $payload);
-        if (($resultWrapper['ok'] ?? false) !== true || ! is_array($resultWrapper['json'] ?? null)) {
-            $msg = (string) ($resultWrapper['error'] ?? 'Unable to fulfill eSIM.');
-            $status = $resultWrapper['status'] ?? null;
-
-            return [
-                'ok' => false,
-                'package_id' => $packageTypeId,
-                'error' => is_numeric($status) ? "HTTP {$status}: {$msg}" : $msg,
-            ];
-        }
-
-        $result = $resultWrapper['json'];
-
-        $orderId = data_get($result, 'data.id')
-            ?? data_get($result, 'data.order_id')
-            ?? data_get($result, 'order_id')
-            ?? data_get($result, 'id');
-
-        $esimId = data_get($result, 'data.esim_id')
-            ?? data_get($result, 'esim_id')
-            ?? data_get($result, 'data.sim_id')
-            ?? data_get($result, 'sim_id');
-
-        $simApplied = data_get($result, 'data.sim_applied')
-            ?? data_get($result, 'sim_applied');
-
-        $iccid = data_get($result, 'data.iccid')
-            ?? data_get($result, 'iccid')
-            ?? data_get($result, 'data.items.0.iccid')
-            ?? data_get($result, 'data.esim.iccid');
-
-        $activationCode = data_get($result, 'data.activation_code')
-            ?? data_get($result, 'activation_code')
-            ?? data_get($result, 'data.items.0.activation_code')
-            ?? data_get($result, 'data.esim.activation_code')
-            ?? data_get($result, 'data.esim.activationCode');
-
-        $lpa = data_get($result, 'data.lpa')
-            ?? data_get($result, 'lpa')
-            ?? data_get($result, 'data.lpa_code')
-            ?? data_get($result, 'lpa_code')
-            ?? data_get($result, 'data.lpa_string')
-            ?? data_get($result, 'lpa_string')
-            ?? data_get($result, 'data.qr_payload')
-            ?? data_get($result, 'qr_payload');
-
-        $qrCodeUrl = data_get($result, 'data.qr_code_url')
-            ?? data_get($result, 'qr_code_url')
-            ?? data_get($result, 'data.items.0.qr_code_url')
-            ?? data_get($result, 'data.esim.qr_code_url')
-            ?? data_get($result, 'data.esim.qrCodeUrl')
-            ?? data_get($result, 'data.qr_code');
-
-        $pukCode = data_get($result, 'data.puk_code')
-            ?? data_get($result, 'puk_code')
-            ?? data_get($result, 'data.puk')
-            ?? data_get($result, 'puk');
-
-        $number = data_get($result, 'data.number')
-            ?? data_get($result, 'number')
-            ?? data_get($result, 'data.msisdn')
-            ?? data_get($result, 'msisdn');
-
-        $esimStatus = data_get($result, 'data.status')
-            ?? data_get($result, 'status');
-
-        $installIos = data_get($result, 'data.direct_installation_link_ios')
-            ?? data_get($result, 'direct_installation_link_ios')
-            ?? data_get($result, 'data.installation_link_ios')
-            ?? data_get($result, 'installation_link_ios')
-            ?? data_get($result, 'data.ios_installation_link')
-            ?? data_get($result, 'ios_installation_link')
-            ?? data_get($result, 'data.ios_install_link')
-            ?? data_get($result, 'ios_install_link');
-
-        $installAndroid = data_get($result, 'data.direct_installation_link_android')
-            ?? data_get($result, 'direct_installation_link_android')
-            ?? data_get($result, 'data.installation_link_android')
-            ?? data_get($result, 'installation_link_android')
-            ?? data_get($result, 'data.android_installation_link')
-            ?? data_get($result, 'android_installation_link')
-            ?? data_get($result, 'data.android_install_link')
-            ?? data_get($result, 'android_install_link');
-
-        $smdpAddress = data_get($result, 'data.smdp_address')
-            ?? data_get($result, 'smdp_address')
-            ?? data_get($result, 'data.smdpAddress')
-            ?? data_get($result, 'smdpAddress')
-            ?? data_get($result, 'data.smdp_plus_address')
-            ?? data_get($result, 'smdp_plus_address')
-            ?? data_get($result, 'data.smdpPlusAddress')
-            ?? data_get($result, 'smdpPlusAddress')
-            ?? data_get($result, 'data.smdp')
-            ?? data_get($result, 'smdp');
-
-        $hasDelivery = is_string($iccid) && trim($iccid) !== '';
-        $simAppliedBool = is_bool($simApplied) ? $simApplied : null;
-
-        if (! $hasDelivery || $simAppliedBool === false) {
-            return [
-                'ok' => false,
-                'pending' => true,
-                'package_id' => $packageTypeId,
-                'package_type' => $normalizedType,
-                'reference' => $reference,
-                'esim_id' => $esimId,
-                'order_id' => $orderId,
-                'smdp_address' => is_string($smdpAddress) ? $smdpAddress : null,
-                'lpa' => is_string($lpa) ? $lpa : null,
-                'activation_code' => is_string($activationCode) ? $activationCode : null,
+        if (! $this->isDelivered($f['iccid'], $this->pick($result, ['data.sim_applied', 'sim_applied']))) {
+            return ['ok' => false, 'pending' => true] + $common + [
+                'smdp_address' => $this->str($f['smdp_address']),
+                'lpa' => $this->str($f['lpa']),
+                'activation_code' => $this->str($f['activation_code']),
                 'error' => 'Purchased, but eSIM details are not ready yet.',
                 'raw' => $result,
             ];
         }
 
-        return [
-            'ok' => true,
-            'package_id' => $packageTypeId,
-            'package_type' => $normalizedType,
-            'reference' => $reference,
-            'esim_id' => $esimId,
-            'order_id' => $orderId,
-            'iccid' => $iccid,
-            'activation_code' => is_string($activationCode) ? $activationCode : null,
-            'lpa' => is_string($lpa) ? $lpa : null,
-            'qr_code_url' => $qrCodeUrl,
-            'smdp_address' => is_string($smdpAddress) ? $smdpAddress : null,
-            'puk_code' => is_string($pukCode) ? $pukCode : null,
-            'number' => is_string($number) ? $number : null,
-            'esim_status' => is_string($esimStatus) ? $esimStatus : null,
-            'direct_installation_link_ios' => is_string($installIos) ? $installIos : null,
-            'direct_installation_link_android' => is_string($installAndroid) ? $installAndroid : null,
-            'raw' => $result,
-        ];
+        return ['ok' => true] + $common + $this->deliveryResult($f) + ['raw' => $result];
     }
 
+    /**
+     * Add a bundle to an existing, renewable eSIM. The dealer API has used several names for the
+     * top-up endpoint, so each is tried before falling back to a plain purchase carrying the eSIM ids.
+     */
     public function topupEsim(string $targetEsimId, string $packageTypeId, string $reference, string $customerEmail, string $packageType = 'DATA-ONLY', array $customerDetails = []): array
     {
         $targetEsimId = trim($targetEsimId);
@@ -1235,37 +503,22 @@ class GloEsimService
             return ['ok' => false, 'error' => 'Missing target esim_id.'];
         }
 
-        $normalizedType = $this->normalizePackageType($packageType);
-        $normalizedType = $normalizedType === '' ? 'DATA-ONLY' : $normalizedType;
+        $type = $this->normalizePackageType($packageType) ?: 'DATA-ONLY';
+        $isVoice = $type === 'DATA-VOICE-SMS';
 
         $details = $this->getEsimDetails($targetEsimId);
-        if (! is_array($details) || (($details['ok'] ?? false) !== true)) {
+        if (($details['ok'] ?? false) !== true) {
             return ['ok' => false, 'pending' => true, 'error' => 'Unable to fetch target eSIM details yet.', 'esim_id' => $targetEsimId];
         }
 
-        $canRenewRaw = $details['can_renew'] ?? data_get($details, 'gloesim_item.can_renew');
-        $canRenew = false;
-        if (is_bool($canRenewRaw)) {
-            $canRenew = $canRenewRaw;
-        } elseif (is_numeric($canRenewRaw)) {
-            $canRenew = ((int) $canRenewRaw) === 1;
-        } elseif (is_string($canRenewRaw) && trim($canRenewRaw) !== '') {
-            $canRenew = in_array(mb_strtolower(trim($canRenewRaw)), ['1', 'true', 'yes'], true);
-        }
-
-        if (! $canRenew) {
+        if (! ($this->toBool($details['can_renew'] ?? data_get($details, 'gloesim_item.can_renew')) ?? false)) {
             return ['ok' => false, 'error' => 'This eSIM cannot be renewed.', 'esim_id' => $targetEsimId];
         }
 
         $targetIccid = trim((string) ($details['iccid'] ?? ''));
 
-        $endpointCandidates = [
-            '/developer/dealer/package/topup',
-            '/developer/dealer/package/renew',
-            '/developer/dealer/package/extension',
-        ];
-
-        $basePayload = [
+        // Every id spelling the API has accepted, so whichever endpoint answers can match the eSIM.
+        $payload = [
             'package_type_id' => $packageTypeId,
             'email' => $customerEmail,
             'esim_id' => $targetEsimId,
@@ -1273,93 +526,48 @@ class GloEsimService
             'sim_id' => $targetEsimId,
             'simId' => $targetEsimId,
         ];
-
         if ($targetIccid !== '') {
-            $basePayload['iccid'] = $targetIccid;
+            $payload['iccid'] = $targetIccid;
+        }
+        if ($isVoice) {
+            $payload += $this->voiceCustomerFields($customerDetails);
         }
 
-        if ($normalizedType === 'DATA-VOICE-SMS') {
-            $name = trim((string) ($customerDetails['name'] ?? ''));
-            $parts = $name !== '' ? preg_split('/\s+/', $name) : [];
-            $firstName = (string) ($customerDetails['first_name'] ?? ($parts[0] ?? 'Customer'));
-            $lastName = (string) ($customerDetails['last_name'] ?? (count($parts) > 1 ? implode(' ', array_slice($parts, 1)) : ''));
-
-            $basePayload = array_merge($basePayload, [
-                'first_name' => $firstName,
-                'last_name' => $lastName,
-                'street_name' => (string) ($customerDetails['street_name'] ?? 'Unknown'),
-                'street_number' => (string) ($customerDetails['street_number'] ?? '0'),
-                'street_direction' => (string) ($customerDetails['street_direction'] ?? ''),
-                'city' => (string) ($customerDetails['city'] ?? 'Unknown'),
-                'state' => (string) ($customerDetails['state'] ?? 'Unknown'),
-                'zipcode' => (string) ($customerDetails['zipcode'] ?? '00000'),
-                'contact_number' => (string) ($customerDetails['contact_number'] ?? '0000000000'),
-                'imei' => (string) ($customerDetails['imei'] ?? '000000000000000'),
-            ]);
-        }
-
-        $resultWrapper = null;
-        foreach ($endpointCandidates as $endpoint) {
-            $attempt = $this->postFormDetailed($endpoint, $basePayload);
-            if (($attempt['ok'] ?? false) === true && is_array($attempt['json'] ?? null)) {
-                $resultWrapper = $attempt;
+        $response = null;
+        foreach (['/developer/dealer/package/topup', '/developer/dealer/package/renew', '/developer/dealer/package/extension'] as $endpoint) {
+            $attempt = $this->postForm($endpoint, $payload);
+            if ($attempt['ok'] && is_array($attempt['json'])) {
+                $response = $attempt;
                 break;
             }
         }
 
-        if (! is_array($resultWrapper) || (($resultWrapper['ok'] ?? false) !== true) || ! is_array($resultWrapper['json'] ?? null)) {
-            $fallbackEndpoint = $normalizedType === 'DATA-VOICE-SMS'
-                ? '/developer/dealer/package/data_voice_sms/purchase'
-                : '/developer/dealer/package/purchase';
-            $attempt = $this->postFormDetailed($fallbackEndpoint, $basePayload);
-            if (($attempt['ok'] ?? false) !== true || ! is_array($attempt['json'] ?? null)) {
-                $msg = (string) ($attempt['error'] ?? 'Unable to top up eSIM.');
-                $status = $attempt['status'] ?? null;
-
-                return [
-                    'ok' => false,
-                    'error' => is_numeric($status) ? "HTTP {$status}: {$msg}" : $msg,
-                ];
+        if ($response === null) {
+            $response = $this->postForm($isVoice ? self::VOICE_PURCHASE_ENDPOINT : self::PURCHASE_ENDPOINT, $payload);
+            if (! $response['ok'] || ! is_array($response['json'])) {
+                return ['ok' => false, 'error' => $this->describeError($response, 'Unable to top up eSIM.')];
             }
-            $resultWrapper = $attempt;
         }
 
-        $result = $resultWrapper['json'];
+        $result = $response['json'];
+        $orderId = $this->pick($result, ['data.id', 'data.order_id', 'order_id', 'id']);
+        $esimId = $this->pick($result, ['data.esim_id', 'esim_id', 'data.sim_id', 'sim_id']) ?? $targetEsimId;
+        $iccid = $this->pick($result, ['data.iccid', 'iccid']) ?? $targetIccid;
 
-        $orderId = data_get($result, 'data.id')
-            ?? data_get($result, 'data.order_id')
-            ?? data_get($result, 'order_id')
-            ?? data_get($result, 'id');
-
-        $esimId = data_get($result, 'data.esim_id')
-            ?? data_get($result, 'esim_id')
-            ?? data_get($result, 'data.sim_id')
-            ?? data_get($result, 'sim_id')
-            ?? $targetEsimId;
-
-        $iccid = data_get($result, 'data.iccid')
-            ?? data_get($result, 'iccid')
-            ?? $targetIccid;
-
-        $simApplied = data_get($result, 'data.sim_applied')
-            ?? data_get($result, 'sim_applied');
-
-        $hasDelivery = is_string($iccid) && trim($iccid) !== '';
-        $simAppliedBool = is_bool($simApplied) ? $simApplied : null;
-
-        if (! $hasDelivery || $simAppliedBool === false) {
+        if (! $this->isDelivered($iccid, $this->pick($result, ['data.sim_applied', 'sim_applied']))) {
             return [
                 'ok' => false,
                 'pending' => true,
                 'reference' => $reference,
                 'esim_id' => $esimId,
                 'order_id' => $orderId,
-                'iccid' => is_string($iccid) ? $iccid : null,
+                'iccid' => $this->str($iccid),
                 'error' => 'Purchased, but top-up details are not ready yet.',
                 'raw' => $result,
             ];
         }
 
+        // Guard against the fallback purchase having minted a brand-new eSIM instead of topping up.
         if (trim((string) $esimId) !== $targetEsimId && $targetIccid !== '' && trim((string) $iccid) !== $targetIccid) {
             return [
                 'ok' => false,
@@ -1375,13 +583,14 @@ class GloEsimService
         return [
             'ok' => true,
             'reference' => $reference,
-            'esim_id' => (string) $targetEsimId,
+            'esim_id' => $targetEsimId,
             'order_id' => $orderId,
-            'iccid' => is_string($iccid) ? $iccid : null,
+            'iccid' => $this->str($iccid),
             'raw' => $result,
         ];
     }
 
+    /** Delivery details for one eSIM. `pending` until the provider has assigned an ICCID. */
     public function getEsimDetails(string $esimId): array
     {
         $id = trim($esimId);
@@ -1389,257 +598,223 @@ class GloEsimService
             return ['ok' => false, 'error' => 'Missing esim_id.'];
         }
 
-        $candidates = [
-            [$this->getJson('/developer/dealer/my_esims', ['esim_id' => $id]), 'my_esims?esim_id'],
-            [$this->getJson('/developer/dealer/my-esims', ['esim_id' => $id]), 'my-esims?esim_id'],
-            [$this->getJson('/developer/dealer/esims/'.urlencode($id)), 'esims/{id}'],
-            [$this->getJson('/developer/dealer/esim/'.urlencode($id)), 'esim/{id}'],
-            [$this->getJson('/developer/dealer/my_esims/'.urlencode($id)), 'my_esims/{id}'],
-        ];
+        $payload = $this->firstJson([
+            ['/developer/dealer/my_esims', ['esim_id' => $id]],
+            ['/developer/dealer/my-esims', ['esim_id' => $id]],
+            ['/developer/dealer/esims/'.urlencode($id), []],
+            ['/developer/dealer/esim/'.urlencode($id), []],
+            ['/developer/dealer/my_esims/'.urlencode($id), []],
+        ]);
 
-        $payload = null;
-        foreach ($candidates as [$resp]) {
-            if (is_array($resp)) {
-                $payload = $resp;
-                break;
-            }
-        }
-
-        if (! is_array($payload)) {
+        if ($payload === null) {
             return ['ok' => false, 'error' => 'Unable to fetch eSIM details yet.'];
         }
 
-        $row = null;
-        $rowCandidates = [
-            data_get($payload, 'data.0'),
-            data_get($payload, 'data.items.0'),
-            data_get($payload, 'data.esim'),
-            data_get($payload, 'data'),
+        $row = Arr::first(
+            [data_get($payload, 'data.0'), data_get($payload, 'data.items.0'), data_get($payload, 'data.esim'), data_get($payload, 'data')],
+            fn ($candidate) => is_array($candidate),
+        );
+
+        $item = is_array($row) ? [
+            'id' => (string) (data_get($row, 'id') ?? ''),
+            'iccid' => (string) (data_get($row, 'iccid') ?? ''),
+            'number' => data_get($row, 'number'),
+            'status' => (string) (data_get($row, 'status') ?? ''),
+            'can_renew' => data_get($row, 'can_renew'),
+            'created_at' => (string) (data_get($row, 'created_at') ?? ''),
+            'last_bundle' => (string) (data_get($row, 'last_bundle') ?? ''),
+            'matching_id' => (string) (data_get($row, 'matching_id') ?? ''),
+            'sim_applied' => data_get($row, 'sim_applied'),
+            'qr_code_text' => (string) (data_get($row, 'qr_code_text') ?? ''),
+            'smdp_address' => (string) (data_get($row, 'smdp_address') ?? ''),
+            'total_bundles' => data_get($row, 'total_bundles'),
+            'universal_link' => (string) (data_get($row, 'universal_link') ?? ''),
+            'android_universal_link' => (string) (data_get($row, 'android_universal_link') ?? ''),
+        ] : null;
+
+        $f = $this->deliveryFields($payload, details: true);
+        $common = [
+            'esim_id' => (string) ($this->pick($row, ['id', 'esim_id']) ?? $this->pick($payload, ['data.id', 'id']) ?? $id),
+            'can_renew' => $item['can_renew'] ?? null,
         ];
-        foreach ($rowCandidates as $candidate) {
-            if (is_array($candidate)) {
-                $row = $candidate;
-                break;
+
+        if (! is_string($f['iccid']) || trim($f['iccid']) === '') {
+            return ['ok' => false, 'pending' => true] + $common + [
+                'smdp_address' => $this->str($f['smdp_address']),
+                'lpa' => $this->str($f['lpa']),
+                'activation_code' => $this->str($f['activation_code']),
+                'error' => 'eSIM exists but delivery details are not available yet.',
+                'raw' => $payload,
+                'gloesim_item' => $item,
+            ];
+        }
+
+        return ['ok' => true] + $common + $this->deliveryResult($f) + ['raw' => $payload, 'gloesim_item' => $item];
+    }
+
+    public function listMyEsims(): array
+    {
+        return Cache::remember('gloesim.my_esims.v1', now()->addMinutes(5), function () {
+            $payload = $this->dealerMyEsimsRaw();
+            $rows = data_get($payload, 'data.items');
+            $rows = is_array($rows) ? $rows : data_get($payload, 'data');
+
+            return is_array($rows) ? array_values(array_filter($rows, fn ($v) => is_array($v) || is_object($v))) : [];
+        });
+    }
+
+    public function dealerMyEsimsRaw(array $query = []): ?array
+    {
+        $query = array_filter($query, fn ($v) => $v !== null && $v !== '');
+
+        return $this->firstJson(array_map(fn ($path) => [$path, $query], self::MY_ESIMS_ENDPOINTS), timeout: 6);
+    }
+
+    // ─── HTTP ───────────────────────────────────────────────────────────────────
+
+    private function hasDealerCredentials(): bool
+    {
+        foreach (['base_url', 'dealer_email', 'dealer_password'] as $key) {
+            $value = config("services.gloesim.{$key}");
+            if (! is_string($value) || trim($value) === '') {
+                return false;
             }
         }
 
-        $resolvedEsimId = data_get($row, 'id')
-            ?? data_get($row, 'esim_id')
-            ?? data_get($payload, 'data.id')
-            ?? data_get($payload, 'id')
-            ?? $id;
+        return true;
+    }
 
-        $iccid = data_get($payload, 'data.iccid')
-            ?? data_get($payload, 'iccid')
-            ?? data_get($payload, 'data.items.0.iccid')
-            ?? data_get($payload, 'data.esim.iccid')
-            ?? data_get($payload, 'data.0.iccid');
+    /** Live catalogue calls are skipped in tests and when the dealer account isn't configured. */
+    private function liveCatalogueEnabled(): bool
+    {
+        return ! app()->environment('testing') && $this->hasDealerCredentials();
+    }
 
-        $activationCode = data_get($payload, 'data.activation_code')
-            ?? data_get($payload, 'activation_code')
-            ?? data_get($payload, 'data.items.0.activation_code')
-            ?? data_get($payload, 'data.esim.activation_code')
-            ?? data_get($payload, 'data.esim.activationCode')
-            ?? data_get($payload, 'data.0.activation_code');
+    private function http(): PendingRequest
+    {
+        return Http::baseUrl(rtrim((string) config('services.gloesim.base_url'), '/'))->acceptJson();
+    }
 
-        $lpa = data_get($payload, 'data.lpa')
-            ?? data_get($payload, 'lpa')
-            ?? data_get($payload, 'data.lpa_code')
-            ?? data_get($payload, 'lpa_code')
-            ?? data_get($payload, 'data.lpa_string')
-            ?? data_get($payload, 'lpa_string')
-            ?? data_get($payload, 'data.qr_payload')
-            ?? data_get($payload, 'qr_payload')
-            ?? data_get($payload, 'data.qr_code_text')
-            ?? data_get($payload, 'qr_code_text')
-            ?? data_get($payload, 'data.0.qr_code_text')
-            ?? data_get($payload, 'data.items.0.qr_code_text');
+    /** Send, and on 401 drop the cached dealer token and send once more with a fresh one. */
+    private function withFreshTokenOn401(callable $send): Response
+    {
+        $response = $send();
 
-        $qrCodeUrl = data_get($payload, 'data.qr_code_url')
-            ?? data_get($payload, 'qr_code_url')
-            ?? data_get($payload, 'data.items.0.qr_code_url')
-            ?? data_get($payload, 'data.esim.qr_code_url')
-            ?? data_get($payload, 'data.esim.qrCodeUrl')
-            ?? data_get($payload, 'data.qr_code')
-            ?? data_get($payload, 'data.0.qr_code_url');
-
-        $pukCode = data_get($payload, 'data.puk_code')
-            ?? data_get($payload, 'puk_code')
-            ?? data_get($payload, 'data.puk')
-            ?? data_get($payload, 'puk');
-
-        $number = data_get($payload, 'data.number')
-            ?? data_get($payload, 'number')
-            ?? data_get($payload, 'data.msisdn')
-            ?? data_get($payload, 'msisdn')
-            ?? data_get($payload, 'data.0.number')
-            ?? data_get($payload, 'data.0.msisdn');
-
-        $esimStatus = data_get($payload, 'data.status')
-            ?? data_get($payload, 'status')
-            ?? data_get($payload, 'data.0.status')
-            ?? data_get($payload, 'data.items.0.status');
-
-        $installIos = data_get($payload, 'data.direct_installation_link_ios')
-            ?? data_get($payload, 'direct_installation_link_ios')
-            ?? data_get($payload, 'data.installation_link_ios')
-            ?? data_get($payload, 'installation_link_ios')
-            ?? data_get($payload, 'data.ios_installation_link')
-            ?? data_get($payload, 'ios_installation_link')
-            ?? data_get($payload, 'data.ios_install_link')
-            ?? data_get($payload, 'ios_install_link')
-            ?? data_get($payload, 'data.universal_link')
-            ?? data_get($payload, 'universal_link')
-            ?? data_get($payload, 'data.0.universal_link')
-            ?? data_get($payload, 'data.items.0.universal_link');
-
-        $installAndroid = data_get($payload, 'data.direct_installation_link_android')
-            ?? data_get($payload, 'direct_installation_link_android')
-            ?? data_get($payload, 'data.installation_link_android')
-            ?? data_get($payload, 'installation_link_android')
-            ?? data_get($payload, 'data.android_installation_link')
-            ?? data_get($payload, 'android_installation_link')
-            ?? data_get($payload, 'data.android_install_link')
-            ?? data_get($payload, 'android_install_link')
-            ?? data_get($payload, 'data.android_universal_link')
-            ?? data_get($payload, 'android_universal_link')
-            ?? data_get($payload, 'data.0.android_universal_link')
-            ?? data_get($payload, 'data.items.0.android_universal_link');
-
-        $smdpAddress = data_get($payload, 'data.smdp_address')
-            ?? data_get($payload, 'smdp_address')
-            ?? data_get($payload, 'data.smdpAddress')
-            ?? data_get($payload, 'smdpAddress')
-            ?? data_get($payload, 'data.smdp_plus_address')
-            ?? data_get($payload, 'smdp_plus_address')
-            ?? data_get($payload, 'data.smdpPlusAddress')
-            ?? data_get($payload, 'smdpPlusAddress')
-            ?? data_get($payload, 'data.smdp')
-            ?? data_get($payload, 'smdp')
-            ?? data_get($payload, 'data.0.smdp_address')
-            ?? data_get($payload, 'data.items.0.smdp_address');
-
-        $gloesimItem = null;
-        if (is_array($row)) {
-            $gloesimItem = [
-                'id' => (string) (data_get($row, 'id') ?? ''),
-                'iccid' => (string) (data_get($row, 'iccid') ?? ''),
-                'number' => data_get($row, 'number'),
-                'status' => (string) (data_get($row, 'status') ?? ''),
-                'can_renew' => data_get($row, 'can_renew'),
-                'created_at' => (string) (data_get($row, 'created_at') ?? ''),
-                'last_bundle' => (string) (data_get($row, 'last_bundle') ?? ''),
-                'matching_id' => (string) (data_get($row, 'matching_id') ?? ''),
-                'sim_applied' => data_get($row, 'sim_applied'),
-                'qr_code_text' => (string) (data_get($row, 'qr_code_text') ?? data_get($row, 'qr_code_text') ?? ''),
-                'smdp_address' => (string) (data_get($row, 'smdp_address') ?? ''),
-                'total_bundles' => data_get($row, 'total_bundles'),
-                'universal_link' => (string) (data_get($row, 'universal_link') ?? ''),
-                'android_universal_link' => (string) (data_get($row, 'android_universal_link') ?? ''),
-            ];
+        if ($response->status() === 401) {
+            Cache::forget($this->dealerTokenCacheKey());
+            $response = $send();
         }
 
-        if (! is_string($iccid) || trim($iccid) === '') {
-            $canRenew = $gloesimItem ? (data_get($gloesimItem, 'can_renew')) : null;
+        return $response;
+    }
 
-            return [
-                'ok' => false,
-                'pending' => true,
-                'esim_id' => (string) $resolvedEsimId,
-                'can_renew' => $canRenew,
-                'smdp_address' => is_string($smdpAddress) ? $smdpAddress : null,
-                'lpa' => is_string($lpa) ? $lpa : null,
-                'activation_code' => is_string($activationCode) ? $activationCode : null,
-                'error' => 'eSIM exists but delivery details are not available yet.',
-                'raw' => $payload,
-                'gloesim_item' => $gloesimItem,
-            ];
+    /** GET returning decoded JSON, or null on any failure (network, non-2xx, non-JSON). */
+    private function getJson(string $path, array $query = [], int $timeoutSeconds = 30): ?array
+    {
+        if (! $this->hasDealerCredentials()) {
+            return null;
         }
 
-        $canRenew = $gloesimItem ? (data_get($gloesimItem, 'can_renew')) : null;
+        try {
+            $response = $this->withFreshTokenOn401(fn () => $this->http()
+                ->retry(1, 150, null, false)
+                ->timeout($timeoutSeconds)
+                ->withToken($this->dealerToken())
+                ->get($path, $query));
+        } catch (\Throwable) {
+            return null;
+        }
+
+        $json = $response->successful() ? $response->json() : null;
+
+        return is_array($json) ? $json : null;
+    }
+
+    /** First successful JSON body from a list of [path, query] fallbacks; stops at the first hit. */
+    private function firstJson(array $candidates, int $timeout = 30): ?array
+    {
+        foreach ($candidates as [$path, $query]) {
+            if (($json = $this->getJson($path, $query, $timeout)) !== null) {
+                return $json;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Form POST for purchase endpoints. Returns {ok, status, json, error} rather than null so callers
+     * can surface the provider's message. Transport exceptions propagate to the caller.
+     */
+    private function postForm(string $path, array $payload): array
+    {
+        if (! $this->hasDealerCredentials()) {
+            return ['ok' => false, 'status' => null, 'json' => null, 'error' => 'Missing dealer credentials.'];
+        }
+
+        $response = $this->withFreshTokenOn401(fn () => $this->http()
+            ->asForm()
+            ->retry(1, 200, null, false)
+            ->timeout(60)
+            ->withToken($this->dealerToken())
+            ->post($path, $payload));
+
+        $json = is_array($response->json()) ? $response->json() : null;
+        $message = (string) (data_get($json, 'message') ?? '');
 
         return [
-            'ok' => true,
-            'esim_id' => (string) $resolvedEsimId,
-            'iccid' => $iccid,
-            'can_renew' => $canRenew,
-            'activation_code' => is_string($activationCode) ? $activationCode : null,
-            'lpa' => is_string($lpa) ? $lpa : null,
-            'qr_code_url' => $qrCodeUrl,
-            'smdp_address' => is_string($smdpAddress) ? $smdpAddress : null,
-            'puk_code' => is_string($pukCode) ? $pukCode : null,
-            'number' => is_string($number) ? $number : null,
-            'esim_status' => is_string($esimStatus) ? $esimStatus : null,
-            'direct_installation_link_ios' => is_string($installIos) ? $installIos : null,
-            'direct_installation_link_android' => is_string($installAndroid) ? $installAndroid : null,
-            'raw' => $payload,
-            'gloesim_item' => $gloesimItem,
+            'ok' => $response->successful(),
+            'status' => $response->status(),
+            'json' => $json,
+            'error' => $response->successful() ? null : trim($message !== '' ? $message : $response->reason()),
         ];
+    }
+
+    private function describeError(array $response, string $default): string
+    {
+        $message = (string) ($response['error'] ?? $default);
+        $status = $response['status'] ?? null;
+
+        return is_numeric($status) ? "HTTP {$status}: {$message}" : $message;
     }
 
     private function dealerToken(): ?string
     {
-        return Cache::remember($this->dealerTokenCacheKey(), now()->addMinutes(55), function () {
-            return $this->loginAndGetToken();
-        });
+        return Cache::remember($this->dealerTokenCacheKey(), now()->addMinutes(55), fn () => $this->loginAndGetToken());
     }
 
     private function dealerTokenCacheKey(): string
     {
-        $baseUrl = (string) config('services.gloesim.base_url');
-
-        return 'gloesim.dealer_token.v1.'.sha1($baseUrl);
+        return 'gloesim.dealer_token.v1.'.sha1((string) config('services.gloesim.base_url'));
     }
 
     private function loginAndGetToken(): ?string
     {
-        $baseUrl = rtrim((string) config('services.gloesim.base_url'), '/');
-
-        $email = (string) config('services.gloesim.dealer_email');
-        $password = (string) config('services.gloesim.dealer_password');
-
-        $response = Http::baseUrl($baseUrl)
-            ->acceptJson()
+        $response = $this->http()
             ->retry(2, 250, null, false)
             ->timeout(30)
             ->post('/developer/dealer/login', [
-                'email' => $email,
-                'password' => $password,
+                'email' => (string) config('services.gloesim.dealer_email'),
+                'password' => (string) config('services.gloesim.dealer_password'),
             ]);
 
-        if (! $response->successful()) {
-            return null;
-        }
-
-        $json = $response->json();
-
-        if (! is_array($json)) {
-            return null;
-        }
-
-        $token = data_get($json, 'token')
-            ?? data_get($json, 'access_token')
-            ?? data_get($json, 'data.token')
-            ?? data_get($json, 'data.access_token');
+        $json = $response->successful() ? $response->json() : null;
+        $token = is_array($json) ? $this->pick($json, ['token', 'access_token', 'data.token', 'data.access_token']) : null;
 
         return is_string($token) && trim($token) !== '' ? trim($token) : null;
     }
 
+    // ─── Response parsing ───────────────────────────────────────────────────────
+
+    /** The list inside a payload, wherever the endpoint chose to put it. */
     private function extractList(?array $payload): array
     {
         if ($payload === null) {
             return [];
         }
 
-        $candidates = [
-            data_get($payload, 'data'),
-            data_get($payload, 'items'),
-            data_get($payload, 'results'),
-            data_get($payload, 'packages'),
-            data_get($payload, 'countries'),
-        ];
-
-        foreach ($candidates as $candidate) {
+        foreach (['data', 'items', 'results', 'packages', 'countries'] as $key) {
+            $candidate = data_get($payload, $key);
             if (is_array($candidate) && Arr::isList($candidate)) {
                 return $candidate;
             }
@@ -1648,290 +823,203 @@ class GloEsimService
         return Arr::isList($payload) ? $payload : [];
     }
 
-    private function countriesIndexById(): array
+    /** First non-null value among the given dot-paths. */
+    private function pick(mixed $source, array $paths): mixed
     {
-        return Cache::remember('gloesim.countries_index.v1', now()->addHours(6), function () {
-            $countries = $this->countries();
-
-            $index = [];
-            foreach ($countries as $country) {
-                if (! is_array($country)) {
-                    continue;
-                }
-
-                $id = data_get($country, 'id') ?? data_get($country, 'country_id') ?? data_get($country, 'countryId');
-
-                if (! is_scalar($id)) {
-                    continue;
-                }
-
-                $name = data_get($country, 'name') ?? data_get($country, 'country_name') ?? data_get($country, 'countryName');
-                $code = $this->extractCountryCode($country);
-                $imageUrl = data_get($country, 'image_url');
-
-                $index[(string) $id] = [
-                    'name' => is_string($name) && trim($name) !== '' ? trim($name) : null,
-                    'code' => $code,
-                    'image_url' => is_string($imageUrl) && trim($imageUrl) !== '' ? trim($imageUrl) : null,
-                ];
+        foreach ($paths as $path) {
+            if (($value = data_get($source, $path)) !== null) {
+                return $value;
             }
+        }
 
-            return $index;
-        });
+        return null;
     }
 
-    private function countriesIndexByNormalizedName(): array
+    private function deliveryFields(array $payload, bool $details = false): array
     {
-        return Cache::remember('gloesim.countries_index_by_name.v1', now()->addHours(6), function () {
-            $countries = $this->countries();
+        $fields = [];
+        foreach (self::DELIVERY_PATHS as $field => $paths) {
+            $fields[$field] = $this->pick($payload, $details ? [...$paths, ...(self::DETAILS_EXTRA_PATHS[$field] ?? [])] : $paths);
+        }
 
-            $index = [];
-            foreach ($countries as $country) {
-                if (! is_array($country)) {
-                    continue;
-                }
-
-                $id = data_get($country, 'id') ?? data_get($country, 'country_id') ?? data_get($country, 'countryId');
-                $name = data_get($country, 'name') ?? data_get($country, 'country_name') ?? data_get($country, 'countryName');
-
-                if (! is_scalar($id) || ! is_string($name) || trim($name) === '') {
-                    continue;
-                }
-
-                $imageUrl = data_get($country, 'image_url');
-
-                $index[$this->normalizeCountryName($name)] = [
-                    'id' => trim((string) $id),
-                    'name' => trim($name),
-                    'image_url' => is_string($imageUrl) && trim($imageUrl) !== '' ? trim($imageUrl) : null,
-                ];
-            }
-
-            return $index;
-        });
+        return $fields;
     }
 
-    private function normalizeCountryName(string $name): string
+    /** Public shape of a delivered eSIM, shared by purchase and details responses. */
+    private function deliveryResult(array $f): array
     {
-        $name = trim(mb_strtolower($name));
-        $name = preg_replace('/\s+/', ' ', $name) ?? $name;
-        $name = preg_replace('/[^a-z0-9 ]/u', '', $name) ?? $name;
-
-        return trim($name);
-    }
-
-    private function slugify(string $value): string
-    {
-        $value = trim(mb_strtolower($value));
-        $value = preg_replace('/[^a-z0-9]+/u', '-', $value) ?? $value;
-        $value = trim($value, '-');
-
-        return $value === '' ? 'region' : $value;
-    }
-
-    private function fallbackPopularRegions(int $limit): array
-    {
-        $fallback = [
-            ['name' => 'Global'],
-            ['name' => 'North America'],
-            ['name' => 'Asia'],
-            ['name' => 'Europe'],
-            ['name' => 'Latin America'],
-            ['name' => 'Middle East'],
-            ['name' => 'Oceania'],
+        return [
+            'iccid' => $f['iccid'],
+            'activation_code' => $this->str($f['activation_code']),
+            'lpa' => $this->str($f['lpa']),
+            'qr_code_url' => $f['qr_code_url'],
+            'smdp_address' => $this->str($f['smdp_address']),
+            'puk_code' => $this->str($f['puk_code']),
+            'number' => $this->str($f['number']),
+            'esim_status' => $this->str($f['esim_status']),
+            'direct_installation_link_ios' => $this->str($f['ios']),
+            'direct_installation_link_android' => $this->str($f['android']),
         ];
+    }
 
-        $fallback = array_map(function (array $r) {
-            $name = $r['name'];
+    private function isDelivered(mixed $iccid, mixed $simApplied): bool
+    {
+        return is_string($iccid) && trim($iccid) !== '' && $simApplied !== false;
+    }
+
+    /** Voice/SMS bundles require a subscriber profile; placeholders satisfy the API when we lack one. */
+    private function voiceCustomerFields(array $d): array
+    {
+        $name = trim((string) ($d['name'] ?? ''));
+        $parts = $name !== '' ? preg_split('/\s+/', $name) : [];
+
+        return [
+            'first_name' => (string) ($d['first_name'] ?? ($parts[0] ?? 'Customer')),
+            'last_name' => (string) ($d['last_name'] ?? implode(' ', array_slice($parts, 1))),
+            'street_name' => (string) ($d['street_name'] ?? 'Unknown'),
+            'street_number' => (string) ($d['street_number'] ?? '0'),
+            'street_direction' => (string) ($d['street_direction'] ?? ''),
+            'city' => (string) ($d['city'] ?? 'Unknown'),
+            'state' => (string) ($d['state'] ?? 'Unknown'),
+            'zipcode' => (string) ($d['zipcode'] ?? '00000'),
+            'contact_number' => (string) ($d['contact_number'] ?? '0000000000'),
+            'imei' => (string) ($d['imei'] ?? '000000000000000'),
+        ];
+    }
+
+    private function formatBundles(array $packages, string $currency): array
+    {
+        return array_map(function ($p) use ($currency) {
+            $amount = $this->extractAmount($p);
+            $canRenew = $this->toBool(data_get($p, 'can_renew') ?? data_get($p, 'canRenew'));
+
+            $quantity = data_get($p, 'data_quantity');
+            $unit = data_get($p, 'data_unit');
+            $data = ($quantity !== null && $unit !== null)
+                ? "{$quantity} {$unit}"
+                : (data_get($p, 'data_amount_formatted') ?? data_get($p, 'data'));
+
+            $vQuantity = data_get($p, 'package_validity');
+            $vUnit = data_get($p, 'package_validity_unit');
+            if ($vQuantity !== null && $vUnit !== null) {
+                $days = (int) $vQuantity;
+                $validity = strtolower((string) $vUnit) === 'day'
+                    ? $this->validityLabel($days)
+                    : "{$days} {$vUnit}".($days > 1 ? 's' : '');
+            } else {
+                $validity = data_get($p, 'validity_formatted') ?? data_get($p, 'validity');
+                if (is_numeric($validity)) {
+                    $validity = $this->validityLabel((int) $validity);
+                }
+            }
 
             return [
-                'id' => $name === 'Global' ? 'global' : null,
-                'name' => $name,
-                'slug' => $this->slugify($name),
-                'note' => $this->noteForRegion($name),
-                'badge' => $this->badgeForRegion($name),
-                'starting_price' => null,
-                'starting_price_formatted' => null,
-                'flag' => '🌐',
-                'flag_url' => 'https://flagcdn.com/w80/un.png',
+                'id' => data_get($p, 'id'),
+                'name' => data_get($p, 'name'),
+                'data' => $data,
+                'validity' => $validity,
+                'price' => $amount,
+                'price_formatted' => $this->formatMoney($amount, $currency),
+                'package_type' => data_get($p, 'package_type'),
+                'can_renew' => $canRenew,
+                'features' => [
+                    'Hotspot' => data_get($p, 'hotspot') ? 'Supported' : 'Check coverage',
+                    'Network' => data_get($p, 'connectivity') ?? '4G/5G',
+                    'Activation' => 'Instant',
+                    'Renewal' => $canRenew === true ? 'Yes' : 'No',
+                ],
             ];
-        }, $fallback);
-
-        return array_slice($fallback, 0, $limit);
+        }, $packages);
     }
 
-    private function extractCountriesFromPackage(array $package): array
+    private function validityLabel(int $days): string
     {
-        $countries = data_get($package, 'countries');
+        return match (true) {
+            $days === 1 => '1 Day',
+            $days === 7 => '1 Week',
+            $days === 14 => '2 Weeks',
+            $days === 30 => '30 Days',
+            $days > 30 && $days % 30 === 0 => ($days / 30).' Months',
+            default => "{$days} Days",
+        };
+    }
 
-        if (! is_array($countries)) {
-            return [];
+    // ─── Package helpers ────────────────────────────────────────────────────────
+
+    /** All pages of global packages, optionally stopping early once `$deadline` (microtime) passes. */
+    private function allGlobalPackages(?string $packageType, ?float $deadline = null): array
+    {
+        $perPage = 200;
+        $all = [];
+
+        for ($page = 1; $page <= 10; $page++) {
+            if ($deadline !== null && microtime(true) > $deadline) {
+                break;
+            }
+
+            $batch = $this->globalPackages($packageType, $page, $perPage);
+            array_push($all, ...$batch);
+
+            if (count($batch) < $perPage) {
+                break;
+            }
         }
 
-        return Arr::isList($countries) ? $countries : array_values($countries);
+        return $all;
     }
 
-    private function aggregatePopularCountriesFromPackages(array $packages, array $countriesIndexById, int $limit): array
+    /**
+     * Keep packages matching the wanted type. Untyped packages are classified by whether they
+     * include voice minutes or SMS.
+     */
+    private function filterByType(array $packages, string $wanted): array
     {
-        $aggregate = [];
+        return array_values(array_filter($packages, function ($p) use ($wanted) {
+            if (! is_array($p)) {
+                return false;
+            }
 
+            $type = $this->normalizePackageType(data_get($p, 'package_type'));
+            if ($type !== '') {
+                return $type === $wanted || str_starts_with($type, $wanted);
+            }
+
+            $hasVoiceOrSms = collect(['voice', 'sms'])->contains(fn ($k) => is_numeric($v = data_get($p, $k)) && (float) $v > 0);
+
+            return match ($wanted) {
+                'DATA-VOICE-SMS' => $hasVoiceOrSms,
+                'DATA-ONLY' => ! $hasVoiceOrSms,
+                default => false,
+            };
+        }));
+    }
+
+    /** "data only" / "Data_Only" → "DATA-ONLY". */
+    private function normalizePackageType(mixed $value): string
+    {
+        if (! is_string($value)) {
+            return '';
+        }
+
+        return trim(preg_replace('/[^A-Z0-9]+/', '-', strtoupper(trim($value))) ?? '', '-');
+    }
+
+    private function cheapest(array $packages): ?float
+    {
+        $min = null;
         foreach ($packages as $package) {
-            if (! is_array($package)) {
-                continue;
-            }
-
-            $amount = $this->extractAmount($package);
-            $currency = $this->extractCurrency($package) ?: (string) config('services.gloesim.currency', 'USD');
-
-            $embeddedCountries = $this->extractCountriesFromPackage($package);
-            $countryNodes = $embeddedCountries !== [] ? $embeddedCountries : [$package];
-
-            foreach ($countryNodes as $countryNode) {
-                if (! is_array($countryNode)) {
-                    continue;
-                }
-
-                $countryId = $embeddedCountries !== []
-                    ? (is_scalar(data_get($countryNode, 'id')) ? trim((string) data_get($countryNode, 'id')) : null)
-                    : $this->extractCountryId($countryNode);
-
-                $countryName = $embeddedCountries !== []
-                    ? (is_string(data_get($countryNode, 'name')) ? trim((string) data_get($countryNode, 'name')) : null)
-                    : $this->extractCountryName($countryNode);
-
-                $countryCode = $this->extractCountryCode($countryNode);
-
-                if ($countryId !== null && isset($countriesIndexById[$countryId])) {
-                    $countryName = $countryName ?: ($countriesIndexById[$countryId]['name'] ?? null);
-                    $countryCode = $countryCode ?: ($countriesIndexById[$countryId]['code'] ?? null);
-                }
-
-                if ($countryId === null && $countryName === null) {
-                    continue;
-                }
-
-                $key = $countryId ?: ($countryCode ?: $countryName);
-
-                if (! isset($aggregate[$key])) {
-                    $aggregate[$key] = [
-                        'id' => $countryId,
-                        'code' => $countryCode,
-                        'name' => $countryName,
-                        'count' => 0,
-                        'min_amount' => null,
-                        'currency' => $currency,
-                    ];
-                }
-
-                $aggregate[$key]['count']++;
-
-                if ($amount !== null) {
-                    if ($aggregate[$key]['min_amount'] === null || $amount < $aggregate[$key]['min_amount']) {
-                        $aggregate[$key]['min_amount'] = $amount;
-                        $aggregate[$key]['currency'] = $currency;
-                    }
-                }
+            $amount = is_array($package) ? $this->extractAmount($package) : null;
+            if ($amount !== null && ($min === null || $amount < $min)) {
+                $min = $amount;
             }
         }
 
-        $list = array_values($aggregate);
-
-        usort($list, function (array $a, array $b) {
-            $countCmp = ($b['count'] ?? 0) <=> ($a['count'] ?? 0);
-
-            if ($countCmp !== 0) {
-                return $countCmp;
-            }
-
-            $aPrice = $a['min_amount'] ?? INF;
-            $bPrice = $b['min_amount'] ?? INF;
-
-            return $aPrice <=> $bPrice;
-        });
-
-        $list = array_slice($list, 0, $limit);
-
-        $ranked = [];
-        foreach ($list as $i => $country) {
-            $code = $country['code'] ? strtoupper((string) $country['code']) : null;
-            $name = $country['name'] ? (string) $country['name'] : ($code ?: 'Worldwide');
-
-            $ranked[] = [
-                'code' => $code,
-                'name' => $name,
-                'flag' => $this->flagEmoji($code),
-                'note' => $this->noteForRank($i),
-                'badge' => $this->badgeForRank($i),
-                'starting_price' => $country['min_amount'],
-                'starting_price_formatted' => $this->formatMoney($country['min_amount'], $country['currency']),
-            ];
-        }
-
-        return $ranked;
-    }
-
-    private function extractCountryId(array $item): ?string
-    {
-        $id = data_get($item, 'country_id')
-            ?? data_get($item, 'countryId')
-            ?? data_get($item, 'country.id')
-            ?? data_get($item, 'country.country_id');
-
-        if (! is_scalar($id)) {
-            return null;
-        }
-
-        $id = trim((string) $id);
-
-        return $id === '' ? null : $id;
-    }
-
-    private function extractCountryCode(array $item): ?string
-    {
-        $code = data_get($item, 'country_code')
-            ?? data_get($item, 'countryCode')
-            ?? data_get($item, 'iso2')
-            ?? data_get($item, 'country.iso2')
-            ?? data_get($item, 'country.code');
-
-        if (! is_string($code)) {
-            return null;
-        }
-
-        $code = strtoupper(trim($code));
-
-        if (strlen($code) !== 2 || preg_match('/[^A-Z]/', $code)) {
-            return null;
-        }
-
-        return $code;
-    }
-
-    private function extractCountryName(array $item): ?string
-    {
-        $name = data_get($item, 'country_name')
-            ?? data_get($item, 'countryName')
-            ?? data_get($item, 'CountryName')
-            ?? data_get($item, 'country.name')
-            ?? data_get($item, 'country.Name');
-
-        if (! is_string($name)) {
-            return null;
-        }
-
-        $name = trim($name);
-
-        return $name === '' ? null : $name;
+        return $min;
     }
 
     private function extractAmount(array $item): ?float
     {
-        $amount = data_get($item, 'starting_price')
-            ?? data_get($item, 'min_price')
-            ?? data_get($item, 'Price')
-            ?? data_get($item, 'price.amount')
-            ?? data_get($item, 'price')
-            ?? data_get($item, 'amount');
+        $amount = $this->pick($item, ['starting_price', 'min_price', 'Price', 'price.amount', 'price', 'amount']);
 
         if (is_string($amount)) {
             $amount = str_replace([',', ' '], '', $amount);
@@ -1940,20 +1028,96 @@ class GloEsimService
         return is_numeric($amount) ? (float) $amount : null;
     }
 
-    private function extractCurrency(array $item): ?string
-    {
-        $currency = data_get($item, 'currency')
-            ?? data_get($item, 'Currency')
-            ?? data_get($item, 'price.currency')
-            ?? data_get($item, 'priceCurrency');
+    // ─── Country helpers ────────────────────────────────────────────────────────
 
-        if (! is_string($currency)) {
-            return null;
+    /** @return array<string, array{name: ?string, code: ?string, image_url: ?string}> */
+    private function countriesIndexById(): array
+    {
+        return Cache::remember('gloesim.countries_index.v1', now()->addHours(6), function () {
+            $index = [];
+            foreach ($this->countries() as $country) {
+                $id = is_array($country) ? $this->pick($country, ['id', 'country_id', 'countryId']) : null;
+                if (! is_scalar($id)) {
+                    continue;
+                }
+
+                $index[(string) $id] = [
+                    'name' => $this->trimmed($this->pick($country, ['name', 'country_name', 'countryName'])),
+                    'code' => $this->extractCountryCode($country),
+                    'image_url' => $this->trimmed(data_get($country, 'image_url')),
+                ];
+            }
+
+            return $index;
+        });
+    }
+
+    /** @return array<string, array{id: string, name: string, image_url: ?string}> keyed by normalizeCountryName() */
+    private function countriesIndexByNormalizedName(): array
+    {
+        return Cache::remember('gloesim.countries_index_by_name.v1', now()->addHours(6), function () {
+            $index = [];
+            foreach ($this->countries() as $country) {
+                if (! is_array($country)) {
+                    continue;
+                }
+
+                $id = $this->pick($country, ['id', 'country_id', 'countryId']);
+                $name = $this->trimmed($this->pick($country, ['name', 'country_name', 'countryName']));
+                if (! is_scalar($id) || $name === null) {
+                    continue;
+                }
+
+                $index[$this->normalizeCountryName($name)] = [
+                    'id' => trim((string) $id),
+                    'name' => $name,
+                    'image_url' => $this->trimmed(data_get($country, 'image_url')),
+                ];
+            }
+
+            return $index;
+        });
+    }
+
+    private function extractCountryCode(array $item): ?string
+    {
+        $code = $this->pick($item, ['country_code', 'countryCode', 'iso2', 'country.iso2', 'country.code']);
+        $code = is_string($code) ? strtoupper(trim($code)) : '';
+
+        return preg_match('/^[A-Z]{2}\z/', $code) ? $code : null;
+    }
+
+    private function normalizeCountryName(string $name): string
+    {
+        $name = preg_replace('/\s+/', ' ', trim(mb_strtolower($name))) ?? $name;
+
+        return trim(preg_replace('/[^a-z0-9 ]/u', '', $name) ?? $name);
+    }
+
+    private function slugify(string $value): string
+    {
+        $value = trim(preg_replace('/[^a-z0-9]+/u', '-', trim(mb_strtolower($value))) ?? $value, '-');
+
+        return $value === '' ? 'region' : $value;
+    }
+
+    /** ISO-3166 alpha-2 → regional-indicator flag emoji; globe for anything else. */
+    private function flagEmoji(?string $countryCode): string
+    {
+        $code = strtoupper((string) $countryCode);
+
+        if (! preg_match('/^[A-Z]{2}\z/', $code)) {
+            return '🌐';
         }
 
-        $currency = strtoupper(trim($currency));
+        return mb_chr(0x1F1E6 + ord($code[0]) - 65).mb_chr(0x1F1E6 + ord($code[1]) - 65);
+    }
 
-        return $currency === '' ? null : $currency;
+    // ─── Presentation ───────────────────────────────────────────────────────────
+
+    private function currency(): string
+    {
+        return (string) config('services.gloesim.currency', 'USD');
     }
 
     private function formatMoney(?float $amount, ?string $currency): ?string
@@ -1963,7 +1127,7 @@ class GloEsimService
         }
 
         $currency = $currency ? strtoupper($currency) : null;
-
+        $formatted = number_format($amount, 2, '.', '');
         $symbol = match ($currency) {
             'USD' => '$',
             'EUR' => '€',
@@ -1971,191 +1135,119 @@ class GloEsimService
             default => null,
         };
 
-        $formatted = number_format($amount, 2, '.', '');
-
-        if ($symbol) {
-            return $symbol.$formatted;
-        }
-
-        return $currency ? $currency.' '.$formatted : '$'.$formatted;
-    }
-
-    private function flagEmoji(?string $countryCode): string
-    {
-        if (! is_string($countryCode) || strlen($countryCode) !== 2) {
-            return '🌐';
-        }
-
-        $countryCode = strtoupper($countryCode);
-
-        if (preg_match('/[^A-Z]/', $countryCode)) {
-            return '🌐';
-        }
-
-        $points = [
-            0x1F1E6 + (ord($countryCode[0]) - 65),
-            0x1F1E6 + (ord($countryCode[1]) - 65),
-        ];
-
-        return mb_convert_encoding('&#'.$points[0].';', 'UTF-8', 'HTML-ENTITIES')
-            .mb_convert_encoding('&#'.$points[1].';', 'UTF-8', 'HTML-ENTITIES');
+        return match (true) {
+            $symbol !== null => $symbol.$formatted,
+            $currency !== null => $currency.' '.$formatted,
+            default => '$'.$formatted,
+        };
     }
 
     private function badgeForRank(int $rank): string
     {
-        return match ($rank) {
-            0 => 'Top pick',
-            1 => 'Popular',
-            2 => 'Trending',
-            3 => 'Value',
-            default => 'Hot',
-        };
-    }
-
-    private function badgeForRegion(string $name): string
-    {
-        return match (strtolower($name)) {
-            'global' => 'World wide',
-            'north america' => 'High speed',
-            'europe' => 'Best value',
-            'asia' => 'Top coverage',
-            default => 'Popular',
-        };
+        return ['Top pick', 'Popular', 'Trending', 'Value'][$rank] ?? 'Hot';
     }
 
     private function noteForRank(int $rank): string
     {
-        return match ($rank) {
-            0 => 'Best for travel & business',
-            1 => 'Great coverage in cities',
-            2 => 'Fast setup for trips',
-            3 => 'Reliable data options',
-            default => 'Flexible plans available',
-        };
+        return ['Best for travel & business', 'Great coverage in cities', 'Fast setup for trips', 'Reliable data options'][$rank] ?? 'Flexible plans available';
+    }
+
+    private function badgeForRegion(string $name): string
+    {
+        return [
+            'global' => 'World wide',
+            'north america' => 'High speed',
+            'europe' => 'Best value',
+            'asia' => 'Top coverage',
+        ][strtolower($name)] ?? 'Popular';
     }
 
     private function noteForRegion(string $name): string
     {
-        return match (strtolower($name)) {
+        return [
             'global' => 'Best for international travel',
             'north america' => 'Great for USA & Canada',
             'europe' => 'Seamless EU roaming',
             'asia' => 'Top networks in Asia',
-            default => 'Regional data coverage',
+        ][strtolower($name)] ?? 'Regional data coverage';
+    }
+
+    /** Static tiles shown when the API is unreachable, so the landing page never renders empty. */
+    private function fallbackPopularCountries(int $limit): array
+    {
+        $tiles = [
+            ['US', 'USA', 'Best for travel & business', 'Top pick', '$5.99'],
+            ['TR', 'Turkey', 'Great coverage in cities', 'Popular', '$4.49'],
+            ['SA', 'Saudi Arabia', 'Fast setup for trips', 'Trending', '$6.29'],
+            ['EG', 'Egypt', 'Reliable data options', 'Value', '$3.99'],
+            ['FR', 'France', 'EU-ready packages', 'Best seller', '$5.19'],
+            ['AE', 'United Arab Emirates', 'Premium network options', 'High speed', '$6.99'],
+        ];
+
+        return array_map(fn ($t) => [
+            'code' => $t[0],
+            'name' => $t[1],
+            'note' => $t[2],
+            'badge' => $t[3],
+            'starting_price_formatted' => $t[4],
+            'flag' => $this->flagEmoji($t[0]),
+            'starting_price' => null,
+        ], array_slice($tiles, 0, $limit));
+    }
+
+    private function fallbackPopularRegions(int $limit): array
+    {
+        $names = ['Global', 'North America', 'Asia', 'Europe', 'Latin America', 'Middle East', 'Oceania'];
+
+        return array_map(fn ($name) => [
+            'id' => $name === 'Global' ? 'global' : null,
+            'name' => $name,
+            'slug' => $this->slugify($name),
+            'note' => $this->noteForRegion($name),
+            'badge' => $this->badgeForRegion($name),
+            'starting_price' => null,
+            'starting_price_formatted' => null,
+            'flag' => '🌐',
+            'flag_url' => self::UN_FLAG,
+        ], array_slice($names, 0, $limit));
+    }
+
+    // ─── Small utilities ────────────────────────────────────────────────────────
+
+    /** Cache::remember that refuses to cache an empty result, so a provider blip isn't pinned. */
+    private function rememberNonEmpty(string $key, int $minutes, callable $compute): array
+    {
+        $cached = Cache::get($key);
+        if (is_array($cached) && $cached !== []) {
+            return $cached;
+        }
+
+        $value = $compute();
+        if ($value !== []) {
+            Cache::put($key, $value, now()->addMinutes($minutes));
+        }
+
+        return $value;
+    }
+
+    /** Loose boolean from the API (true/1/"yes"); null when absent or unrecognised. */
+    private function toBool(mixed $raw): ?bool
+    {
+        return match (true) {
+            is_bool($raw) => $raw,
+            is_numeric($raw) => (int) $raw === 1,
+            is_string($raw) && trim($raw) !== '' => in_array(mb_strtolower(trim($raw)), ['1', 'true', 'yes'], true),
+            default => null,
         };
     }
 
-    private function fallbackPopularCountries(int $limit): array
+    private function str(mixed $value): ?string
     {
-        $fallback = [
-            [
-                'code' => 'US',
-                'name' => 'USA',
-                'note' => 'Best for travel & business',
-                'badge' => 'Top pick',
-                'starting_price_formatted' => '$5.99',
-            ],
-            [
-                'code' => 'TR',
-                'name' => 'Turkey',
-                'note' => 'Great coverage in cities',
-                'badge' => 'Popular',
-                'starting_price_formatted' => '$4.49',
-            ],
-            [
-                'code' => 'SA',
-                'name' => 'Saudi Arabia',
-                'note' => 'Fast setup for trips',
-                'badge' => 'Trending',
-                'starting_price_formatted' => '$6.29',
-            ],
-            [
-                'code' => 'EG',
-                'name' => 'Egypt',
-                'note' => 'Reliable data options',
-                'badge' => 'Value',
-                'starting_price_formatted' => '$3.99',
-            ],
-            [
-                'code' => 'FR',
-                'name' => 'France',
-                'note' => 'EU-ready packages',
-                'badge' => 'Best seller',
-                'starting_price_formatted' => '$5.19',
-            ],
-            [
-                'code' => 'AE',
-                'name' => 'United Arab Emirates',
-                'note' => 'Premium network options',
-                'badge' => 'High speed',
-                'starting_price_formatted' => '$6.99',
-            ],
-        ];
-
-        $fallback = array_map(function (array $c) {
-            return [
-                ...$c,
-                'flag' => $this->flagEmoji($c['code']),
-                'starting_price' => null,
-            ];
-        }, $fallback);
-
-        return array_slice($fallback, 0, $limit);
+        return is_string($value) ? $value : null;
     }
 
-    public function listMyEsims(): array
+    private function trimmed(mixed $value): ?string
     {
-        $cacheKey = 'gloesim.my_esims.v1';
-
-        return Cache::remember($cacheKey, now()->addMinutes(5), function () {
-            $candidates = [
-                $this->getJson('/developer/dealer/my_esims', [], 6),
-                $this->getJson('/developer/dealer/my-esims', [], 6),
-                $this->getJson('/developer/dealer/my_esims/list', [], 6),
-            ];
-
-            $payload = null;
-            foreach ($candidates as $resp) {
-                if (is_array($resp)) {
-                    $payload = $resp;
-                    break;
-                }
-            }
-
-            if (! is_array($payload)) {
-                return [];
-            }
-
-            $items = data_get($payload, 'data.items');
-            if (is_array($items)) {
-                return array_values(array_filter($items, fn ($v) => is_array($v) || is_object($v)));
-            }
-
-            $data = data_get($payload, 'data');
-            if (is_array($data)) {
-                return array_values(array_filter($data, fn ($v) => is_array($v) || is_object($v)));
-            }
-
-            return [];
-        });
-    }
-
-    public function dealerMyEsimsRaw(array $query = []): ?array
-    {
-        $query = array_filter($query, fn ($v) => $v !== null && $v !== '');
-
-        $candidates = [
-            $this->getJson('/developer/dealer/my_esims', $query, 6),
-            $this->getJson('/developer/dealer/my-esims', $query, 6),
-            $this->getJson('/developer/dealer/my_esims/list', $query, 6),
-        ];
-
-        foreach ($candidates as $resp) {
-            if (is_array($resp)) {
-                return $resp;
-            }
-        }
-
-        return null;
+        return is_string($value) && trim($value) !== '' ? trim($value) : null;
     }
 }

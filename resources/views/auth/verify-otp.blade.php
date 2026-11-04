@@ -1,18 +1,18 @@
 <x-guest-layout>
     <style>
         .otp-wrap{display:flex;gap:10px;justify-content:center;margin:24px 0}
-        .otp-digit{width:48px;height:58px;text-align:center;font-size:26px;font-weight:900;border-radius:14px;border:2px solid rgba(20,84,84,.18);background:rgba(255,255,255,.85);color:#0b1a1a;outline:none;transition:border-color .15s,box-shadow .15s;caret-color:transparent;font-variant-numeric:tabular-nums}
-        .otp-digit:focus{border-color:#f27457;box-shadow:0 0 0 3px rgba(242,116,87,.18)}
-        .otp-digit.filled{border-color:rgba(20,84,84,.35);background:#fff}
-        .countdown{font-size:13px;color:rgba(15,31,31,.5);text-align:center;margin-top:4px}
-        .countdown span{font-weight:700;color:rgba(242,116,87,.9)}
+        .otp-digit{width:48px;height:58px;text-align:center;font-size:26px;font-weight:900;border-radius:14px;border:2px solid rgb(var(--ink-rgb) / .18);background:rgb(var(--surface-rgb) / .85);color:var(--text);outline:none;transition:border-color .15s,box-shadow .15s;caret-color:transparent;font-variant-numeric:tabular-nums}
+        .otp-digit:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgb(var(--accent-rgb) / .18)}
+        .otp-digit.filled{border-color:rgb(var(--accent-strong-rgb) / .35);background:var(--surface)}
+        .countdown{font-size:13px;color:rgb(var(--ink-rgb) / .5);text-align:center;margin-top:4px}
+        .countdown span{font-weight:700;color:rgb(var(--accent-text-rgb) / .9)}
     </style>
 
     <div class="text-center mb-6">
-        <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-3" style="background:linear-gradient(135deg,rgba(242,116,87,.12),rgba(20,84,84,.12));border:1px solid rgba(20,84,84,.12)">
+        <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-3" style="background:var(--accent-soft);border:1px solid rgb(var(--ink-rgb) / .12)">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Z" stroke="#145454" stroke-width="1.8"/>
-                <path d="m2 8 8.5 6a3 3 0 0 0 3 0L22 8" stroke="#145454" stroke-width="1.8"/>
+                <path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Z" stroke="#2f8f2f" stroke-width="1.8"/>
+                <path d="m2 8 8.5 6a3 3 0 0 0 3 0L22 8" stroke="#2f8f2f" stroke-width="1.8"/>
             </svg>
         </div>
         <h1 class="text-xl font-extrabold text-gray-900 tracking-tight">Check your email</h1>
@@ -20,13 +20,13 @@
     </div>
 
     @if (session('status') === 'otp-resent')
-        <div class="mb-4 px-4 py-3 rounded-xl text-sm font-semibold text-emerald-700" style="background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.2)">
+        <div class="mb-4 px-4 py-3 rounded-xl text-sm font-semibold text-success" style="background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.2)">
             A new code has been sent to your email.
         </div>
     @endif
 
     @if ($errors->has('otp'))
-        <div class="mb-4 px-4 py-3 rounded-xl text-sm font-semibold text-red-600" style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.18)">
+        <div class="mb-4 px-4 py-3 rounded-xl text-sm font-semibold text-danger" style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.18)">
             {{ $errors->first('otp') }}
         </div>
     @endif
@@ -63,7 +63,7 @@
         <form method="POST" action="{{ route('verification.otp.resend') }}">
             @csrf
             <button type="submit" id="resendBtn" class="text-sm text-gray-500 hover:text-gray-800 transition-colors" disabled>
-                Didn't receive the code? <span class="font-bold text-[#145454]">Resend</span>
+                Didn't receive the code? <span class="font-bold text-accent-text">Resend</span>
             </button>
         </form>
     </div>

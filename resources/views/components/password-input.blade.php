@@ -4,12 +4,12 @@
     <input
         @disabled($disabled)
         type="password"
-        {{ $attributes->merge(['class' => 'block w-full border-gray-300 dark:border-white/10 bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100 focus:border-[#f27457] focus:ring-[#f27457] rounded-xl shadow-sm py-3 pl-4 pr-12 transition-colors']) }}
+        {{ $attributes->merge(['class' => 'block w-full border border-border bg-surface text-text placeholder:text-faint rounded-xl h-12 pl-4 pr-12 text-[15px] transition-colors duration-150 hover:border-border-strong focus:border-accent-strong focus:ring-[3px] focus:ring-accent-soft focus:outline-none aria-[invalid=true]:border-danger disabled:cursor-not-allowed disabled:opacity-50']) }}
     >
 
     <button
         type="button"
-        class="absolute inset-y-0 right-0 flex w-12 items-center justify-center rounded-r-xl text-gray-500 transition-colors hover:text-[#145454] focus:outline-none focus:ring-2 focus:ring-[#f27457] focus:ring-offset-2"
+        class="absolute inset-y-0 right-0 flex w-12 items-center justify-center rounded-r-xl text-muted transition-colors hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-strong"
         aria-label="Show password"
         title="Show password"
         onclick="const input=this.parentElement.querySelector('input'); const isVisible=input.type==='text'; input.type=isVisible?'password':'text'; this.setAttribute('aria-label', isVisible?'Show password':'Hide password'); this.title=isVisible?'Show password':'Hide password'; this.querySelector('[data-password-show]').classList.toggle('hidden', !isVisible); this.querySelector('[data-password-hide]').classList.toggle('hidden', isVisible);"

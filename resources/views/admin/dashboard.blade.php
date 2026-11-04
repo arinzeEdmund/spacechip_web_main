@@ -1,233 +1,177 @@
-<x-app-layout>
-    <style>
-        :root{--primary:#f27457;--secondary:#145454}
-        .admin-wrap{max-width:1200px;margin:0 auto;padding:34px 16px 64px}
-        .admin-head{display:flex;justify-content:space-between;align-items:flex-end;gap:14px;flex-wrap:wrap;margin-bottom:18px}
-        .admin-title{font-weight:950;letter-spacing:-.02em;color:#0b1a1a;font-size:28px}
-        .admin-sub{color:rgba(15,31,31,.62);font-weight:650;margin-top:6px}
-        .glass{background:rgba(255,255,255,.75);backdrop-filter:blur(12px);border:1px solid rgba(20,84,84,.12);box-shadow:0 14px 35px rgba(15,31,31,.07);border-radius:22px}
-        .grid{display:grid;grid-template-columns:1fr;gap:14px}
-        @media(min-width:860px){.grid{grid-template-columns:repeat(12,1fr)}}
-        .card{padding:16px}
-        .kpi{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
-        .kpi .label{font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:rgba(15,31,31,.55)}
-        .kpi .value{font-size:28px;font-weight:950;color:#0b1a1a;margin-top:6px}
-        .kpi .meta{font-size:12px;font-weight:750;color:rgba(15,31,31,.58);margin-top:6px}
-        .pill{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:9999px;border:1px solid rgba(15,31,31,.10);background:rgba(255,255,255,.65);font-weight:850;font-size:12px;color:rgba(15,31,31,.7)}
-        .dot{height:8px;width:8px;border-radius:9999px;background:linear-gradient(90deg,var(--primary),var(--secondary))}
-        .section-title{font-weight:950;color:#0b1a1a;font-size:16px;margin-bottom:10px}
-        table{width:100%;border-collapse:collapse}
-        th,td{padding:10px 10px;border-bottom:1px solid rgba(15,31,31,.10);text-align:left;font-size:13px;vertical-align:top}
-        th{font-weight:900;color:rgba(15,31,31,.62);text-transform:uppercase;letter-spacing:.08em;font-size:11px}
-        .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace}
-        .tag{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:9999px;border:1px solid rgba(15,31,31,.10);font-weight:900;font-size:11px;color:rgba(15,31,31,.72);background:rgba(255,255,255,.6)}
-        .tag.good{border-color:rgba(20,84,84,.22);color:rgba(20,84,84,.92)}
-        .tag.bad{border-color:rgba(242,116,87,.28);color:rgba(242,116,87,.92)}
-        .bar{height:10px;border-radius:9999px;background:rgba(15,31,31,.08);overflow:hidden}
-        .bar > span{display:block;height:100%;border-radius:9999px;background:linear-gradient(90deg,var(--primary),var(--secondary))}
-        .two{display:grid;grid-template-columns:1fr;gap:12px}
-        @media(min-width:860px){.two{grid-template-columns:1fr 1fr}}
-    </style>
+@php use App\Support\Money; @endphp
+<x-admin.layout title="Dashboard" subtitle="Everything happening across spacechip, live.">
+    <x-slot:actions>
+        <span class="text-[12.5px] text-muted tabular">Updated {{ now()->format('M j, H:i') }}</span>
+        <x-admin.button href="{{ route('admin.dashboard') }}" icon="refresh-cw">Refresh</x-admin.button>
+    </x-slot:actions>
 
-    <div class="admin-wrap">
-        <div class="admin-head">
-            <div>
-                <div class="admin-title">Admin Dashboard</div>
-                <div class="admin-sub">Live overview of users, payments, fulfillment, and system health.</div>
-            </div>
-            <div class="pill"><span class="dot"></span><span class="mono">{{ now()->toIso8601String() }}</span></div>
+    {{-- Attention --}}
+    @if ($alerts->isNotEmpty())
+        <div class="mb-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            @foreach ($alerts as $alert)
+                @php $t = ['danger' => ['bg-danger-soft ring-danger/25 text-danger', 'text-danger', 'octagon-alert'], 'warning' => ['bg-warning-soft ring-warning/25 text-warning', 'text-warning', 'triangle-alert'], 'info' => ['bg-info-soft ring-info/25 text-info', 'text-info', 'info']][$alert['tone']]; @endphp
+                <a href="{{ $alert['href'] }}" class="group flex items-start gap-3 rounded-2xl px-4 py-3.5 ring-1 transition hover:-translate-y-0.5 {{ $t[0] }}">
+                    <i data-lucide="{{ $t[2] }}" class="mt-0.5 h-[18px] w-[18px] shrink-0 {{ $t[1] }}"></i>
+                    <div class="min-w-0 flex-1">
+                        <div class="text-[13.5px] font-medium">{{ $alert['title'] }}</div>
+                        <div class="mt-0.5 text-[12.5px] opacity-75">{{ $alert['body'] }}</div>
+                    </div>
+                    <i data-lucide="chevron-right" class="mt-0.5 h-4 w-4 opacity-40 transition group-hover:translate-x-0.5"></i>
+                </a>
+            @endforeach
         </div>
+    @else
+        <div class="mb-6 flex items-center gap-3 rounded-2xl bg-success-soft px-4 py-3 text-[13.5px] text-success ring-1 ring-success/25">
+            <i data-lucide="shield-check" class="h-[18px] w-[18px] text-success"></i> All systems normal. No orders or providers need attention.
+        </div>
+    @endif
 
-        <div class="grid">
-            <div class="glass card" style="grid-column:span 12">
-                <div class="two">
-                    <div class="kpi">
-                        <div>
-                            <div class="label">Users</div>
-                            <div class="value">{{ number_format($stats['users_total']) }}</div>
-                            <div class="meta">{{ number_format($stats['users_verified']) }} verified · {{ number_format($stats['users_unverified']) }} unverified</div>
-                        </div>
-                        <span class="tag {{ $stats['users_unverified'] > 0 ? 'bad' : 'good' }}">{{ $stats['users_unverified'] > 0 ? 'Needs review' : 'Healthy' }}</span>
-                    </div>
+    {{-- KPIs --}}
+    <div class="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+        <x-admin.stat label="Revenue · 30 days" :value="Money::usd($kpis['revenue_30d'])" icon="trending-up" tone="coral"
+                      :hint="'Today '.Money::usd($kpis['revenue_today']).' · 7d '.Money::usd($kpis['revenue_7d'])"
+                      :spark="$series->pluck('revenue')->all()" href="{{ route('admin.payments.index') }}" />
+        <x-admin.stat label="Customers" :value="number_format($kpis['users_total'])" icon="users" tone="teal"
+                      :hint="'+'.$kpis['users_new_7d'].' this week · '.$kpis['users_active_24h'].' active today'"
+                      :spark="$series->pluck('signups')->all()" href="{{ route('admin.users.index') }}" />
+        <x-admin.stat label="Wallet float" :value="Money::usd($kpis['wallet_float'])" icon="wallet" tone="emerald"
+                      :hint="$kpis['wallets_funded'].' funded wallets · '.Money::usd($kpis['wallet_spend_30d']).' spent (30d)'" href="{{ route('admin.wallet') }}" />
+        <x-admin.stat label="Orders needing action" :value="number_format($kpis['payments_stuck'])" icon="siren" :tone="$kpis['payments_stuck'] ? 'red' : 'slate'"
+                      :hint="$kpis['payments_failed'].' failed · '.$kpis['payments_abandoned'].' abandoned checkouts'" href="{{ route('admin.payments.index', ['status' => 'attention']) }}" />
+    </div>
 
-                    <div class="kpi">
-                        <div>
-                            <div class="label">Payments</div>
-                            <div class="value">{{ number_format($stats['payments_total']) }}</div>
-                            <div class="meta">{{ number_format($stats['payments_fulfilled']) }} fulfilled · {{ number_format($stats['payments_pending']) }} pending</div>
-                        </div>
-                        <span class="tag {{ $stats['payments_pending'] > 0 ? 'bad' : 'good' }}">{{ $stats['payments_pending'] > 0 ? 'Pending' : 'All clear' }}</span>
-                    </div>
+    <div class="mt-4 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+        <x-admin.stat label="eSIMs sold" :value="number_format($kpis['esims_sold'])" icon="cpu" tone="blue" href="{{ route('admin.esims') }}" />
+        <x-admin.stat label="Virtual numbers" :value="number_format($kpis['virtual_active'])" icon="phone" tone="teal" :hint="$kpis['virtual_past_due'].' past due'" href="{{ route('admin.numbers.virtual') }}" />
+        <x-admin.stat label="Social number orders" :value="number_format($kpis['social_orders_total'])" icon="message-square-text" tone="coral"
+                      :hint="$kpis['social_orders_received'].' delivered · '.$kpis['social_orders_open'].' open'" href="{{ route('admin.numbers.social') }}" />
+        <x-admin.stat label="Failed logins · 24h" :value="$failedLogins24h" icon="shield" :tone="$failedLogins24h > 10 ? 'amber' : 'slate'"
+                      :hint="$kpis['users_suspended'].' suspended accounts'" href="{{ route('admin.logins', ['result' => 'failed']) }}" />
+    </div>
+
+    {{-- Charts --}}
+    <div class="mt-6 grid gap-4 xl:grid-cols-3">
+        <x-admin.card class="xl:col-span-2" title="Revenue & sign-ups" subtitle="Last 30 days · settled USD payments, excluding wallet top-ups">
+            <x-slot:action>
+                <div class="flex items-center gap-4 text-[12px] text-muted">
+                    <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm" style="background:var(--accent-fill)"></span>Revenue</span>
+                    <span class="flex items-center gap-1.5"><span class="h-0.5 w-3 rounded bg-teal-600"></span>Sign-ups</span>
                 </div>
+            </x-slot:action>
+            @php
+                $maxRev = max(1, $series->max('revenue')); $maxSign = max(1, $series->max('signups'));
+                $W = 720; $H = 220; $pad = 40; $n = $series->count(); $bw = ($W - $pad) / $n;
+                $line = $series->values()->map(fn ($d, $i) => round($pad + $i * $bw + $bw / 2, 1).','.round($H - 22 - ($d['signups'] / $maxSign) * ($H - 50), 1))->implode(' ');
+            @endphp
+            <div class="relative">
+            @if ($series->sum('revenue') === 0)
+                <div class="pointer-events-none absolute inset-x-0 top-[38%] text-center text-[13px] text-faint">No settled revenue in this period</div>
+            @endif
+            <svg viewBox="0 0 {{ $W }} {{ $H }}" class="h-[240px] w-full" role="img" aria-label="Daily revenue and sign-ups for the last 30 days">
+                <defs><linearGradient id="bar" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#1f7a1f"/><stop offset="1" stop-color="#2f8f2f"/></linearGradient></defs>
+                @foreach ([0, .5, 1] as $g)
+                    @php $y = round($H - 22 - $g * ($H - 50), 1); @endphp
+                    <line x1="{{ $pad }}" x2="{{ $W }}" y1="{{ $y }}" y2="{{ $y }}" stroke="rgba(128,128,128,0.18)" stroke-dasharray="3 4"/>
+                    @if ($series->sum('revenue') > 0 || ! $g)<text x="0" y="{{ $y + 4 }}" font-size="10" fill="#94a3b8">{{ $g ? '$'.number_format($maxRev * $g / 100, $maxRev * $g < 10000 ? 2 : 0) : '0' }}</text>@endif
+                @endforeach
+                @foreach ($series->values() as $i => $d)
+                    @php $bh = $d['revenue'] > 0 ? max(3, ($d['revenue'] / $maxRev) * ($H - 50)) : 0; $x = $pad + $i * $bw + $bw * .18; @endphp
+                    <rect x="{{ round($x, 1) }}" y="{{ round($H - 22 - $bh, 1) }}" width="{{ round($bw * .64, 1) }}" height="{{ round($bh, 1) }}" rx="3" fill="url(#bar)" opacity=".9">
+                        <title>{{ \Carbon\Carbon::parse($d['date'])->format('M j') }}: {{ Money::usd($d['revenue']) }} · {{ $d['signups'] }} sign-ups</title>
+                    </rect>
+                    @if ($i % 5 === 0)<text x="{{ round($x + $bw * .32, 1) }}" y="{{ $H - 4 }}" font-size="10" fill="#94a3b8" text-anchor="middle">{{ \Carbon\Carbon::parse($d['date'])->format('M j') }}</text>@endif
+                @endforeach
+                <polyline points="{{ $line }}" fill="none" stroke="#2f8f2f" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+            </svg>
             </div>
+        </x-admin.card>
 
-            <div class="glass card" style="grid-column:span 12">
-                <div class="section-title">Payments by Provider</div>
-                <div class="two">
-                    @foreach($stats['payments_by_provider'] as $provider => $count)
-                        @php
-                            $pct = $stats['payments_total'] > 0 ? round(($count / $stats['payments_total']) * 100) : 0;
-                        @endphp
-                        <div style="padding:12px;border-radius:18px;border:1px solid rgba(15,31,31,.08);background:rgba(255,255,255,.6)">
-                            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
-                                <div style="font-weight:950;color:#0b1a1a;text-transform:capitalize">{{ $provider }}</div>
-                                <div class="mono" style="font-weight:900;color:rgba(15,31,31,.62)">{{ number_format($count) }} ({{ $pct }}%)</div>
-                            </div>
-                            <div class="bar" style="margin-top:10px"><span style="width: {{ $pct }}%"></span></div>
-                        </div>
+        <x-admin.card title="Revenue mix" subtitle="Last 30 days by product">
+            @php $mixTotal = max(1, $mix->sum('amount')); $palette = ['var(--accent-fill)', '#57ad57', 'var(--text)', '#8a8a8a', '#b9dfb9', 'var(--border-strong)']; @endphp
+            @forelse ($mix as $i => $row)
+                <div class="mb-3.5 last:mb-0">
+                    <div class="mb-1.5 flex items-baseline justify-between text-[13px]">
+                        <span class="flex items-center gap-2"><span class="h-2 w-2 rounded-full" style="background:{{ $palette[$i % 6] }}"></span>{{ $row['label'] }}</span>
+                        <span class="font-medium tabular">{{ Money::usd($row['amount']) }} <span class="font-normal text-faint">· {{ $row['count'] }}</span></span>
+                    </div>
+                    <div class="h-1.5 overflow-hidden rounded-full bg-surface-2"><div class="h-full rounded-full" style="width:{{ round($row['amount'] / $mixTotal * 100, 1) }}%;background:{{ $palette[$i % 6] }}"></div></div>
+                </div>
+            @empty
+                <x-admin.empty icon="chart-pie" title="No sales in 30 days" class="!py-6" />
+            @endforelse
+
+            <div class="mt-6 border-t border-ink/[.05] pt-4">
+                <div class="mb-2.5 text-[11.5px] font-medium uppercase tracking-[.08em] text-faint">Payment outcomes · all time</div>
+                <div class="flex flex-wrap gap-x-3 gap-y-2">
+                    @foreach ($statusBreakdown as $status => $count)
+                        <a href="{{ route('admin.payments.index', ['status' => $status]) }}" class="inline-flex items-center gap-1.5"><x-admin.status :value="$status" /><span class="text-[12px] text-muted tabular">{{ $count }}</span></a>
                     @endforeach
                 </div>
             </div>
+        </x-admin.card>
+    </div>
 
-            <div class="glass card" style="grid-column:span 12">
-                <div class="section-title">System Health</div>
-                <div class="two">
-                    <div style="padding:12px;border-radius:18px;border:1px solid rgba(15,31,31,.08);background:rgba(255,255,255,.6)">
-                        <div style="display:flex;justify-content:space-between;gap:10px">
-                            <div>
-                                <div class="label">Environment</div>
-                                <div class="meta mono" style="margin-top:6px">{{ $health['app_env'] }}</div>
-                            </div>
-                            <span class="tag {{ $health['app_debug'] ? 'bad' : 'good' }}">{{ $health['app_debug'] ? 'Debug ON' : 'Debug OFF' }}</span>
-                        </div>
-                    </div>
-                    <div style="padding:12px;border-radius:18px;border:1px solid rgba(15,31,31,.08);background:rgba(255,255,255,.6)">
-                        <div style="display:flex;justify-content:space-between;gap:10px">
-                            <div>
-                                <div class="label">Drivers</div>
-                                <div class="meta mono" style="margin-top:6px">cache={{ $health['cache_driver'] }} · queue={{ $health['queue_connection'] }} · mail={{ $health['mail_mailer'] }}</div>
-                            </div>
-                            <span class="tag {{ $health['gloesim_configured'] ? 'good' : 'bad' }}">{{ $health['gloesim_configured'] ? 'GloEsim OK' : 'GloEsim Missing' }}</span>
-                        </div>
-                    </div>
-                    <div style="padding:12px;border-radius:18px;border:1px solid rgba(15,31,31,.08);background:rgba(255,255,255,.6)">
-                        <div style="display:flex;justify-content:space-between;gap:10px">
-                            <div>
-                                <div class="label">Providers</div>
-                                <div class="meta mono" style="margin-top:6px">twilio={{ $health['twilio_configured'] ? 'configured' : 'missing' }}</div>
-                            </div>
-                            <span class="tag {{ $health['twilio_configured'] ? 'good' : 'bad' }}">{{ $health['twilio_configured'] ? 'Twilio OK' : 'Twilio Missing' }}</span>
-                        </div>
+    {{-- Providers --}}
+    <x-admin.card class="mt-6" title="Providers" subtitle="Live balances and connectivity · cached for 5 minutes">
+        <x-slot:action><x-admin.button href="{{ route('admin.providers') }}" variant="ghost" icon="arrow-right">Details</x-admin.button></x-slot:action>
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            @foreach ($providers['providers'] as $p)
+                <div class="flex items-center gap-3 rounded-xl bg-surface-2 px-3.5 py-3 ring-1 ring-ink/[.04]">
+                    <span @class(['h-2 w-2 shrink-0 rounded-full', 'bg-emerald-500' => $p['ok'] && ! $p['low_balance'], 'bg-amber-500' => $p['low_balance'], 'bg-red-500' => $p['configured'] && ! $p['ok'], 'bg-border-strong' => ! $p['configured']])></span>
+                    <div class="min-w-0 flex-1">
+                        <div class="truncate text-[13.5px] font-medium">{{ $p['name'] }}</div>
+                        <div class="truncate text-[12px] text-muted tabular">{{ $p['balance'] !== null ? number_format($p['balance'], 2).' '.$p['currency'] : $p['detail'] }}</div>
                     </div>
                 </div>
-            </div>
+            @endforeach
+        </div>
+    </x-admin.card>
 
-            <div class="glass card" style="grid-column:span 12">
-                <div class="section-title">Virtual Numbers</div>
-                <div class="two">
-                    <div class="kpi">
-                        <div>
-                            <div class="label">Subscriptions</div>
-                            <div class="value">{{ number_format($stats['virtual_total'] ?? 0) }}</div>
-                            <div class="meta">{{ number_format($stats['virtual_active'] ?? 0) }} active · {{ number_format($stats['virtual_past_due'] ?? 0) }} past due</div>
-                        </div>
-                        <span class="tag {{ ($stats['virtual_past_due'] ?? 0) > 0 ? 'bad' : 'good' }}">{{ ($stats['virtual_past_due'] ?? 0) > 0 ? 'Needs review' : 'Healthy' }}</span>
-                    </div>
-                    <div style="padding:12px;border-radius:18px;border:1px solid rgba(15,31,31,.08);background:rgba(255,255,255,.6)">
-                        <div style="font-weight:950;color:#0b1a1a">Quick Links</div>
-                        <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap">
-                            <a href="{{ route('dashboard.virtual.index') }}" class="tag good" style="text-decoration:none">Open Store</a>
-                            <a href="{{ route('dashboard.virtual.my') }}" class="tag" style="text-decoration:none">My Numbers</a>
-                        </div>
-                        <div class="meta" style="margin-top:10px">Renewals run hourly via scheduler.</div>
-                    </div>
-                </div>
-                <div style="margin-top:14px;overflow:auto">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Time</th>
-                                <th>User</th>
-                                <th>Number</th>
-                                <th>Status</th>
-                                <th>Plan</th>
-                                <th>Next Renewal</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach(($recentVirtualSubs ?? []) as $s)
-                                <tr>
-                                    <td class="mono">{{ optional($s->created_at)->toDateTimeString() }}</td>
-                                    <td class="mono">{{ $s->user?->email }}</td>
-                                    <td class="mono">{{ $s->phone_number }}</td>
-                                    <td><span class="tag {{ (string) $s->status === 'active' ? 'good' : ((string) $s->status === 'past_due' ? 'bad' : '') }}">{{ $s->status }}</span></td>
-                                    <td class="mono">{{ $s->product?->label }}</td>
-                                    <td class="mono">{{ $s->current_period_end ? $s->current_period_end->toDateTimeString() : '' }}</td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+    {{-- Activity --}}
+    <div class="mt-6 grid gap-4 xl:grid-cols-3">
+        <x-admin.card class="xl:col-span-2" title="Latest payments">
+            <x-slot:action><x-admin.button href="{{ route('admin.payments.index') }}" variant="ghost" icon="arrow-right">All payments</x-admin.button></x-slot:action>
+            <x-admin.table class="!min-w-[600px]">
+                <thead><tr><th>Customer</th><th>Product</th><th>Status</th><th class="text-right">Amount</th><th class="text-right">When</th></tr></thead>
+                <tbody>
+                    @forelse ($recentPayments as $p)
+                        <tr class="cursor-pointer" onclick="location.href='{{ route('admin.payments.show', $p) }}'">
+                            <td><x-admin.user-cell :user="$p->user" /></td>
+                            <td><div class="font-medium">{{ $p->displayTitle() }}</div><div class="text-[12px] text-muted">via {{ ucfirst($p->provider) }}</div></td>
+                            <td><x-admin.status :value="$p->status" /></td>
+                            <td class="text-right font-medium tabular">{{ Money::format($p->amount_minor, $p->currency) }}</td>
+                            <td class="whitespace-nowrap text-right text-muted">{{ $p->created_at?->diffForHumans(short: true) }}</td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="5"><x-admin.empty icon="receipt" title="No payments yet" /></td></tr>
+                    @endforelse
+                </tbody>
+            </x-admin.table>
+        </x-admin.card>
 
-            <div class="glass card" style="grid-column:span 12">
-                <div class="section-title">Recent Payments</div>
-                <div style="overflow:auto">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Time</th>
-                                <th>User</th>
-                                <th>Provider</th>
-                                <th>Status</th>
-                                <th>Bundle</th>
-                                <th>Amount</th>
-                                <th>ICCID</th>
-                                <th>Synced</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($recentPayments as $p)
-                                @php
-                                    $fp = is_array($p->fulfillment_payload) ? $p->fulfillment_payload : [];
-                                    $glo = is_array($fp['gloesim'] ?? null) ? $fp['gloesim'] : [];
-                                    $iccid = (string) ($fp['iccid'] ?? (data_get($glo, 'iccid') ?? ''));
-                                    $synced = (bool) ($fp['synced'] ?? false);
-                                @endphp
-                                <tr>
-                                    <td class="mono">{{ optional($p->created_at)->toDateTimeString() }}</td>
-                                    <td class="mono">{{ $p->user?->email }}</td>
-                                    <td>{{ $p->provider }}</td>
-                                    <td class="mono">{{ $p->status }}</td>
-                                    <td class="mono">{{ $p->bundle_id }}</td>
-                                    <td class="mono">{{ $p->currency }} {{ number_format(((int) $p->amount_minor) / 100, 2) }}</td>
-                                    <td class="mono">{{ $iccid }}</td>
-                                    <td>
-                                        <span class="tag {{ $synced ? 'good' : 'bad' }}">{{ $synced ? 'Yes' : 'No' }}</span>
-                                        <a href="{{ route('admin.payment', ['payment' => $p->id]) }}" class="mono" style="margin-left:10px;font-weight:900;color:rgba(20,84,84,.92)">JSON</a>
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div class="glass card" style="grid-column:span 12">
-                <div class="section-title">Recent Users</div>
-                <div style="overflow:auto">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Time</th>
-                                <th>Email</th>
-                                <th>Verified</th>
-                                <th>Admin</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($recentUsers as $u)
-                                <tr>
-                                    <td class="mono">{{ optional($u->created_at)->toDateTimeString() }}</td>
-                                    <td class="mono">{{ $u->email }}</td>
-                                    <td><span class="tag {{ $u->email_verified_at ? 'good' : 'bad' }}">{{ $u->email_verified_at ? 'Yes' : 'No' }}</span></td>
-                                    <td><span class="tag {{ $u->is_admin ? 'good' : '' }}">{{ $u->is_admin ? 'Yes' : 'No' }}</span></td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+        <div class="space-y-4">
+            <x-admin.card title="New customers">
+                <x-slot:action><x-admin.button href="{{ route('admin.users.index') }}" variant="ghost" icon="arrow-right">All</x-admin.button></x-slot:action>
+                <ul class="space-y-3">
+                    @foreach ($recentUsers as $u)
+                        <li class="flex items-center justify-between gap-3">
+                            <x-admin.user-cell :user="$u" />
+                            @if ($u->hasVerifiedEmail())<x-admin.badge tone="emerald">Verified</x-admin.badge>@else<x-admin.badge tone="amber">Unverified</x-admin.badge>@endif
+                        </li>
+                    @endforeach
+                </ul>
+            </x-admin.card>
+            <x-admin.card title="Admin activity">
+                <x-slot:action><x-admin.button href="{{ route('admin.audit') }}" variant="ghost" icon="arrow-right">Audit</x-admin.button></x-slot:action>
+                @forelse ($recentAudit as $a)
+                    <div class="flex gap-3 border-t border-ink/[.05] py-2.5 first:border-t-0 first:pt-0">
+                        <x-admin.avatar :user="$a->admin" size="sm" />
+                        <div class="min-w-0 text-[13px]"><div class="text-text">{{ $a->description }}</div><div class="text-[12px] text-faint">{{ $a->admin?->name ?? 'System' }} · {{ $a->created_at?->diffForHumans() }}</div></div>
+                    </div>
+                @empty
+                    <p class="text-[13px] text-muted">No admin actions recorded yet.</p>
+                @endforelse
+            </x-admin.card>
         </div>
     </div>
-</x-app-layout>
+</x-admin.layout>

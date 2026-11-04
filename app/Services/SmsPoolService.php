@@ -8,8 +8,8 @@ use Illuminate\Support\Facades\Http;
 /**
  * One-time SMS / OTP activations via SMSPool (https://api.smspool.net).
  *
- * Public method names and return shapes mirror the previous SMSPVA service so
- * the /api/social-numbers/* route closures and payload builders are unchanged.
+ * Return shapes keep the envelope of the previous SMSPVA integration ({ok, status, json} with
+ * `json.data` for purchases and `json.response` codes for polls) so stored orders stay readable.
  */
 class SmsPoolService
 {
@@ -25,19 +25,19 @@ class SmsPoolService
     public function apps(): array
     {
         return [
-            'whatsapp'   => ['key' => 'whatsapp', 'name' => 'WhatsApp', 'service' => 'WhatsApp', 'icon' => '💬', 'desc' => 'SMS verification numbers for WhatsApp.'],
-            'telegram'   => ['key' => 'telegram', 'name' => 'Telegram', 'service' => 'Telegram', 'icon' => '✈️', 'desc' => 'Verification numbers for Telegram.'],
-            'facebook'   => ['key' => 'facebook', 'name' => 'Facebook', 'service' => 'Facebook / Meta Viewpoints', 'icon' => '👤', 'desc' => 'Verification numbers for Facebook.'],
-            'instagram'  => ['key' => 'instagram', 'name' => 'Instagram', 'service' => 'Instagram / Threads', 'icon' => '📸', 'desc' => 'Numbers for Instagram & Threads.'],
-            'tiktok'     => ['key' => 'tiktok', 'name' => 'TikTok', 'service' => 'TikTok/Douyin', 'icon' => '🎵', 'desc' => 'Numbers for TikTok sign-up.'],
-            'twitter'    => ['key' => 'twitter', 'name' => 'X (Twitter)', 'service' => 'Twitter / X', 'icon' => '✖️', 'desc' => 'Verification numbers for X.'],
-            'google'     => ['key' => 'google', 'name' => 'Google / Gmail', 'service' => 'Google/Gmail', 'icon' => '🔷', 'desc' => 'Numbers for Google & Gmail.'],
-            'snapchat'   => ['key' => 'snapchat', 'name' => 'Snapchat', 'service' => 'Snapchat', 'icon' => '👻', 'desc' => 'Numbers for Snapchat sign-up.'],
-            'discord'    => ['key' => 'discord', 'name' => 'Discord', 'service' => 'Discord', 'icon' => '🎮', 'desc' => 'Numbers for Discord verification.'],
-            'linkedin'   => ['key' => 'linkedin', 'name' => 'LinkedIn', 'service' => 'LinkedIn', 'icon' => '💼', 'desc' => 'Numbers for LinkedIn verification.'],
-            'wechat'     => ['key' => 'wechat', 'name' => 'WeChat', 'service' => 'WeChat', 'icon' => '💚', 'desc' => 'Numbers for WeChat verification.'],
-            'viber'      => ['key' => 'viber', 'name' => 'Viber', 'service' => 'Viber', 'icon' => '🟣', 'desc' => 'Numbers for Viber verification.'],
-            'signal'     => ['key' => 'signal', 'name' => 'Signal', 'service' => 'Signal', 'icon' => '🔵', 'desc' => 'Numbers for Signal verification.'],
+            'whatsapp' => ['key' => 'whatsapp', 'name' => 'WhatsApp', 'service' => 'WhatsApp', 'icon' => '💬', 'desc' => 'SMS verification numbers for WhatsApp.'],
+            'telegram' => ['key' => 'telegram', 'name' => 'Telegram', 'service' => 'Telegram', 'icon' => '✈️', 'desc' => 'Verification numbers for Telegram.'],
+            'facebook' => ['key' => 'facebook', 'name' => 'Facebook', 'service' => 'Facebook / Meta Viewpoints', 'icon' => '👤', 'desc' => 'Verification numbers for Facebook.'],
+            'instagram' => ['key' => 'instagram', 'name' => 'Instagram', 'service' => 'Instagram / Threads', 'icon' => '📸', 'desc' => 'Numbers for Instagram & Threads.'],
+            'tiktok' => ['key' => 'tiktok', 'name' => 'TikTok', 'service' => 'TikTok/Douyin', 'icon' => '🎵', 'desc' => 'Numbers for TikTok sign-up.'],
+            'twitter' => ['key' => 'twitter', 'name' => 'X (Twitter)', 'service' => 'Twitter / X', 'icon' => '✖️', 'desc' => 'Verification numbers for X.'],
+            'google' => ['key' => 'google', 'name' => 'Google / Gmail', 'service' => 'Google/Gmail', 'icon' => '🔷', 'desc' => 'Numbers for Google & Gmail.'],
+            'snapchat' => ['key' => 'snapchat', 'name' => 'Snapchat', 'service' => 'Snapchat', 'icon' => '👻', 'desc' => 'Numbers for Snapchat sign-up.'],
+            'discord' => ['key' => 'discord', 'name' => 'Discord', 'service' => 'Discord', 'icon' => '🎮', 'desc' => 'Numbers for Discord verification.'],
+            'linkedin' => ['key' => 'linkedin', 'name' => 'LinkedIn', 'service' => 'LinkedIn', 'icon' => '💼', 'desc' => 'Numbers for LinkedIn verification.'],
+            'wechat' => ['key' => 'wechat', 'name' => 'WeChat', 'service' => 'WeChat', 'icon' => '💚', 'desc' => 'Numbers for WeChat verification.'],
+            'viber' => ['key' => 'viber', 'name' => 'Viber', 'service' => 'Viber', 'icon' => '🟣', 'desc' => 'Numbers for Viber verification.'],
+            'signal' => ['key' => 'signal', 'name' => 'Signal', 'service' => 'Signal', 'icon' => '🔵', 'desc' => 'Numbers for Signal verification.'],
             'truecaller' => ['key' => 'truecaller', 'name' => 'Truecaller', 'service' => 'TrueCaller', 'icon' => '📞', 'desc' => 'Numbers for Truecaller verification.'],
         ];
     }
@@ -69,11 +69,11 @@ class SmsPoolService
                 }
                 $out[] = [
                     'country' => $iso,
-                    'name'    => $name,
-                    'iso'     => $iso,
-                    'prefix'  => $this->dialingPrefix($iso),
+                    'name' => $name,
+                    'iso' => $iso,
+                    'prefix' => $this->dialingPrefix($iso),
                     'smspool_id' => (int) ($row['ID'] ?? 0),
-                    'region'  => (string) ($row['region'] ?? ''),
+                    'region' => (string) ($row['region'] ?? ''),
                 ];
             }
 
@@ -235,7 +235,7 @@ class SmsPoolService
                 return [];
             }
 
-            $baseUrl = rtrim(trim((string) config('services.smspool.base_url', 'https://api.smspool.net')), '/');
+            $baseUrl = $this->baseUrl();
             $apiKey = trim((string) config('services.smspool.api_key'));
 
             try {
@@ -272,7 +272,7 @@ class SmsPoolService
      * " / " compound names they use ("Instagram / Threads", "TikTok/Douyin",
      * "Facebook / Meta Viewpoints", "Twitter / X").
      *
-     * @param array<string,int> $map  lower-cased service name => id
+     * @param  array<string,int>  $map  lower-cased service name => id
      */
     public function matchServiceName(array $map, string $name): ?int
     {
@@ -322,7 +322,7 @@ class SmsPoolService
         $pools = $this->http('/pool/retrieve_valid', [
             'service' => $serviceId,
             'country' => $iso,
-            'web'     => 1,
+            'web' => 1,
         ]);
         if (($pools['ok'] ?? false) !== true || ! is_array($pools['json'] ?? null) || $pools['json'] === []) {
             return ['ok' => false, 'status' => 404, 'error' => 'No numbers are currently available for this app and country.'];
@@ -349,7 +349,7 @@ class SmsPoolService
         $stock = $this->http('/sms/stock', [
             'service' => $serviceId,
             'country' => $iso,
-            'pool'    => $poolId,
+            'pool' => $poolId,
         ]);
         if (($stock['ok'] ?? false) === true && is_array($stock['json'] ?? null)) {
             $count = (int) ($stock['json']['amount'] ?? 0);
@@ -378,10 +378,10 @@ class SmsPoolService
     }
 
     /**
-     * Purchase a number. Signature kept from the old v2 method; the pool and
-     * price are re-resolved here (SMSPool re-prices at order time anyway).
+     * Purchase a number for a service name + country. The pool and price are re-resolved here
+     * (SMSPool re-prices at order time anyway).
      */
-    public function buyNumberV2(string $service, string $country, ?string $operator = null): array
+    public function buyNumber(string $service, string $country): array
     {
         $serviceId = $this->serviceId($service);
         $countryRow = $this->country($country);
@@ -411,9 +411,9 @@ class SmsPoolService
         $lastStatus = 502;
         foreach ($candidates as $cand) {
             $params = [
-                'service'         => $serviceId,
-                'country'         => $iso,
-                'quantity'        => 1,
+                'service' => $serviceId,
+                'country' => $iso,
+                'quantity' => 1,
                 'activation_type' => 'SMS',
             ];
             if ($cand['pool'] !== null) {
@@ -449,25 +449,25 @@ class SmsPoolService
             'status' => 200,
             'json' => [
                 'data' => [
-                    'orderId'        => (string) ($json['order_id'] ?? ''),
-                    'phoneNumber'    => (string) ($json['number'] ?? ''),
+                    'orderId' => (string) ($json['order_id'] ?? ''),
+                    'phoneNumber' => (string) ($json['number'] ?? ''),
                     'nationalNumber' => (string) ($json['phonenumber'] ?? ''),
-                    'countryCode'    => (string) ($json['cc'] ?? ''),
-                    'pool'           => $json['pool'] ?? $pool,
-                    'expiration'     => $json['expiration'] ?? null,
-                    'expires_in'     => $json['expires_in'] ?? null,
-                    'cost_in_cents'  => $json['cost_in_cents'] ?? null,
-                    'raw'            => $json,
+                    'countryCode' => (string) ($json['cc'] ?? ''),
+                    'pool' => $json['pool'] ?? $pool,
+                    'expiration' => $json['expiration'] ?? null,
+                    'expires_in' => $json['expires_in'] ?? null,
+                    'cost_in_cents' => $json['cost_in_cents'] ?? null,
+                    'raw' => $json,
                 ],
             ],
         ];
     }
 
     /**
-     * Poll for the SMS. Normalised to the old SMSPVA "response" codes the route
-     * understands: "1" = code ready, "2" = still waiting, "3" = dead/refunded.
+     * Poll for the SMS. Normalised to response codes: "1" = code ready, "2" = still waiting,
+     * "3" = dead/refunded by the provider.
      */
-    public function getSms(string $service, string $country, string $providerOrderId): array
+    public function checkSms(string $providerOrderId): array
     {
         $res = $this->http('/sms/check', ['orderid' => $providerOrderId]);
         $json = is_array($res['json'] ?? null) ? $res['json'] : [];
@@ -513,28 +513,11 @@ class SmsPoolService
         ]];
     }
 
-    public function cancel(string $service, ?string $arg2 = null, ?string $arg3 = null): array
-    {
-        return $this->cancelOrder($arg3 ?? $arg2 ?? $service);
-    }
-
-    public function cancelV2(string|int $providerOrderId): array
-    {
-        return $this->cancelOrder((string) $providerOrderId);
-    }
-
-    public function ban(string $service, ?string $arg2 = null, ?string $arg3 = null): array
-    {
-        // SMSPool has no "ban"; cancelling releases and refunds the number.
-        return $this->cancelOrder($arg3 ?? $arg2 ?? $service);
-    }
-
-    public function banV2(string|int $providerOrderId): array
-    {
-        return $this->cancelOrder((string) $providerOrderId);
-    }
-
-    private function cancelOrder(string $providerOrderId): array
+    /**
+     * Release an unused number and refund it at SMSPool. SMSPool has a single cancel endpoint,
+     * so "cancel", "ban" and "replace" all end here.
+     */
+    public function release(string $providerOrderId): array
     {
         if (trim($providerOrderId) === '') {
             return ['ok' => false, 'status' => 422, 'error' => 'Missing order id.'];
@@ -576,11 +559,7 @@ class SmsPoolService
      */
     public function http(string $path, array $params = [], string $method = 'POST', bool $auth = true): array
     {
-        $baseUrl = rtrim(trim((string) config('services.smspool.base_url', 'https://api.smspool.net')), '/');
-        if ($baseUrl === '') {
-            $baseUrl = 'https://api.smspool.net';
-        }
-
+        $baseUrl = $this->baseUrl();
         $apiKey = trim((string) config('services.smspool.api_key'));
         if ($auth && $apiKey === '') {
             return ['ok' => false, 'status' => 500, 'json' => null, 'error' => 'SMSPool is not configured.'];
@@ -611,6 +590,11 @@ class SmsPoolService
         }
 
         return ['ok' => false, 'status' => $status, 'json' => $json, 'error' => $this->errorMessage($json, 'SMSPool error.')];
+    }
+
+    private function baseUrl(): string
+    {
+        return rtrim(trim((string) config('services.smspool.base_url', 'https://api.smspool.net')), '/') ?: 'https://api.smspool.net';
     }
 
     private function errorMessage(array $json, string $fallback): string

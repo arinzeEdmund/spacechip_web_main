@@ -1,10 +1,12 @@
-const CACHE_VERSION = 'spacechip-pwa-v1';
+const CACHE_VERSION = 'spacechip-pwa-v2';
 const OFFLINE_URL = '/offline.html';
 
 const CORE_ASSETS = [
   '/',
   '/manifest.json',
   '/favicon.svg',
+  '/apple-touch-icon.png',
+  '/icons/icon-192.png',
   OFFLINE_URL,
 ];
 

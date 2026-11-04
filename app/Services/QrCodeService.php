@@ -7,6 +7,9 @@ use BaconQrCode\Renderer\ImageRenderer;
 use BaconQrCode\Renderer\RendererStyle\RendererStyle;
 use BaconQrCode\Writer;
 
+/**
+ * SVG QR codes for eSIM installation (LPA strings).
+ */
 class QrCodeService
 {
     public function svgString(string $payload, int $size = 240): string

@@ -5,6 +5,9 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * A sellable virtual-number plan for a country (list price; live Twilio pricing may override).
+ */
 class VirtualNumberProduct extends Model
 {
     protected $casts = [

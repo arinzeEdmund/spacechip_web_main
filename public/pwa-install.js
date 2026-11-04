@@ -65,7 +65,7 @@
     card.style.cssText = [
       'border-radius:22px',
       'padding:14px 14px',
-      'background:rgba(31,41,55,.72)',
+      'background:rgba(0,0,0,.82)',
       'backdrop-filter:blur(12px)',
       'border:1px solid rgba(255,255,255,.14)',
       'box-shadow:0 14px 35px rgba(0,0,0,.25)',
@@ -94,7 +94,7 @@
     install.type = 'button';
     install.id = 'pwa-install-action';
     install.textContent = 'Install';
-    install.style.cssText = 'padding:10px 14px;border-radius:9999px;background:linear-gradient(90deg,#f27457,#145454);border:none;color:#fff;font-weight:900;cursor:pointer';
+    install.style.cssText = 'padding:10px 14px;border-radius:9999px;background:#1f7a1f;border:none;color:#fff;font-weight:900;cursor:pointer';
 
     actions.appendChild(later);
     actions.appendChild(install);

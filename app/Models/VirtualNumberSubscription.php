@@ -6,6 +6,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * A Twilio number owned by a customer, billed monthly from the wallet or a saved Paystack card.
+ */
 class VirtualNumberSubscription extends Model
 {
     protected $casts = [

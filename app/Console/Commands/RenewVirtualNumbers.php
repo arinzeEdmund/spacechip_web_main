@@ -4,18 +4,26 @@ namespace App\Console\Commands;
 
 use App\Models\Payment;
 use App\Models\VirtualNumberSubscription;
+use App\Services\PaystackService;
 use App\Services\WalletService;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+use Throwable;
 
+/**
+ * Monthly renewal for virtual numbers whose period has ended (50 per run, oldest first).
+ *
+ * Wallet subscriptions are debited; Paystack subscriptions charge the card authorization saved
+ * at checkout. A failed renewal marks the subscription `past_due` and records why; the next
+ * run tries again.
+ */
 class RenewVirtualNumbers extends Command
 {
     protected $signature = 'virtual-numbers:renew';
 
     protected $description = 'Charge monthly renewals for active virtual number subscriptions';
 
-    public function handle(WalletService $wallet): int
+    public function handle(WalletService $wallet, PaystackService $paystack): int
     {
         $due = VirtualNumberSubscription::query()
             ->with('user')
@@ -29,151 +37,125 @@ class RenewVirtualNumbers extends Command
         if ($due->isEmpty()) {
             $this->info('No renewals due.');
 
-            return 0;
+            return self::SUCCESS;
         }
 
-        $secretKey = (string) (config('services.paystack.secret_key') ?: env('PAYSTACK_SECRET_KEY', ''));
-        $secretKey = trim($secretKey, " \t\n\r\0\x0B\"'");
-
         foreach ($due as $sub) {
-            $billing = trim((string) ($sub->billing_method ?? 'paystack'));
-            if ($billing === '') {
-                $billing = 'paystack';
-            }
+            $reference = 'vn_renew_'.$sub->id.'_'.str_replace('-', '_', (string) Str::uuid());
 
-            if ($billing === 'wallet') {
-                $reference = 'vn_renew_'.(string) $sub->id.'_'.str_replace('-', '_', (string) Str::uuid());
-                $payment = Payment::create([
-                    'user_id' => $sub->user_id,
-                    'provider' => 'wallet',
-                    'provider_reference' => $reference,
-                    'status' => 'paid',
-                    'asset_type' => 'virtual_number_renewal',
-                    'asset_id' => (string) $sub->id,
-                    'bundle_id' => (string) $sub->virtual_number_product_id,
-                    'package_type' => 'MONTHLY',
-                    'currency' => 'USD',
-                    'amount_minor' => (int) $sub->monthly_amount_minor,
-                    'provider_payload' => [
-                        'subscription_id' => (int) $sub->id,
-                        'phone_number' => (string) ($sub->phone_number ?? ''),
-                    ],
-                ]);
-
-                try {
-                    $wallet->debit((int) $sub->user_id, (int) $sub->monthly_amount_minor, 'virtual_number_renewal', [
-                        'subscription_id' => (int) $sub->id,
-                        'reference' => $reference,
-                    ], (int) $payment->id, (int) env('WALLET_MIN_BALANCE_MINOR', 0));
-                } catch (\Throwable $e) {
-                    $sub->status = 'past_due';
-                    $sub->renewal_failed_count = (int) $sub->renewal_failed_count + 1;
-                    $sub->last_renewal_error = $e->getMessage();
-                    $sub->save();
-
-                    $payment->status = 'failed_insufficient_wallet';
-                    $payment->fulfillment_payload = ['ok' => false, 'error' => $e->getMessage()];
-                    $payment->save();
-
-                    continue;
-                }
-
-                $sub->status = 'active';
-                $sub->renewal_failed_count = 0;
-                $sub->last_renewal_error = null;
-                $sub->last_charge_reference = $reference;
-                $sub->current_period_start = now();
-                $sub->current_period_end = now()->addMonth();
-                $sub->save();
-
-                $payment->status = 'fulfilled';
-                $payment->fulfillment_payload = ['ok' => true];
-                $payment->save();
-
-                continue;
-            }
-
-            if ($secretKey === '') {
-                $sub->status = 'past_due';
-                $sub->renewal_failed_count = (int) $sub->renewal_failed_count + 1;
-                $sub->last_renewal_error = 'PAYSTACK_SECRET_KEY not configured.';
-                $sub->save();
-
-                continue;
-            }
-
-            $authCode = trim((string) $sub->paystack_authorization_code);
-            $customerCode = trim((string) $sub->paystack_customer_code);
-            if ($authCode === '' || $customerCode === '') {
-                $sub->status = 'past_due';
-                $sub->renewal_failed_count = (int) $sub->renewal_failed_count + 1;
-                $sub->last_renewal_error = 'Missing Paystack authorization.';
-                $sub->save();
-
-                continue;
-            }
-
-            $reference = 'vn_renew_'.(string) $sub->id.'_'.str_replace('-', '_', (string) Str::uuid());
-            $email = trim((string) ($sub->paystack_email ?? ''));
-            if ($email === '') {
-                $email = (string) ($sub->user?->email ?? '');
-            }
-            if (trim($email) === '') {
-                $sub->status = 'past_due';
-                $sub->renewal_failed_count = (int) $sub->renewal_failed_count + 1;
-                $sub->last_renewal_error = 'Missing user email.';
-                $sub->save();
-
-                continue;
-            }
-
-            $res = Http::withToken($secretKey)
-                ->acceptJson()
-                ->timeout(30)
-                ->post('https://api.paystack.co/transaction/charge_authorization', [
-                    'authorization_code' => $authCode,
-                    'email' => $email,
-                    'amount' => (int) $sub->monthly_amount_minor,
-                    'currency' => strtoupper((string) $sub->currency),
-                    'reference' => $reference,
-                    'metadata' => [
-                        'purpose' => 'virtual_number_renewal',
-                        'subscription_id' => (int) $sub->id,
-                    ],
-                ]);
-
-            if (! $res->successful()) {
-                $sub->status = 'past_due';
-                $sub->renewal_failed_count = (int) $sub->renewal_failed_count + 1;
-                $sub->last_renewal_error = 'Paystack charge failed.';
-                $sub->save();
-
-                continue;
-            }
-
-            $json = $res->json();
-            $ok = (bool) data_get($json, 'status', false);
-            $dataStatus = (string) data_get($json, 'data.status', '');
-            if (! $ok || ! in_array($dataStatus, ['success', 'pending'], true)) {
-                $sub->status = 'past_due';
-                $sub->renewal_failed_count = (int) $sub->renewal_failed_count + 1;
-                $sub->last_renewal_error = 'Paystack charge not successful.';
-                $sub->save();
-
-                continue;
-            }
-
-            $sub->status = 'active';
-            $sub->renewal_failed_count = 0;
-            $sub->last_renewal_error = null;
-            $sub->last_charge_reference = $reference;
-            $sub->current_period_start = now();
-            $sub->current_period_end = now()->addMonth();
-            $sub->save();
+            trim((string) $sub->billing_method) === 'wallet'
+                ? $this->renewFromWallet($sub, $reference, $wallet)
+                : $this->renewWithCard($sub, $reference, $paystack);
         }
 
         $this->info('Processed renewals: '.$due->count());
 
-        return 0;
+        return self::SUCCESS;
+    }
+
+    private function renewFromWallet(VirtualNumberSubscription $sub, string $reference, WalletService $wallet): void
+    {
+        $payment = Payment::create([
+            'user_id' => $sub->user_id,
+            'provider' => 'wallet',
+            'provider_reference' => $reference,
+            'status' => 'paid',
+            'asset_type' => 'virtual_number_renewal',
+            'asset_id' => (string) $sub->id,
+            'bundle_id' => (string) $sub->virtual_number_product_id,
+            'package_type' => 'MONTHLY',
+            'currency' => 'USD',
+            'amount_minor' => (int) $sub->monthly_amount_minor,
+            'provider_payload' => ['subscription_id' => (int) $sub->id, 'phone_number' => (string) ($sub->phone_number ?? '')],
+        ]);
+
+        try {
+            $wallet->debit((int) $sub->user_id, (int) $sub->monthly_amount_minor, 'virtual_number_renewal', [
+                'subscription_id' => (int) $sub->id,
+                'reference' => $reference,
+            ], (int) $payment->id, (int) config('wallet.min_balance_minor', 0));
+        } catch (Throwable $e) {
+            $this->markPastDue($sub, $e->getMessage());
+            $payment->update(['status' => 'failed_insufficient_wallet', 'fulfillment_payload' => ['ok' => false, 'error' => $e->getMessage()]]);
+
+            return;
+        }
+
+        $this->markRenewed($sub, $reference);
+        $payment->update(['status' => 'fulfilled', 'fulfillment_payload' => ['ok' => true]]);
+    }
+
+    private function renewWithCard(VirtualNumberSubscription $sub, string $reference, PaystackService $paystack): void
+    {
+        if (! $paystack->isConfigured()) {
+            $this->markPastDue($sub, 'PAYSTACK_SECRET_KEY not configured.');
+
+            return;
+        }
+
+        $authCode = trim((string) $sub->paystack_authorization_code);
+        if ($authCode === '' || trim((string) $sub->paystack_customer_code) === '') {
+            $this->markPastDue($sub, 'Missing Paystack authorization.');
+
+            return;
+        }
+
+        $email = trim((string) ($sub->paystack_email ?? '')) ?: trim((string) ($sub->user?->email ?? ''));
+        if ($email === '') {
+            $this->markPastDue($sub, 'Missing user email.');
+
+            return;
+        }
+
+        try {
+            $res = $paystack->chargeAuthorization([
+                'authorization_code' => $authCode,
+                'email' => $email,
+                'amount' => (int) $sub->monthly_amount_minor,
+                'currency' => strtoupper((string) $sub->currency),
+                'reference' => $reference,
+                'metadata' => ['purpose' => 'virtual_number_renewal', 'subscription_id' => (int) $sub->id],
+            ]);
+        } catch (Throwable) {
+            $this->markPastDue($sub, 'Paystack charge failed.');
+
+            return;
+        }
+
+        if (! $res->successful()) {
+            $this->markPastDue($sub, 'Paystack charge failed.');
+
+            return;
+        }
+
+        // `pending` charges settle asynchronously and are treated as paid.
+        if (! $res->json('status') || ! in_array((string) $res->json('data.status'), ['success', 'pending'], true)) {
+            $this->markPastDue($sub, 'Paystack charge not successful.');
+
+            return;
+        }
+
+        $this->markRenewed($sub, $reference);
+    }
+
+    private function markPastDue(VirtualNumberSubscription $sub, string $error): void
+    {
+        $sub->update([
+            'status' => 'past_due',
+            'renewal_failed_count' => (int) $sub->renewal_failed_count + 1,
+            'last_renewal_error' => $error,
+        ]);
+    }
+
+    private function markRenewed(VirtualNumberSubscription $sub, string $reference): void
+    {
+        $sub->update([
+            'status' => 'active',
+            'renewal_failed_count' => 0,
+            'last_renewal_error' => null,
+            'last_charge_reference' => $reference,
+            'current_period_start' => now(),
+            'current_period_end' => now()->addMonth(),
+        ]);
     }
 }

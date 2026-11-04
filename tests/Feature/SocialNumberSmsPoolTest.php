@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Payment;
 use App\Models\SocialNumberOrder;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -236,5 +237,53 @@ class SocialNumberSmsPoolTest extends TestCase
         $sms = $this->actingAs($user)->getJson("/api/social-rentals/{$rentalId}/sms");
         $sms->assertOk();
         $this->assertSame('Your verification code is: 4321', $sms->json('rental.sms.0.text'));
+    }
+
+    private function fakeOtpPurchase(array $purchase = []): void
+    {
+        $this->fakeCatalog([
+            'api.smspool.net/pool/retrieve_valid' => Http::response([['pool' => 2, 'name' => 'Bravo', 'price' => '0.24']]),
+            'api.smspool.net/sms/stock' => Http::response(['success' => 1, 'amount' => 10]),
+            'api.smspool.net/purchase/sms' => Http::sequence()
+                ->push($purchase + ['success' => 1, 'number' => 12025550001, 'cc' => '1', 'phonenumber' => '2025550001', 'order_id' => 'ORDER001', 'pool' => 2, 'cost_in_cents' => 24])
+                ->push(['success' => 1, 'number' => 12025550002, 'cc' => '1', 'phonenumber' => '2025550002', 'order_id' => 'ORDER002', 'pool' => 2, 'cost_in_cents' => 24]),
+            'api.smspool.net/sms/cancel' => Http::response(['success' => 1]),
+        ]);
+    }
+
+    public function test_cancel_and_try_another_refund_and_link_orders(): void
+    {
+        $user = User::factory()->create(['wallet_balance_minor' => 1000]);
+        $this->fakeOtpPurchase();
+
+        $first = $this->actingAs($user)->postJson('/api/social-numbers/buy', ['product' => 'whatsapp', 'country' => 'US'])->assertOk()->json('order.id');
+        $this->assertSame(900, (int) $user->fresh()->wallet_balance_minor);
+
+        $second = $this->actingAs($user)->postJson("/api/social-numbers/orders/{$first}/try-another")
+            ->assertOk()->assertJsonPath('order.status', 'PENDING')->json('order.id');
+
+        $old = SocialNumberOrder::findOrFail($first);
+        $new = SocialNumberOrder::findOrFail($second);
+        $this->assertSame(['CANCELED', 'ORDER002', $first], [$old->status, $new->provider_order_id, (int) $new->provider_payload['replaces_order_id']]);
+        $this->assertNotNull($old->refunded_at);
+        $this->assertSame(900, (int) $user->fresh()->wallet_balance_minor); // refund + new charge
+        $this->assertSame(['paid', (string) $second], [Payment::find($new->payment_id)->status, Payment::find($new->payment_id)->asset_id]);
+
+        $this->actingAs($user)->postJson("/api/social-numbers/orders/{$second}/cancel")->assertOk()->assertJsonPath('order.status', 'CANCELED');
+        $this->assertSame(1000, (int) $user->fresh()->wallet_balance_minor);
+        $this->actingAs($user)->postJson("/api/social-numbers/orders/{$second}/try-another")->assertStatus(422)->assertJson(['message' => 'This order is already closed.']);
+    }
+
+    public function test_unusable_number_from_provider_is_refunded(): void
+    {
+        $user = User::factory()->create(['wallet_balance_minor' => 1000]);
+        $this->fakeOtpPurchase(['order_id' => '-1']);
+
+        $this->actingAs($user)->postJson('/api/social-numbers/buy', ['product' => 'whatsapp', 'country' => 'US'])
+            ->assertStatus(502)->assertJson(['message' => 'The provider did not return a usable number. Wallet was refunded.']);
+
+        $this->assertSame(1000, (int) $user->fresh()->wallet_balance_minor);
+        $this->assertSame('paid_failed_provision_refunded', Payment::firstOrFail()->status);
+        $this->assertSame(0, SocialNumberOrder::count());
     }
 }

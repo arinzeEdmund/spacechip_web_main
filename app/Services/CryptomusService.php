@@ -2,8 +2,13 @@
 
 namespace App\Services;
 
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 
+/**
+ * Cryptomus merchant API: invoices, payment status and request/webhook signing
+ * (md5(base64(json) + payment key)). Errors come back as {state: 1, message} instead of throwing.
+ */
 class CryptomusService
 {
     public function createInvoice(array $payload): ?array
@@ -70,7 +75,7 @@ class CryptomusService
                 ->acceptJson()
                 ->timeout(30)
                 ->retry(2, 100, function ($exception) {
-                    return $exception instanceof \Illuminate\Http\Client\ConnectionException;
+                    return $exception instanceof ConnectionException;
                 }, throw: false)
                 ->withOptions($options)
                 ->withHeaders([
@@ -83,6 +88,7 @@ class CryptomusService
             if (app()->environment('local', 'testing')) {
                 $errorMsg .= ' Error: '.$e->getMessage();
             }
+
             return [
                 'state' => 1,
                 'status' => 500,
@@ -112,14 +118,14 @@ class CryptomusService
 
     private function merchant(): string
     {
-        $merchant = (string) (config('services.cryptomus.merchant') ?: env('CRYPTOMUS_MERCHANT', ''));
+        $merchant = (string) config('services.cryptomus.merchant', '');
 
         return trim($merchant, " \t\n\r\0\x0B\"'");
     }
 
     private function paymentKey(): string
     {
-        $key = (string) (config('services.cryptomus.payment_key') ?: env('CRYPTOMUS_PAYMENT_KEY', ''));
+        $key = (string) config('services.cryptomus.payment_key', '');
 
         return trim($key, " \t\n\r\0\x0B\"'");
     }

@@ -2,14 +2,22 @@
 
 namespace App\Services;
 
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 
+/**
+ * Twilio REST client for virtual numbers: number search and pricing, purchase/release,
+ * outbound SMS/MMS, authenticated media downloads and webhook signature checks.
+ *
+ * Methods return {ok, ...} envelopes and never throw (except fetchProtectedUrl, which
+ * returns the raw response for streaming).
+ */
 class TwilioService
 {
     public function isConfigured(): bool
     {
-        return trim((string) config('services.twilio.account_sid')) !== '' && trim((string) config('services.twilio.auth_token')) !== '';
+        return $this->credentials() !== null;
     }
 
     public function availableNumbers(string $countryIso, string $type, bool $sms = true, bool $voice = true, int $limit = 10, array $filters = []): array
@@ -66,6 +74,11 @@ class TwilioService
         return ['ok' => true, 'items' => $items, 'next_page_uri' => is_string($nextPageUri) ? $nextPageUri : null, 'type' => $type];
     }
 
+    /**
+     * Search every number type, relaxing the capability filter step by step (sms+voice →
+     * voice → sms → any) until `$limit` unique numbers are found. Many countries only stock
+     * one type or capability, so a strict search often comes back empty.
+     */
     public function availableAnyNumbers(string $countryIso, bool $sms = true, bool $voice = true, int $limit = 10, array $filters = []): array
     {
         $items = [];
@@ -124,6 +137,7 @@ class TwilioService
         ];
     }
 
+    /** Every country Twilio sells numbers in (follows pagination, max 10 pages). */
     public function availableCountries(): array
     {
         $sid = trim((string) config('services.twilio.account_sid'));
@@ -176,13 +190,10 @@ class TwilioService
                 break;
             }
 
+            // next_page_uri is absolute ("/2010-04-01/Accounts/{sid}/…"); make it relative to our base URL.
             $needle = '/Accounts/'.$sid;
             $pos = strpos($nextUri, $needle);
-            if ($pos !== false) {
-                $nextPath = substr($nextUri, $pos + strlen($needle));
-            } else {
-                $nextPath = $nextUri;
-            }
+            $nextPath = $pos !== false ? substr($nextUri, $pos + strlen($needle)) : $nextUri;
         }
 
         usort($items, fn ($a, $b) => strcmp((string) ($a['country_name'] ?? ''), (string) ($b['country_name'] ?? '')));
@@ -190,6 +201,7 @@ class TwilioService
         return ['ok' => true, 'items' => $items];
     }
 
+    /** Monthly price per number type in minor units, e.g. ['Local' => 115, 'Mobile' => null, …] (cached 3 days). */
     public function phoneNumberPricing(string $countryIso): array
     {
         $countryIso = strtoupper(trim($countryIso));
@@ -203,14 +215,12 @@ class TwilioService
             return $cached;
         }
 
-        $sid = (string) config('services.twilio.account_sid');
-        $token = (string) config('services.twilio.auth_token');
-        if (trim($sid) === '' || trim($token) === '') {
+        if (! $credentials = $this->credentials()) {
             return ['ok' => false, 'error' => 'Twilio is not configured.'];
         }
 
         try {
-            $res = Http::withBasicAuth($sid, $token)
+            $res = Http::withBasicAuth(...$credentials)
                 ->acceptJson()
                 ->timeout(30)
                 ->get('https://pricing.twilio.com/v1/PhoneNumbers/Countries/'.urlencode($countryIso));
@@ -376,19 +386,21 @@ class TwilioService
         ];
     }
 
+    /** GET a Twilio-hosted resource (MMS media, recordings) that requires account credentials. */
     public function fetchProtectedUrl(string $url): Response
     {
-        $sid = (string) config('services.twilio.account_sid');
-        $token = (string) config('services.twilio.auth_token');
-        if (trim($sid) === '' || trim($token) === '') {
+        if (! $credentials = $this->credentials()) {
             throw new \RuntimeException('Twilio is not configured.');
         }
 
-        return Http::withBasicAuth($sid, $token)
-            ->timeout(30)
-            ->get($url);
+        return Http::withBasicAuth(...$credentials)->timeout(30)->get($url);
     }
 
+    /**
+     * Verify X-Twilio-Signature: base64(HMAC-SHA1(url + sorted "keyvalue" POST params, auth token)).
+     *
+     * @see https://www.twilio.com/docs/usage/security#validating-requests
+     */
     public function validateSignature(string $fullUrl, array $params, string $signature): bool
     {
         $authToken = (string) config('services.twilio.auth_token');
@@ -427,22 +439,29 @@ class TwilioService
         return $this->request('DELETE', $path, []);
     }
 
-    private function request(string $method, string $path, array $payload): array
+    /** @return array{0: string, 1: string}|null [account SID, auth token] */
+    private function credentials(): ?array
     {
         $sid = (string) config('services.twilio.account_sid');
         $token = (string) config('services.twilio.auth_token');
-        if (trim($sid) === '' || trim($token) === '') {
+
+        return trim($sid) !== '' && trim($token) !== '' ? [$sid, $token] : null;
+    }
+
+    /** Account-scoped REST call (form-encoded); retries connection failures twice. */
+    private function request(string $method, string $path, array $payload): array
+    {
+        if (! $credentials = $this->credentials()) {
             return ['ok' => false, 'error' => 'Twilio is not configured.'];
         }
 
-        $base = 'https://api.twilio.com/2010-04-01/Accounts/'.trim($sid);
-        $client = Http::baseUrl($base)
-            ->withBasicAuth($sid, $token)
+        $client = Http::baseUrl('https://api.twilio.com/2010-04-01/Accounts/'.trim($credentials[0]))
+            ->withBasicAuth(...$credentials)
             ->asForm()
             ->acceptJson()
             ->timeout(30)
             ->retry(2, 100, function ($exception) {
-                return $exception instanceof \Illuminate\Http\Client\ConnectionException;
+                return $exception instanceof ConnectionException;
             }, throw: false);
 
         try {
@@ -458,6 +477,7 @@ class TwilioService
             if (app()->environment('local', 'testing')) {
                 $errorMsg .= ' Error: '.$e->getMessage();
             }
+
             return ['ok' => false, 'error' => $errorMsg];
         }
 

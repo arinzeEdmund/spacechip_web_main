@@ -5,6 +5,9 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * An immutable wallet ledger entry with the balance before and after.
+ */
 class WalletTransaction extends Model
 {
     protected $casts = [

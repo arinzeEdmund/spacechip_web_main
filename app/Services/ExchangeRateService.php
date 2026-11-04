@@ -6,6 +6,10 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
+/**
+ * USD→NGN rate for naira checkouts: live rate (cached) × configured markup, falling back to
+ * ESIM_USD_TO_NGN_RATE when the rate API is down.
+ */
 class ExchangeRateService
 {
     public function usdToNgn(): array

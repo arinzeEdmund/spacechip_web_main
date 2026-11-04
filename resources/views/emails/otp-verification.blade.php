@@ -9,8 +9,6 @@
         .wrapper { max-width: 520px; margin: 40px auto; padding: 0 16px; }
         .card { background: #ffffff; border-radius: 24px; padding: 40px 36px; box-shadow: 0 4px 24px rgba(15,31,31,.08); }
         .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 32px; }
-        .brand-logo { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(90deg, #f27457, #145454); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: 14px; text-align: center; line-height: 40px; }
-        .brand-name { font-weight: 800; color: rgba(20,84,84,.92); font-size: 16px; letter-spacing: .02em; }
         h1 { font-size: 22px; font-weight: 800; color: #0b1a1a; margin: 0 0 8px; }
         .sub { font-size: 15px; color: rgba(15,31,31,.62); margin: 0 0 32px; line-height: 1.5; }
         .otp-box { background: linear-gradient(135deg, rgba(242,116,87,.06), rgba(20,84,84,.06)); border: 1px solid rgba(20,84,84,.12); border-radius: 18px; padding: 28px; text-align: center; margin-bottom: 28px; }
@@ -27,8 +25,7 @@
     <div class="wrapper">
         <div class="card">
             <div class="brand">
-                <div class="brand-logo">SC</div>
-                <div class="brand-name">spacechip</div>
+                <img src="{{ asset('brand/spacechip-wordmark-dark.png') }}" width="132" height="26" alt="Spacechip" style="display:block;border:0;height:auto">
             </div>
 
             <h1>Verify your email</h1>

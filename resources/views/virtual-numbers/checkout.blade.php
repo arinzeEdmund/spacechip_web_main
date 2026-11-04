@@ -1,21 +1,21 @@
 <x-app-layout>
     <style>
-        :root{--primary:#f27457;--secondary:#145454}
+        :root{}
         .wrap{max-width:980px;margin:0 auto;padding:34px 16px 64px}
         .head{display:flex;justify-content:space-between;align-items:flex-end;gap:14px;flex-wrap:wrap;margin-bottom:16px}
-        .title{font-weight:950;letter-spacing:-.02em;color:#0b1a1a;font-size:28px}
-        .sub{color:rgba(15,31,31,.62);font-weight:650;margin-top:6px}
-        .glass{background:rgba(255,255,255,.75);backdrop-filter:blur(12px);border:1px solid rgba(20,84,84,.12);box-shadow:0 14px 35px rgba(15,31,31,.07);border-radius:22px}
-        .grid{display:grid;grid-template-columns:1fr;gap:14px}
+        .title{font-weight:950;letter-spacing:-.02em;color:var(--text);font-size:28px}
+        .sub{color:rgb(var(--ink-rgb) / .62);font-weight:650;margin-top:6px}
+        .glass{background:rgb(var(--surface-rgb) / .75);backdrop-filter:blur(12px);border:1px solid rgb(var(--ink-rgb) / .12);box-shadow:0 14px 35px rgba(0,0,0,.07);border-radius:22px}
+        .grid{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
         @media(min-width:900px){.grid{grid-template-columns:1.2fr .8fr}}
         .panel{padding:18px}
-        .btn{padding:12px 16px;border-radius:16px;font-weight:900;border:1px solid rgba(15,31,31,.10);background:rgba(255,255,255,.65);color:rgba(15,31,31,.72);text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:10px;width:100%}
-        .btn-primary{background:linear-gradient(90deg,var(--primary),var(--secondary));color:#fff;border:none;box-shadow:0 10px 28px rgba(20,84,84,.14)}
+        .btn{padding:12px 16px;border-radius:16px;font-weight:900;border:1px solid rgb(var(--ink-rgb) / .10);background:rgb(var(--surface-rgb) / .65);color:rgb(var(--ink-rgb) / .72);text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:10px;width:100%}
+        .btn-primary{background:var(--accent-fill);color:#fff;border:none;box-shadow:0 10px 28px rgba(0,0,0,.14)}
         .btn:disabled{opacity:.6;cursor:not-allowed}
         .kv{display:flex;justify-content:space-between;gap:12px;margin-top:10px}
-        .k{font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:rgba(15,31,31,.55)}
-        .v{font-size:14px;font-weight:900;color:#0b1a1a}
-        .msg{margin-top:10px;font-size:13px;color:rgba(15,31,31,.62);font-weight:700}
+        .k{font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:rgb(var(--ink-rgb) / .55)}
+        .v{font-size:14px;font-weight:900;color:var(--text)}
+        .msg{margin-top:10px;font-size:13px;color:rgb(var(--ink-rgb) / .62);font-weight:700}
     </style>
 
     <div class="wrap">
@@ -32,7 +32,7 @@
 
         <div class="grid">
             <div class="glass panel">
-                <div style="font-weight:950;color:#0b1a1a">Selected number</div>
+                <div style="font-weight:950;color:var(--text)">Selected number</div>
                 <div class="kv"><div class="k">Number</div><div class="v">{{ $phoneNumber }}</div></div>
                 <div class="kv"><div class="k">Country</div><div class="v">{{ strtoupper($product->country_iso) }}</div></div>
                 <div class="kv"><div class="k">Type</div><div class="v">{{ $numberType ?: '—' }}</div></div>
@@ -42,7 +42,7 @@
             </div>
 
             <div class="glass panel">
-                <div style="font-weight:950;color:#0b1a1a">Pay with Card</div>
+                <div style="font-weight:950;color:var(--text)">Pay with Card</div>
                 <div class="msg">We’ll securely store the Paystack authorization for monthly renewals.</div>
                 <div style="margin-top:14px">
                     <button id="subscribeBtn" class="btn btn-primary" type="button">Subscribe</button>
@@ -62,7 +62,7 @@
             const walletInfoEl = document.getElementById('walletInfo');
             const statusEl = document.getElementById('status');
             const csrfToken = @json(csrf_token());
-            const paystackKey = @json((string) (config('services.paystack.public_key') ?: env('PAYSTACK_PUBLIC_KEY')));
+            const paystackKey = @json((string) config('services.paystack.public_key', ''));
             const walletAmountMinor = @json((int) ($priceMinor ?? 0));
 
             const ctx = {

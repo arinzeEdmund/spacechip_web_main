@@ -4,35 +4,27 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
-        <meta name="theme-color" content="#0b1a1a">
         <meta name="mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
         <meta name="apple-mobile-web-app-title" content="{{ config('app.name', 'spacechip') }}">
         <title>Crypto Payment - {{ config('app.name', 'spacechip') }}</title>
-        <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
-        <link rel="alternate icon" href="{{ asset('favicon.svg') }}">
-        <link rel="apple-touch-icon" href="{{ asset('favicon.svg') }}">
-        <link rel="manifest" href="{{ asset('manifest.json') }}">
-        <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600,700" rel="stylesheet" />
+        @include('partials.head-assets')
         <style>
-            :root{--font-sans:"Instrument Sans",ui-sans-serif,system-ui,sans-serif;--primary:#f27457;--secondary:#145454}
+            :root{--font-sans:"Instrument Sans",ui-sans-serif,system-ui,sans-serif}
             *{box-sizing:border-box}
-            body{margin:0;font-family:var(--font-sans);min-height:100vh;background:
-                radial-gradient(900px 520px at 12% 14%, rgba(242,116,87,.32) 0%, rgba(242,116,87,0) 60%),
-                radial-gradient(980px 560px at 88% 18%, rgba(20,84,84,.26) 0%, rgba(20,84,84,0) 62%),
-                linear-gradient(180deg, #F7F7F8 0%, #F5F6F8 60%, #F7F7F8 100%);color:#0b1a1a}
+            body{margin:0;font-family:var(--font-sans);min-height:100vh;background:radial-gradient(900px 520px at 10% -10%, rgb(var(--accent-rgb) / .10) 0%, transparent 60%),
+                var(--bg);color:var(--text)}
             .container{max-width:760px;margin:0 auto;padding:24px}
-            .card{margin-top:26px;padding:22px;border-radius:22px;background:rgba(255,255,255,.75);backdrop-filter:blur(12px);border:1px solid rgba(20,84,84,.12);box-shadow:0 16px 40px rgba(15,31,31,.08)}
-            .logo{height:36px;width:36px;border-radius:12px;background:linear-gradient(90deg,var(--primary),var(--secondary));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900}
-            .spin{height:16px;width:16px;border-radius:9999px;border:2px solid rgba(15,31,31,.12);border-top-color:rgba(242,116,87,.92);animation:spin 1s linear infinite}
+            .card{margin-top:26px;padding:22px;border-radius:22px;background:rgb(var(--surface-rgb) / .75);backdrop-filter:blur(12px);border:1px solid rgb(var(--ink-rgb) / .12);box-shadow:0 16px 40px rgba(0,0,0,.08)}
+            .footer-wordmark{height:26px;width:auto;display:block}
+            .spin{height:16px;width:16px;border-radius:9999px;border:2px solid rgb(var(--ink-rgb) / .12);border-top-color:rgb(var(--accent-rgb) / .92);animation:spin 1s linear infinite}
             @keyframes spin{to{transform:rotate(360deg)}}
             .row{display:flex;gap:10px;align-items:center}
             .title{font-size:20px;font-weight:900}
-            .sub{margin-top:8px;color:rgba(15,31,31,.62);line-height:1.5}
-            .pill{margin-top:14px;padding:10px 12px;border-radius:12px;background:rgba(20,84,84,.06);border:1px solid rgba(20,84,84,.10);font-weight:750}
-            .btn{margin-top:16px;display:inline-flex;align-items:center;justify-content:center;padding:10px 14px;border-radius:12px;background:#fff;border:1px solid rgba(20,84,84,.14);font-weight:800;color:rgba(20,84,84,.92);text-decoration:none}
+            .sub{margin-top:8px;color:rgb(var(--ink-rgb) / .62);line-height:1.5}
+            .pill{margin-top:14px;padding:10px 12px;border-radius:12px;background:rgb(var(--ink-rgb) / .06);border:1px solid rgb(var(--ink-rgb) / .10);font-weight:750}
+            .btn{margin-top:16px;display:inline-flex;align-items:center;justify-content:center;padding:10px 14px;border-radius:12px;background:var(--surface);border:1px solid rgb(var(--ink-rgb) / .14);font-weight:800;color:rgb(var(--accent-text-rgb) / .92);text-decoration:none}
             @media(max-width:640px){
                 .container{padding:16px}
                 .card{padding:18px;border-radius:18px}
@@ -46,8 +38,7 @@
     <body>
         <div class="container">
             <div class="row">
-                <div class="logo">SC</div>
-                <div style="font-weight:900;color:rgba(20,84,84,.92)">spacechip</div>
+                <div style="color:var(--text)">@include('partials.brand-wordmark', ['class' => 'footer-wordmark'])</div>
             </div>
 
             <div class="card">

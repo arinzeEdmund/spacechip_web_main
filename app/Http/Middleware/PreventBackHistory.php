@@ -6,6 +6,9 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
+/**
+ * Sends no-store cache headers so the browser's back button can't show an auth page after login/logout.
+ */
 class PreventBackHistory
 {
     /**

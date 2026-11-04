@@ -8,6 +8,9 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
+/**
+ * The 6-digit email verification code.
+ */
 class OtpVerificationMail extends Mailable
 {
     use Queueable, SerializesModels;
@@ -20,7 +23,7 @@ class OtpVerificationMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Your ' . config('app.name') . ' Verification Code',
+            subject: 'Your '.config('app.name').' Verification Code',
         );
     }
 

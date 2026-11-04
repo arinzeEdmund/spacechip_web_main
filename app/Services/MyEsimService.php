@@ -5,15 +5,24 @@ namespace App\Services;
 use App\Models\Payment;
 use Illuminate\Support\Carbon;
 
+/**
+ * Builds the "My eSIMs" list from fulfilled card/crypto payments.
+ *
+ * Expiry is estimated from the bundle's validity ("7 days" → purchase + 7d) because providers
+ * don't report it consistently. Repeat purchases for the same ICCID (top-ups) collapse to the
+ * most recent one.
+ */
 class MyEsimService
 {
-    public function listForUser(int $userId, string $filter, int $page, int $perPage, QrCodeService $qr): array
+    public function __construct(private QrCodeService $qr) {}
+
+    public function listForUser(int $userId, string $filter, int $page, int $perPage): array
     {
         $filter = in_array($filter, ['valid', 'expired'], true) ? $filter : 'valid';
         $page = max(1, $page);
         $perPage = max(5, min(30, $perPage));
 
-        $rows = Payment::query()
+        $payments = Payment::query()
             ->where('user_id', $userId)
             ->whereIn('provider', ['paystack', 'cryptomus'])
             ->whereNotNull('fulfillment_payload')
@@ -21,84 +30,11 @@ class MyEsimService
             ->get();
 
         $items = [];
-
-        foreach ($rows as $p) {
-            $fulfillment = is_array($p->fulfillment_payload) ? $p->fulfillment_payload : [];
-            $providerPayload = is_array($p->provider_payload) ? $p->provider_payload : [];
-            $bundle = is_array(data_get($providerPayload, 'bundle')) ? (array) data_get($providerPayload, 'bundle') : [];
-
-            if (empty($bundle) && is_array($fulfillment['bundle_details'] ?? null)) {
-                $bundle = (array) $fulfillment['bundle_details'];
+        foreach ($payments as $payment) {
+            $item = $this->present($payment);
+            if ($item && $item['status'] === $filter) {
+                $items[] = $item;
             }
-
-            $validityStr = (string) ($bundle['validity'] ?? data_get($providerPayload, 'bundle.validity', ''));
-            $days = $this->parseDays($validityStr);
-            $purchasedAt = $p->created_at ? $p->created_at->copy() : Carbon::now();
-            $expiresAt = $days ? $purchasedAt->copy()->addDays($days) : null;
-
-            $isExpired = $expiresAt ? $expiresAt->isPast() : false;
-            if ($filter === 'expired' && ! $isExpired) {
-                continue;
-            }
-            if ($filter === 'valid' && $isExpired) {
-                continue;
-            }
-
-            $glo = is_array($fulfillment['gloesim'] ?? null) ? $fulfillment['gloesim'] : [];
-            $airalo = is_array($fulfillment['airalo'] ?? null) ? $fulfillment['airalo'] : [];
-            $isAiralo = isset($fulfillment['airalo']) || !isset($fulfillment['gloesim']);
-
-            $lpaValue = (string) ($fulfillment['lpa'] ?? (data_get($glo, 'qr_code_text') ?? ''));
-            $activationValue = (string) ($fulfillment['activation_code'] ?? '');
-            $smdpValue = (string) ($fulfillment['smdp_address'] ?? (data_get($glo, 'smdp_address') ?? ''));
-            $qrPayload = $qr->esimQrPayload($lpaValue !== '' ? $lpaValue : $activationValue, $smdpValue);
-            $iccidValue = (string) ($fulfillment['iccid'] ?? (data_get($airalo, 'sims.0.iccid') ?? (data_get($airalo, 'iccid') ?? (data_get($glo, 'iccid') ?? ''))));
-            $canRenew = (bool) ($fulfillment['can_renew'] ?? ($isAiralo ? true : (bool) data_get($glo, 'can_renew')));
-            $isFulfilled = (bool) ($fulfillment['ok'] ?? false) || (string) $p->status === 'fulfilled';
-            if (trim($iccidValue) === '' || ! $isFulfilled) {
-                continue;
-            }
-
-            $items[] = [
-                'id' => (int) $p->id,
-                'provider' => (string) $p->provider,
-                'reference' => (string) $p->provider_reference,
-                'asset_type' => (string) $p->asset_type,
-                'asset_id' => (string) $p->asset_id,
-                'bundle_id' => (string) $p->bundle_id,
-                'package_type' => (string) $p->package_type,
-                'purchased_at' => $purchasedAt->toIso8601String(),
-                'expires_at' => $expiresAt ? $expiresAt->toIso8601String() : null,
-                'status' => $isExpired ? 'expired' : 'valid',
-                'asset' => [
-                    'name' => (string) data_get($providerPayload, 'asset.name', ''),
-                    'code' => (string) data_get($providerPayload, 'asset.code', ''),
-                    'flag' => (string) data_get($providerPayload, 'asset.flag', ''),
-                    'flag_url' => (string) data_get($providerPayload, 'asset.flag_url', ''),
-                ],
-                'bundle' => [
-                    'name' => (string) ($bundle['name'] ?? ''),
-                    'data' => (string) ($bundle['data'] ?? ''),
-                    'validity' => $validityStr,
-                    'price_formatted' => (string) ($bundle['price_formatted'] ?? ''),
-                ],
-                'esim' => [
-                    'iccid' => $iccidValue,
-                    'esim_id' => (string) ($fulfillment['esim_id'] ?? ''),
-                    'activation_code' => $activationValue,
-                    'lpa' => $lpaValue,
-                    'can_renew' => $canRenew,
-                    'puk_code' => (string) ($fulfillment['puk_code'] ?? ''),
-                    'number' => (string) ($fulfillment['number'] ?? ''),
-                    'esim_status' => (string) ($fulfillment['esim_status'] ?? ''),
-                    'direct_installation_link_ios' => (string) ($fulfillment['direct_installation_link_ios'] ?? ''),
-                    'direct_installation_link_android' => (string) ($fulfillment['direct_installation_link_android'] ?? ''),
-                    'qr_code_url' => (string) ($fulfillment['qr_code_url'] ?? ''),
-                    'qr_payload' => $qrPayload,
-                    'smdp_address' => $smdpValue,
-                    'qr_code_data_url' => $qrPayload !== '' ? $qr->svgDataUrl($qrPayload) : '',
-                ],
-            ];
         }
 
         $items = $this->dedupe($items);
@@ -116,45 +52,93 @@ class MyEsimService
         ];
     }
 
-    private function parseDays(?string $value): ?int
+    /** One list row, or null when the payment hasn't produced an installable eSIM. */
+    private function present(Payment $p): ?array
     {
-        if (! is_string($value)) {
+        $f = is_array($p->fulfillment_payload) ? $p->fulfillment_payload : [];
+        $meta = is_array($p->provider_payload) ? $p->provider_payload : [];
+        $bundle = (array) (data_get($meta, 'bundle') ?: ($f['bundle_details'] ?? []));
+
+        // Raw provider payloads, for records stored before fields were flattened.
+        $glo = is_array($f['gloesim'] ?? null) ? $f['gloesim'] : [];
+        $airalo = is_array($f['airalo'] ?? null) ? $f['airalo'] : [];
+        $isAiralo = isset($f['airalo']) || ! isset($f['gloesim']);
+
+        $iccid = (string) ($f['iccid'] ?? data_get($airalo, 'sims.0.iccid') ?? data_get($airalo, 'iccid') ?? data_get($glo, 'iccid') ?? '');
+        $fulfilled = (bool) ($f['ok'] ?? false) || $p->status === 'fulfilled';
+        if (trim($iccid) === '' || ! $fulfilled) {
             return null;
         }
-        if (preg_match('/(\d+)/', $value, $m)) {
-            $days = (int) $m[1];
 
-            return $days > 0 ? $days : null;
-        }
+        $validity = (string) ($bundle['validity'] ?? '');
+        $days = preg_match('/(\d+)/', $validity, $m) && (int) $m[1] > 0 ? (int) $m[1] : null;
+        $purchasedAt = $p->created_at?->copy() ?? Carbon::now();
+        $expiresAt = $days ? $purchasedAt->copy()->addDays($days) : null;
 
-        return null;
+        $lpa = (string) ($f['lpa'] ?? data_get($glo, 'qr_code_text') ?? '');
+        $activationCode = (string) ($f['activation_code'] ?? '');
+        $smdp = (string) ($f['smdp_address'] ?? data_get($glo, 'smdp_address') ?? '');
+        $qrPayload = $this->qr->esimQrPayload($lpa !== '' ? $lpa : $activationCode, $smdp);
+
+        return [
+            'id' => (int) $p->id,
+            'provider' => (string) $p->provider,
+            'reference' => (string) $p->provider_reference,
+            'asset_type' => (string) $p->asset_type,
+            'asset_id' => (string) $p->asset_id,
+            'bundle_id' => (string) $p->bundle_id,
+            'package_type' => (string) $p->package_type,
+            'purchased_at' => $purchasedAt->toIso8601String(),
+            'expires_at' => $expiresAt?->toIso8601String(),
+            'status' => $expiresAt?->isPast() ? 'expired' : 'valid',
+            'asset' => [
+                'name' => (string) data_get($meta, 'asset.name', ''),
+                'code' => (string) data_get($meta, 'asset.code', ''),
+                'flag' => (string) data_get($meta, 'asset.flag', ''),
+                'flag_url' => (string) data_get($meta, 'asset.flag_url', ''),
+            ],
+            'bundle' => [
+                'name' => (string) ($bundle['name'] ?? ''),
+                'data' => (string) ($bundle['data'] ?? ''),
+                'validity' => $validity,
+                'price_formatted' => (string) ($bundle['price_formatted'] ?? ''),
+            ],
+            'esim' => [
+                'iccid' => $iccid,
+                'esim_id' => (string) ($f['esim_id'] ?? ''),
+                'activation_code' => $activationCode,
+                'lpa' => $lpa,
+                // Airalo SIMs are always renewable; GloEsim reports it per SIM.
+                'can_renew' => (bool) ($f['can_renew'] ?? ($isAiralo ?: (bool) data_get($glo, 'can_renew'))),
+                'puk_code' => (string) ($f['puk_code'] ?? ''),
+                'number' => (string) ($f['number'] ?? ''),
+                'esim_status' => (string) ($f['esim_status'] ?? ''),
+                'direct_installation_link_ios' => (string) ($f['direct_installation_link_ios'] ?? ''),
+                'direct_installation_link_android' => (string) ($f['direct_installation_link_android'] ?? ''),
+                'qr_code_url' => (string) ($f['qr_code_url'] ?? ''),
+                'qr_payload' => $qrPayload,
+                'smdp_address' => $smdp,
+                'qr_code_data_url' => $qrPayload !== '' ? $this->qr->svgDataUrl($qrPayload) : '',
+            ],
+        ];
     }
 
+    /** Keep the newest row per ICCID (falling back to bundle, reference, then payment id). */
     private function dedupe(array $items): array
     {
-        $deduped = [];
-        $seenKeys = [];
+        $seen = [];
 
-        foreach ($items as $it) {
-            $iccid = trim((string) data_get($it, 'esim.iccid', ''));
-            $bundleId = trim((string) ($it['bundle_id'] ?? ''));
-            $provider = (string) ($it['provider'] ?? '');
-            $reference = (string) ($it['reference'] ?? '');
-            $paymentId = (int) ($it['id'] ?? 0);
+        return array_values(array_filter($items, function (array $it) use (&$seen) {
+            $iccid = trim($it['esim']['iccid']);
+            $bundleId = trim($it['bundle_id']);
+            $key = match (true) {
+                $iccid !== '' => 'iccid:'.$iccid,
+                $bundleId !== '' => 'bundle:'.$bundleId,
+                $it['reference'] !== '' => 'ref:'.$it['provider'].':'.$it['reference'],
+                default => 'payment:'.$it['id'],
+            };
 
-            $key = $iccid !== ''
-                ? 'iccid:'.$iccid
-                : ($bundleId !== ''
-                    ? 'bundle:'.$bundleId
-                    : ($reference !== '' ? 'ref:'.$provider.':'.$reference : 'payment:'.$paymentId));
-
-            if (isset($seenKeys[$key])) {
-                continue;
-            }
-            $seenKeys[$key] = true;
-            $deduped[] = $it;
-        }
-
-        return $deduped;
+            return ! isset($seen[$key]) && ($seen[$key] = true);
+        }));
     }
 }

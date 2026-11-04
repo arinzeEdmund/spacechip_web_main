@@ -3,10 +3,11 @@
 namespace Tests\Feature;
 
 use App\Services\AiraloService;
-use App\Services\FiveSimService;
 use App\Services\CryptomusService;
+use App\Services\FiveSimService;
 use App\Services\GloEsimService;
 use App\Services\TwilioService;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -19,7 +20,7 @@ class ApiErrorHandlingTest extends TestCase
             '*/Accounts/*' => Http::response(['message' => 'Twilio is down'], 503),
         ]);
 
-        $service = new TwilioService();
+        $service = new TwilioService;
         $response = $service->availableCountries();
 
         $this->assertFalse($response['ok']);
@@ -36,12 +37,12 @@ class ApiErrorHandlingTest extends TestCase
                 ->push(['data' => [['id' => 'pkg1', 'title' => 'Package 1']]], 200),
         ]);
 
-        $service = new AiraloService();
+        $service = new AiraloService;
         $response = $service->allRegionsWithPrices();
 
         $this->assertNotEmpty($response);
         $this->assertEquals('Package 1', $response[0]['name']);
-        
+
         // Should have 2 token calls + 2 package calls
         // 1st request: token call (1), package call (2) -> 401
         // 2nd request (retry): token call (3), package call (4) -> 200
@@ -55,7 +56,7 @@ class ApiErrorHandlingTest extends TestCase
             '*/packages*' => Http::response(['message' => 'Internal Server Error'], 500),
         ]);
 
-        $service = new AiraloService();
+        $service = new AiraloService;
         $response = $service->getRawPackages();
 
         $this->assertFalse($response['ok']);
@@ -68,11 +69,11 @@ class ApiErrorHandlingTest extends TestCase
         Http::fake([
             '*/token' => Http::response(['data' => ['access_token' => 'token']], 200),
             '*/packages*' => function () {
-                throw new \Illuminate\Http\Client\ConnectionException('Connection timed out');
+                throw new ConnectionException('Connection timed out');
             },
         ]);
 
-        $service = new AiraloService();
+        $service = new AiraloService;
         $response = $service->getRawPackages();
 
         $this->assertFalse($response['ok']);
@@ -82,12 +83,13 @@ class ApiErrorHandlingTest extends TestCase
 
     public function test_fivesim_service_handles_4xx_error()
     {
+        config(['services.fivesim.token' => 'token']);
         Http::fake([
-            '*/guest/countries' => Http::response(['message' => 'Bad Request'], 400),
+            '*/user/profile' => Http::response(['message' => 'Bad Request'], 400),
         ]);
 
-        $service = new FiveSimService();
-        $response = $service->guestCountries();
+        $service = new FiveSimService;
+        $response = $service->profile();
 
         $this->assertFalse($response['ok']);
         $this->assertEquals(400, $response['status']);
@@ -100,7 +102,7 @@ class ApiErrorHandlingTest extends TestCase
             '*/v1/payment' => Http::response(['message' => 'Gateway Timeout'], 504),
         ]);
 
-        $service = new CryptomusService();
+        $service = new CryptomusService;
         $response = $service->createInvoice(['amount' => 10, 'currency' => 'USD', 'order_id' => '123']);
 
         $this->assertEquals(1, $response['state']);
@@ -114,7 +116,7 @@ class ApiErrorHandlingTest extends TestCase
             '*' => Http::response(['message' => 'Not Found'], 404),
         ]);
 
-        $service = new GloEsimService();
+        $service = new GloEsimService;
         $response = $service->popularCountries();
 
         // GloEsimService returns empty array or fallback on error

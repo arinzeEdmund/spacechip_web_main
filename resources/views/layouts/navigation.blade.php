@@ -1,152 +1,131 @@
 @php
     $user = Auth::user();
-    $fullName = trim((string) (($user->first_name ?? '').' '.($user->last_name ?? '')));
-    if ($fullName === '') {
-        $fullName = trim((string) ($user->name ?? ''));
+    $fullName = trim((string) ($user->name ?? ''));
+    $initials = collect(preg_split('/\s+/', $fullName) ?: [])
+        ->filter()
+        ->take(2)
+        ->map(fn ($part) => mb_substr($part, 0, 1))
+        ->implode('');
+    $initials = mb_strtoupper($initials ?: 'U');
+    $firstName = \Illuminate\Support\Str::title(mb_strtolower(\Illuminate\Support\Str::before($fullName.' ', ' '))) ?: 'Account';
+
+    // Styled with namespaced .scn-* classes (public/css/spacechip-ui.css) so
+    // page-level CSS such as the dashboard's `.hidden` rule cannot leak in.
+    $items = [
+        [
+            'label' => 'eSIMs',
+            'href' => route('dashboard'),
+            'active' => request()->routeIs('dashboard'),
+            'icon' => '<path d="M7 3h7l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><rect x="8.5" y="11" width="7" height="6" rx="1.2"/>',
+        ],
+        [
+            'label' => 'Numbers',
+            'href' => route('dashboard.virtual.index'),
+            'active' => request()->routeIs('dashboard.virtual.*'),
+            'icon' => '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z"/>',
+        ],
+        [
+            'label' => 'Account',
+            'href' => route('profile.edit'),
+            'active' => request()->routeIs('profile.*'),
+            'icon' => '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+        ],
+    ];
+
+    if ($user?->isAdmin()) {
+        $items[] = [
+            'label' => 'Admin',
+            'href' => route('admin.dashboard'),
+            'active' => request()->routeIs('admin.*'),
+            'icon' => '<path d="M12 3l7 3.5v5.5c0 4.5-3 8-7 9-4-1-7-4.5-7-9V6.5L12 3Z"/><path d="m9 12 2 2 4-4"/>',
+        ];
     }
-    $parts = preg_split('/\s+/', $fullName) ?: [];
-    $initials = '';
-    foreach (array_slice($parts, 0, 2) as $p) {
-        $initials .= mb_substr((string) $p, 0, 1);
-    }
-    $initials = mb_strtoupper($initials);
+
+    $svg = fn (string $paths) => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'.$paths.'</svg>';
 @endphp
 
-@if (request()->routeIs('dashboard'))
-    <nav class="sticky top-0 z-50 border-b border-gray-100 dark:border-white/10 bg-white/78 dark:bg-slate-900/78 backdrop-blur-md">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center flex-wrap gap-3 py-3">
-                <a href="{{ url('/') }}" class="flex items-center gap-3">
-                    <div class="h-10 w-10 rounded-full bg-gradient-to-r from-[#f27457] to-[#145454] flex items-center justify-center text-white font-extrabold tracking-wide">
-                        SC
-                    </div>
-                    <div class="font-extrabold text-[#145454] dark:text-white tracking-wide">
-                        spacechip
-                    </div>
-                </a>
+<nav class="scn-nav" aria-label="Main">
+    <div class="scn-bar">
+        <a href="{{ route('dashboard') }}" class="scn-brand" aria-label="spacechip home">
+            @include('partials.brand-wordmark', ['class' => 'scn-wordmark'])
+        </a>
 
-                <div class="flex items-center gap-2 sm:gap-3">
-                    <a href="{{ route('dashboard.virtual.index') }}" class="px-3.5 py-2.5 rounded-full bg-white/55 dark:bg-white/10 border border-black/10 dark:border-white/10 font-extrabold text-gray-700 dark:text-gray-200 flex items-center gap-2 transition-all hover:bg-white/70 dark:hover:bg-white/20">
-                        <span class="hidden sm:inline">Numbers</span>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
+        <div class="scn-tabs">
+            @foreach ($items as $item)
+                @continue($item['label'] === 'Account')
+                <a href="{{ $item['href'] }}" class="scn-tab {{ $item['active'] ? 'is-active' : '' }}" @if ($item['active']) aria-current="page" @endif>
+                    {!! $svg($item['icon']) !!}
+                    {{ $item['label'] }}
+                </a>
+            @endforeach
+        </div>
+
+        <x-theme-flip class="scn-flip" />
+
+        <div class="scn-account" x-data="{ open: false }" @keydown.escape.window="open = false" @click.outside="open = false">
+            <button type="button" class="scn-account-btn" @click="open = ! open" :aria-expanded="open.toString()" aria-haspopup="menu" aria-label="Account menu">
+                <span class="scn-avatar">{{ $initials }}</span>
+                <span class="scn-account-name">{{ $firstName }}</span>
+                <svg class="scn-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+
+            <div class="scn-scrim" x-cloak x-show="open" x-transition.opacity @click="open = false"></div>
+            <div class="scn-menu" role="menu" x-cloak x-show="open"
+                 x-transition:enter="transition ease-out duration-200"
+                 x-transition:enter-start="opacity-0 scale-95 -translate-y-1"
+                 x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+                 x-transition:leave="transition ease-in duration-150"
+                 x-transition:leave-start="opacity-100 scale-100"
+                 x-transition:leave-end="opacity-0 scale-95">
+                <div class="scn-menu-head">
+                    <span class="scn-avatar">{{ $initials }}</span>
+                    <div style="min-width:0">
+                        <div class="scn-menu-name">{{ $fullName }}</div>
+                        <div class="scn-menu-email">{{ $user->email }}</div>
+                    </div>
+                </div>
+
+                @foreach ($items as $item)
+                    <a href="{{ $item['href'] }}" role="menuitem" class="{{ $item['active'] ? 'is-active' : '' }}">
+                        {!! $svg($item['icon']) !!}
+                        {{ $item['label'] === 'Account' ? 'Account & security' : $item['label'] }}
                     </a>
-                    @if ((bool) ($user?->is_admin ?? false) || in_array(mb_strtolower((string) ($user?->email ?? '')), array_values(array_filter(array_map(fn ($v) => trim(mb_strtolower($v)), explode(',', (string) (env('ADMIN_EMAILS', '') ?: ''))))), true))
-                        <a href="{{ route('admin.dashboard') }}" class="px-3.5 py-2.5 rounded-full bg-white/55 dark:bg-white/10 border border-black/10 dark:border-white/10 font-extrabold text-gray-700 dark:text-gray-200 flex items-center gap-2 transition-all hover:bg-white/70 dark:hover:bg-white/20">
-                            <span class="hidden sm:inline">Admin</span>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M12 2l7 4v6c0 5-3 9-7 10-4-1-7-5-7-10V6l7-4Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        </a>
-                    @endif
-                    <div class="hidden sm:flex items-center gap-3 p-2 rounded-2xl border border-black/5 dark:border-white/10 bg-black/5 dark:bg-white/5">
-                        <div class="h-10 w-10 rounded-full bg-white/20 dark:bg-white/10 border border-white/20 flex items-center justify-center text-gray-700 dark:text-white font-black">
-                            {{ $initials }}
-                        </div>
-                        <div class="hidden sm:block leading-none">
-                            <div class="font-black text-gray-800 dark:text-white text-sm">
-                                {{ $fullName }}
-                            </div>
-                            <div class="font-bold text-gray-500 dark:text-gray-400 text-xs mt-0.5">
-                                {{ $user->email }}
-                            </div>
-                        </div>
-                    </div>
-
-                    <form method="POST" action="{{ route('logout') }}">
-                        @csrf
-                        <button type="submit" class="px-4 py-2.5 rounded-full bg-gradient-to-r from-[#f27457] to-[#145454] text-white text-sm font-bold shadow-lg shadow-[#145454]/20 flex items-center gap-2 transition-all hover:brightness-110">
-                            <span class="hidden sm:inline">Logout</span>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        </button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </nav>
-@else
-    <nav x-data="{ open: false }" class="sticky top-0 z-50 bg-gradient-to-r from-[#f27457] to-[#145454] border-b border-white/10">
-    <!-- Primary Navigation Menu -->
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex justify-between h-16">
-            <div class="flex items-center">
-                <a href="{{ url('/') }}" class="flex items-center gap-3">
-                    <div class="h-9 w-9 rounded-full bg-white/20 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white font-black tracking-wide">
-                        SC
-                    </div>
-                    <div class="text-white font-black tracking-tight">
-                        spacechip
-                    </div>
+                @endforeach
+                <a href="{{ route('dashboard.virtual.my') }}" role="menuitem">
+                    {!! $svg('<rect x="3" y="5" width="18" height="14" rx="3"/><path d="m3 7 9 6 9-6"/>') !!}
+                    My numbers &amp; inbox
                 </a>
-            </div>
+                <a href="{{ route('help') }}" role="menuitem">
+                    {!! $svg('<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.7M12 17h.01"/>') !!}
+                    Help center
+                </a>
 
-            <div class="hidden sm:flex items-center gap-3">
-                <div class="flex items-center gap-3">
-                    <div class="h-10 w-10 rounded-full flex items-center justify-center text-white font-black tracking-wide bg-white/20 border border-white/20">
-                        {{ $initials }}
-                    </div>
-                    <div class="leading-none">
-                        <div class="text-sm font-black text-white">
-                            {{ $fullName }}
-                        </div>
-                        <div class="text-[10px] uppercase font-bold text-white/70 tracking-wider mt-0.5">
-                            {{ $user->email }}
-                        </div>
-                    </div>
+                <div class="scn-sep"></div>
+
+                <div class="scn-theme">
+                    <span>Theme</span>
+                    <x-theme-toggle compact />
                 </div>
 
-                <form method="POST" action="{{ route('logout') }}" class="ms-2">
-                    @csrf
-                    <button type="submit"
-                            class="inline-flex items-center justify-center h-10 w-10 rounded-full bg-white/15 text-white hover:bg-white/20 transition-all shadow-md border border-white/20"
-                            aria-label="Logout">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
-                        </svg>
-                    </button>
-                </form>
-            </div>
+                <div class="scn-sep"></div>
 
-            <!-- Hamburger -->
-            <div class="-me-2 flex items-center sm:hidden">
-                <button @click="open = ! open" class="inline-flex items-center justify-center p-2 rounded-md text-white/80 hover:text-white hover:bg-white/10 focus:outline-none transition duration-150 ease-in-out">
-                    <svg class="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24">
-                        <path :class="{'hidden': open, 'inline-flex': ! open }" class="inline-flex" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-                        <path :class="{'hidden': ! open, 'inline-flex': open }" class="hidden" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Responsive Navigation Menu -->
-    <div :class="{'block': open, 'hidden': ! open}" class="hidden sm:hidden bg-white dark:bg-slate-900 border-t border-gray-100 dark:border-white/10">
-        <!-- Responsive Settings Options -->
-        <div class="pt-4 pb-1">
-            <div class="px-4">
-                <div class="font-bold text-base text-gray-800 dark:text-white">
-                    {{ $fullName }}
-                </div>
-                <div class="font-medium text-sm text-gray-500 dark:text-gray-400">{{ $user->email }}</div>
-            </div>
-
-            <div class="mt-3 space-y-1">
-                <!-- Authentication -->
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf
-
-                    <button type="submit" class="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 flex items-center gap-2">
-                        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
-                        </svg>
-                        {{ __('Log Out') }}
+                    <button type="submit" role="menuitem" class="scn-signout">
+                        {!! $svg('<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H4"/>') !!}
+                        Sign out
                     </button>
                 </form>
             </div>
         </div>
     </div>
-    </nav>
-@endif
+</nav>
+
+<nav class="scn-tabbar" aria-label="Sections">
+    @foreach ($items as $item)
+        <a href="{{ $item['href'] }}" class="{{ $item['active'] ? 'is-active' : '' }}" @if ($item['active']) aria-current="page" @endif>
+            {!! $svg($item['icon']) !!}
+            <span>{{ $item['label'] }}</span>
+        </a>
+    @endforeach
+</nav>

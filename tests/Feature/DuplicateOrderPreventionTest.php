@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Models\Payment;
 use App\Models\User;
-use App\Services\AiraloService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -51,7 +50,7 @@ class DuplicateOrderPreventionTest extends TestCase
     {
         $user = User::factory()->create(['email' => 'test@example.com']);
         $fulfillmentPayload = ['ok' => true, 'iccid' => '123456789'];
-        
+
         $payment = Payment::create([
             'user_id' => $user->id,
             'provider' => 'paystack',
@@ -75,7 +74,7 @@ class DuplicateOrderPreventionTest extends TestCase
             'ok' => true,
             'fulfillment' => $fulfillmentPayload,
         ]);
-        
+
         // Ensure no external API calls were made because it returned early
         Http::assertNothingSent();
     }
