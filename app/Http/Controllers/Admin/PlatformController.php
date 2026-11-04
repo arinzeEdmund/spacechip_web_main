@@ -132,6 +132,7 @@ class PlatformController extends Controller
                 'Session driver' => config('session.driver'),
                 'Mailer' => config('mail.default'),
                 'Timezone' => config('app.timezone'),
+                'Scheduler' => ($t = (int) \Illuminate\Support\Facades\Cache::get('scheduler:last_run')) ? 'Last ran '.\Illuminate\Support\Carbon::createFromTimestamp($t)->diffForHumans() : 'Not running (add the cron entry)',
             ],
             'queue' => [
                 'pending' => DB::table('jobs')->count(),

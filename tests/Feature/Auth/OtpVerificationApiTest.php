@@ -18,7 +18,7 @@ class OtpVerificationApiTest extends TestCase
 
         $response = $this->postJson('/api/auth/verify-otp', [
             'user_id' => $user->id,
-            'otp'     => '000000',
+            'otp' => '000000',
         ]);
 
         $response->assertStatus(409);
@@ -30,13 +30,13 @@ class OtpVerificationApiTest extends TestCase
     {
         $user = User::factory()->unverified()->create();
         $user->forceFill([
-            'email_otp'            => '123456',
+            'email_otp' => hash_hmac('sha256', '123456', (string) config('app.key')),
             'email_otp_expires_at' => now()->addMinutes(10),
         ])->save();
 
         $response = $this->postJson('/api/auth/verify-otp', [
             'user_id' => $user->id,
-            'otp'     => '123456',
+            'otp' => '123456',
         ]);
 
         $response->assertOk();
@@ -51,13 +51,13 @@ class OtpVerificationApiTest extends TestCase
     {
         $user = User::factory()->unverified()->create();
         $user->forceFill([
-            'email_otp'            => '123456',
+            'email_otp' => hash_hmac('sha256', '123456', (string) config('app.key')),
             'email_otp_expires_at' => now()->addMinutes(10),
         ])->save();
 
         $response = $this->postJson('/api/auth/verify-otp', [
             'user_id' => $user->id,
-            'otp'     => '654321',
+            'otp' => '654321',
         ]);
 
         $response->assertStatus(422);
@@ -69,13 +69,13 @@ class OtpVerificationApiTest extends TestCase
     {
         $user = User::factory()->unverified()->create();
         $user->forceFill([
-            'email_otp'            => '123456',
+            'email_otp' => hash_hmac('sha256', '123456', (string) config('app.key')),
             'email_otp_expires_at' => now()->subMinute(),
         ])->save();
 
         $response = $this->postJson('/api/auth/verify-otp', [
             'user_id' => $user->id,
-            'otp'     => '123456',
+            'otp' => '123456',
         ]);
 
         $response->assertStatus(422);

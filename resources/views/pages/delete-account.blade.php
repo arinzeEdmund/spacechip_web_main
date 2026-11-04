@@ -1,18 +1,18 @@
 <x-public-layout>
     <div class="space-y-6">
         <div>
-            <div class="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#0b1a1a]">
+            <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-text">
                 Delete Your Account
-            </div>
-            <p class="mt-2 text-sm sm:text-base text-gray-600">
+            </h1>
+            <p class="mt-2 text-sm sm:text-base text-muted">
                 You can delete your Spacechip account at any time.
             </p>
         </div>
 
-        <div class="space-y-5 text-sm text-gray-700 leading-7">
+        <div class="space-y-5 text-sm text-muted leading-7">
 
             <div>
-                <div class="font-extrabold text-[#145454]">Delete via the Spacechip App</div>
+                <div class="font-semibold text-text">Delete via the Spacechip App</div>
                 <div class="mt-2">
                     The easiest way to delete your account is directly from the app:
                 </div>
@@ -25,7 +25,7 @@
             </div>
 
             <div>
-                <div class="font-extrabold text-[#145454]">What gets deleted</div>
+                <div class="font-semibold text-text">What gets deleted</div>
                 <div class="mt-2">
                     When you delete your account, the following data is permanently removed:
                 </div>
@@ -36,18 +36,18 @@
                     <li>Your virtual number subscriptions and message history</li>
                     <li>All other account-related data</li>
                 </ul>
-                <div class="mt-2 text-red-600 font-semibold">
+                <div class="mt-2 text-danger font-semibold">
                     This action is permanent and cannot be undone.
                 </div>
             </div>
 
             <div>
-                <div class="font-extrabold text-[#145454]">Need help?</div>
+                <div class="font-semibold text-text">Need help?</div>
                 <div class="mt-2">
                     If you are unable to access the app or need assistance with account deletion, contact our support team:
                 </div>
                 <div class="mt-2">
-                    Email: <a href="mailto:support@spacechipltd.com" class="text-[#145454] underline font-semibold">support@spacechipltd.com</a>
+                    Email: <a href="mailto:support@spacechipltd.com" class="text-accent-text underline font-semibold">support@spacechipltd.com</a>
                 </div>
                 <div class="mt-1">
                     We will process your request within 7 business days.

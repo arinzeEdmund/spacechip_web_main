@@ -5,10 +5,15 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * A one-time SMS activation number (SMSPool) and the code it received.
+ */
 class SocialNumberOrder extends Model
 {
     protected $casts = [
         'provider_payload' => 'array',
+        'sms_code' => \App\Casts\EncryptedText::class,
+        'sms_text' => \App\Casts\EncryptedText::class,
         'ordered_at' => 'datetime',
         'sms_received_at' => 'datetime',
         'finished_at' => 'datetime',

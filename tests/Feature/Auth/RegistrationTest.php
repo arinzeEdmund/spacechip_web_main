@@ -2,7 +2,10 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Mail\OtpVerificationMail;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
 class RegistrationTest extends TestCase
@@ -18,14 +21,22 @@ class RegistrationTest extends TestCase
 
     public function test_new_users_can_register(): void
     {
+        Mail::fake();
+
         $response = $this->post('/register', [
             'name' => 'Test User',
             'email' => 'test@example.com',
-            'password' => 'password',
-            'password_confirmation' => 'password',
+            'password' => 'a-strong-passw0rd',
+            'password_confirmation' => 'a-strong-passw0rd',
+            'accept_terms' => '1',
         ]);
 
-        $this->assertAuthenticated();
-        $response->assertRedirect(route('dashboard', absolute: false));
+        // Registration defers login until the emailed OTP is verified.
+        $this->assertGuest();
+        $response->assertRedirect(route('verification.otp', absolute: false));
+
+        $user = User::where('email', 'test@example.com')->firstOrFail();
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $user->email_otp); // stored hashed, never the code
+        Mail::assertSent(OtpVerificationMail::class);
     }
 }

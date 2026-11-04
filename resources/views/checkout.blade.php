@@ -3,59 +3,46 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <meta name="theme-color" content="#0b1a1a">
         <meta name="mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
         <meta name="apple-mobile-web-app-title" content="{{ config('app.name', 'spacechip') }}">
         <title>Checkout - {{ config('app.name', 'spacechip') }}</title>
-        <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
-        <link rel="alternate icon" href="{{ asset('favicon.svg') }}">
-        <link rel="apple-touch-icon" href="{{ asset('favicon.svg') }}">
-        <link rel="manifest" href="{{ asset('manifest.json') }}">
-        <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600,700" rel="stylesheet" />
+        @include('partials.head-assets')
         <style>
-            :root{--font-sans:"Instrument Sans",ui-sans-serif,system-ui,sans-serif;--primary:#f27457;--secondary:#145454}
+            :root{--font-sans:"Instrument Sans",ui-sans-serif,system-ui,sans-serif}
             *{box-sizing:border-box}
-            body{margin:0;color:#0f1f1f;font-family:var(--font-sans);min-height:100vh;background:
-                radial-gradient(900px 520px at 12% 14%, rgba(242,116,87,.32) 0%, rgba(242,116,87,0) 60%),
-                radial-gradient(980px 560px at 88% 18%, rgba(20,84,84,.26) 0%, rgba(20,84,84,0) 62%),
-                radial-gradient(1100px 700px at 50% 92%, rgba(242,116,87,.18) 0%, rgba(242,116,87,0) 65%),
-                linear-gradient(180deg, #F7F7F8 0%, #F5F6F8 60%, #F7F7F8 100%)}
-            body::before{content:"";position:fixed;inset:-20%;background:
-                radial-gradient(520px 420px at 18% 32%, rgba(242,116,87,.35) 0%, rgba(242,116,87,0) 70%),
-                radial-gradient(560px 460px at 82% 38%, rgba(20,84,84,.28) 0%, rgba(20,84,84,0) 72%),
-                radial-gradient(700px 520px at 58% 66%, rgba(242,116,87,.22) 0%, rgba(242,116,87,0) 74%);filter:blur(26px);opacity:.9;z-index:-1}
+            body{margin:0;color:var(--text);font-family:var(--font-sans);min-height:100vh;background:radial-gradient(900px 520px at 10% -10%, rgb(var(--accent-rgb) / .10) 0%, transparent 60%),
+                var(--bg)}
+            body::before{content:"";position:fixed;inset:-20%;background:radial-gradient(640px 460px at 90% 6%, rgb(var(--accent-rgb) / .07) 0%, transparent 70%);filter:blur(26px);opacity:.9;z-index:-1}
             .container{max-width:1120px;margin:0 auto;padding:24px}
             .header{display:flex;align-items:center;justify-content:space-between}
             .brand{display:flex;align-items:center;gap:10px}
-            .logo{height:36px;width:36px;border-radius:12px;background:linear-gradient(90deg,var(--primary),var(--secondary));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800}
             .card{margin-top:20px;display:grid;grid-template-columns:1fr;gap:20px}
             @media(min-width:900px){.card{grid-template-columns:1.3fr .7fr}}
-            .panel{padding:22px;border-radius:22px;background:rgba(255,255,255,.75);backdrop-filter:blur(12px);border:1px solid rgba(20,84,84,.12);box-shadow:0 16px 40px rgba(15,31,31,.08)}
-            .title{font-size:20px;font-weight:800;color:#0b1a1a}
+            .panel{padding:22px;border-radius:22px;background:rgb(var(--surface-rgb) / .75);backdrop-filter:blur(12px);border:1px solid rgb(var(--ink-rgb) / .12);box-shadow:0 16px 40px rgba(0,0,0,.08)}
+            .title{font-size:20px;font-weight:800;color:var(--text)}
             .summary-item{display:flex;justify-content:space-between;align-items:center;margin:10px 0}
-            .pill{display:inline-flex;gap:8px;align-items:center;padding:6px 10px;border-radius:9999px;background:rgba(20,84,84,.08);color:rgba(20,84,84,.92);font-weight:700;font-size:12px}
-            .btn-primary{width:100%;padding:14px;border-radius:16px;background:linear-gradient(90deg,var(--primary),var(--secondary));color:#fff;font-weight:800;border:none;cursor:pointer;box-shadow:0 12px 28px rgba(242,116,87,.18)}
-            .btn-secondary{padding:10px 14px;border-radius:12px;background:rgba(255,255,255,.8);border:1px solid rgba(20,84,84,.14);font-weight:700}
+            .pill{display:inline-flex;gap:8px;align-items:center;padding:6px 10px;border-radius:9999px;background:rgb(var(--ink-rgb) / .08);color:rgb(var(--accent-text-rgb) / .92);font-weight:700;font-size:12px}
+            .btn-primary{width:100%;padding:14px;border-radius:16px;background:var(--accent-fill);color:#fff;font-weight:800;border:none;cursor:pointer;box-shadow:0 12px 28px rgb(var(--accent-rgb) / .18)}
+            .btn-secondary{padding:10px 14px;border-radius:12px;background:rgb(var(--surface-rgb) / .8);border:1px solid rgb(var(--ink-rgb) / .14);font-weight:700}
             .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
             .field{display:flex;flex-direction:column;gap:6px}
-            .label{font-size:12px;font-weight:700;color:rgba(15,31,31,.6);text-transform:uppercase;letter-spacing:.05em}
-            .input{padding:12px 14px;border-radius:12px;border:1px solid rgba(15,31,31,.12);background:rgba(255,255,255,.85);outline:none}
-            .price{font-size:22px;font-weight:900;color:#145454}
+            .label{font-size:12px;font-weight:700;color:rgb(var(--ink-rgb) / .6);text-transform:uppercase;letter-spacing:.05em}
+            .input{padding:12px 14px;border-radius:12px;border:1px solid rgb(var(--ink-rgb) / .12);background:rgb(var(--surface-rgb) / .85);outline:none}
+            .price{font-size:22px;font-weight:900;color:var(--accent-text)}
             .modal-hidden{display:none!important}
             .modal-overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(10,10,15,.55);backdrop-filter:blur(10px);z-index:9999;overflow:auto}
             .modal-overlay::before{content:"";position:absolute;inset:0;background:
-                radial-gradient(ellipse 60% 40% at 20% 80%, rgba(242,116,87,.16) 0%, transparent 60%),
-                radial-gradient(ellipse 50% 50% at 80% 20%, rgba(20,84,84,.14) 0%, transparent 60%);pointer-events:none}
+                radial-gradient(ellipse 60% 40% at 20% 80%, rgb(var(--accent-rgb) / .16) 0%, transparent 60%),
+                radial-gradient(ellipse 50% 50% at 80% 20%, rgba(255,255,255,.14) 0%, transparent 60%);pointer-events:none}
             @media(min-width:720px){.modal-overlay{padding:24px}}
             .pm-noise{position:absolute;inset:0;opacity:.035;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");background-size:200px;pointer-events:none}
-            .modal{position:relative;width:100%;max-width:560px;background:rgba(16,16,24,.92);border:1px solid rgba(255,255,255,.08);border-radius:24px;backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);box-shadow:0 0 0 1px rgba(255,255,255,.04) inset,0 32px 80px rgba(0,0,0,.6),0 0 120px rgba(242,116,87,.05);overflow:hidden;animation:modalIn .4s cubic-bezier(.16,1,.3,1) both}
+            .modal{position:relative;width:100%;max-width:560px;background:rgba(12,12,12,.94);border:1px solid rgba(255,255,255,.08);border-radius:24px;backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);box-shadow:0 0 0 1px rgba(255,255,255,.04) inset,0 32px 80px rgba(0,0,0,.6),0 0 120px rgb(var(--accent-rgb) / .05);overflow:hidden;animation:modalIn .4s cubic-bezier(.16,1,.3,1) both}
             @keyframes modalIn{from{opacity:0;transform:translateY(20px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
             @keyframes modalOut{from{opacity:1;transform:translateY(0) scale(1)}to{opacity:0;transform:translateY(12px) scale(.98)}}
             .modal-head{display:flex;align-items:center;justify-content:space-between;padding:24px 28px 0}
-            .modal-eyebrow{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:rgba(242,116,87,.72);margin-bottom:4px}
+            .modal-eyebrow{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:rgb(var(--accent-text-rgb) / .72);margin-bottom:4px}
             .modal-title{font-size:22px;font-weight:850;color:#f5f4f0;letter-spacing:-.02em}
             .close-btn{width:36px;height:36px;border-radius:10px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);color:rgba(255,255,255,.45);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
             .close-btn:hover{background:rgba(255,255,255,.08);color:rgba(255,255,255,.85);border-color:rgba(255,255,255,.14)}
@@ -66,13 +53,13 @@
             .pay-option[disabled]::before{opacity:0}
             .pay-option.is-loading{opacity:.75}
             .pay-option::before{content:"";position:absolute;inset:0;opacity:0;transition:opacity .3s;border-radius:18px;pointer-events:none}
-            .pay-option.card-opt::before{background:radial-gradient(ellipse 80% 60% at 10% 50%, rgba(242,116,87,.12) 0%, transparent 70%)}
-            .pay-option.crypto-opt::before{background:radial-gradient(ellipse 80% 60% at 10% 50%, rgba(20,84,84,.14) 0%, transparent 70%)}
+            .pay-option.card-opt::before{background:radial-gradient(ellipse 80% 60% at 10% 50%, rgb(var(--accent-rgb) / .12) 0%, transparent 70%)}
+            .pay-option.crypto-opt::before{background:radial-gradient(ellipse 80% 60% at 10% 50%, rgba(255,255,255,.14) 0%, transparent 70%)}
             .pay-option:hover{border-color:rgba(255,255,255,.14);background:rgba(255,255,255,.05);transform:translateY(-2px);box-shadow:0 12px 40px rgba(0,0,0,.3)}
             .pay-option:hover::before{opacity:1}
             .pay-option:active{transform:translateY(0)}
-            .pay-option.card-opt:hover{border-color:rgba(242,116,87,.28);box-shadow:0 12px 40px rgba(0,0,0,.3),0 0 0 1px rgba(242,116,87,.10) inset}
-            .pay-option.crypto-opt:hover{border-color:rgba(20,84,84,.30);box-shadow:0 12px 40px rgba(0,0,0,.3),0 0 0 1px rgba(20,84,84,.12) inset}
+            .pay-option.card-opt:hover{border-color:rgb(var(--accent-rgb) / .28);box-shadow:0 12px 40px rgba(0,0,0,.3),0 0 0 1px rgb(var(--accent-rgb) / .10) inset}
+            .pay-option.crypto-opt:hover{border-color:rgb(var(--accent-strong-rgb) / .30);box-shadow:0 12px 40px rgba(0,0,0,.3),0 0 0 1px rgba(0,0,0,.12) inset}
             .pay-option .shimmer{position:absolute;top:0;left:-100%;width:60%;height:100%;background:linear-gradient(90deg, transparent, rgba(255,255,255,.03), transparent);transition:left .6s ease;pointer-events:none}
             .pay-option:hover .shimmer{left:160%}
             .pay-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;gap:12px}
@@ -80,8 +67,8 @@
             .pay-name{font-size:20px;font-weight:850;color:#f5f4f0;letter-spacing:-.02em;margin-bottom:4px}
             .pay-sub{font-size:12.5px;color:rgba(255,255,255,.40);font-weight:400;line-height:1.5}
             .badge{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border-radius:20px;flex-shrink:0;margin-top:2px}
-            .badge-warm{background:rgba(242,116,87,.14);border:1px solid rgba(242,116,87,.24);color:#f27457}
-            .badge-cool{background:rgba(20,84,84,.14);border:1px solid rgba(20,84,84,.24);color:rgba(180,255,243,.92)}
+            .badge-warm{background:rgb(var(--accent-rgb) / .14);border:1px solid rgb(var(--accent-rgb) / .24);color:var(--accent-text)}
+            .badge-cool{background:rgba(255,255,255,.14);border:1px solid rgb(var(--accent-strong-rgb) / .24);color:rgba(185,235,185,.92)}
             .badge-slate{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);color:rgba(245,244,240,.86)}
             .logos{display:flex;gap:8px;flex-wrap:wrap}
             .logo-pill{display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:7px 11px;transition:all .2s}
@@ -89,11 +76,11 @@
             .logo-pill span{font-size:12px;font-weight:600;color:rgba(255,255,255,.7);letter-spacing:.01em}
             .pay-loading{margin-top:10px;display:none;align-items:center;gap:10px;font-size:12px;font-weight:650;color:rgba(255,255,255,.65)}
             .pay-loading.show{display:flex}
-            .spin{height:14px;width:14px;border-radius:9999px;border:2px solid rgba(255,255,255,.18);border-top-color:rgba(242,116,87,.9);animation:spin 1s linear infinite}
+            .spin{height:14px;width:14px;border-radius:9999px;border:2px solid rgba(255,255,255,.18);border-top-color:rgb(var(--accent-rgb) / .9);animation:spin 1s linear infinite}
             @keyframes spin{to{transform:rotate(360deg)}}
             .currency-row{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap}
             .currency-pill{display:inline-flex;align-items:center;justify-content:center;padding:8px 10px;border-radius:12px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.04);color:rgba(255,255,255,.65);font-size:12px;font-weight:750;letter-spacing:.02em;cursor:pointer;user-select:none}
-            .currency-pill.active{background:rgba(242,116,87,.14);border-color:rgba(242,116,87,.26);color:#f5f4f0}
+            .currency-pill.active{background:rgb(var(--accent-rgb) / .14);border-color:rgb(var(--accent-rgb) / .26);color:#f5f4f0}
             .currency-pill[aria-disabled="true"]{opacity:.6;cursor:not-allowed}
             .divider{display:flex;align-items:center;gap:12px;padding:0 2px}
             .divider-line{flex:1;height:1px;background:rgba(255,255,255,.06)}
@@ -119,14 +106,8 @@
         </style>
     </head>
     <body>
+        @include('partials.site-header')
         <div class="container">
-            <div class="header">
-                <a href="/" class="brand">
-                    <div class="logo">SC</div>
-                    <div style="font-weight:900;color:rgba(20,84,84,.92)">spacechip</div>
-                </a>
-                <a href="javascript:history.back()" class="btn-secondary">Back</a>
-            </div>
 
             <div class="card">
                 <div class="panel">
@@ -140,7 +121,7 @@
                         </div>
                     </div>
 
-                    <div style="margin-top:16px;border-top:1px solid rgba(15,31,31,.08);padding-top:16px">
+                    <div style="margin-top:16px;border-top:1px solid rgb(var(--ink-rgb) / .08);padding-top:16px">
                         <div class="summary-item">
                             <div><strong>Data</strong></div>
                             <div>{{ $bundle['data'] }}</div>
@@ -153,9 +134,9 @@
                             <div><strong>Plan Type</strong></div>
                             <div>{{ $bundle['package_type'] === 'DATA-ONLY' ? 'Data Only' : 'Data + Calls' }}</div>
                         </div>
-                        <div class="summary-item" style="border-top:1px dashed rgba(15,31,31,.1);padding-top:12px">
+                        <div class="summary-item" style="border-top:1px dashed rgb(var(--ink-rgb) / .1);padding-top:12px">
                             <div class="price">{{ $bundle['price_formatted'] }}</div>
-                            <div style="font-size:12px;color:rgba(15,31,31,.6);font-weight:700">One-time payment</div>
+                            <div style="font-size:12px;color:rgb(var(--ink-rgb) / .6);font-weight:700">One-time payment</div>
                         </div>
                     </div>
                 </div>
@@ -175,7 +156,7 @@
                     <div style="margin-top:16px">
                         <button class="btn-primary" id="proceedToPaymentBtn" type="button">Proceed to Payment</button>
                     </div>
-                    <div id="paymentStatus" style="margin-top:8px;font-size:12px;color:rgba(15,31,31,.6)"></div>
+                    <div id="paymentStatus" style="margin-top:8px;font-size:12px;color:rgb(var(--ink-rgb) / .6)"></div>
                 </div>
             </div>
         </div>
@@ -197,6 +178,10 @@
                 </div>
 
                 <div class="modal-body">
+                    <label id="waiverBox" style="display:flex;gap:10px;align-items:flex-start;padding:12px 14px;margin-bottom:12px;border-radius:14px;border:1px solid rgb(var(--ink-rgb) / .16);background:rgb(var(--surface-rgb) / .6);font-size:12.5px;line-height:1.5;cursor:pointer">
+                        <input type="checkbox" id="waiverCheck" style="margin-top:3px">
+                        <span>I want this delivered <strong>immediately</strong> and understand that once it is delivered or activated I lose any 14-day right to withdraw. I have read the <a href="{{ route('refund') }}" target="_blank" rel="noopener" style="text-decoration:underline">refund policy</a> and <a href="{{ route('terms') }}" target="_blank" rel="noopener" style="text-decoration:underline">terms</a>.</span>
+                    </label>
                     <button class="pay-option card-opt" type="button" id="payWithCardBtn">
                         <div class="shimmer"></div>
                         <div class="pay-top">
@@ -384,7 +369,7 @@
                     return s.replace(/^"+|"+$/g, '').replace(/^'+|'+$/g, '').trim();
                 };
 
-                const paystackKey = normalizeEnvValue(@json((string) (config('services.paystack.public_key') ?: env('PAYSTACK_PUBLIC_KEY'))));
+                const paystackKey = normalizeEnvValue(@json((string) config('services.paystack.public_key', '')));
                 const csrfToken = @json(csrf_token());
                 const checkoutContext = {
                     type: @json((string) ($type ?? '')),
@@ -495,15 +480,15 @@
                     const safe = text || '';
                     if (statusEl) {
                         statusEl.textContent = safe;
-                        if (tone === 'success') statusEl.style.color = 'rgba(20,84,84,.92)';
-                        else if (tone === 'error') statusEl.style.color = 'rgba(242,116,87,.92)';
-                        else statusEl.style.color = 'rgba(15,31,31,.6)';
+                        if (tone === 'success') statusEl.style.color = 'rgb(var(--accent-text-rgb) / .92)';
+                        else if (tone === 'error') statusEl.style.color = 'rgb(var(--accent-text-rgb) / .92)';
+                        else statusEl.style.color = 'rgb(var(--ink-rgb) / .6)';
                     }
                     if (modalStatusEl) {
                         modalStatusEl.textContent = safe;
                         modalStatusEl.classList.toggle('show', safe !== '');
                         if (tone === 'success') modalStatusEl.style.color = 'rgba(180,255,243,.92)';
-                        else if (tone === 'error') modalStatusEl.style.color = 'rgba(242,116,87,.92)';
+                        else if (tone === 'error') modalStatusEl.style.color = 'rgb(var(--accent-text-rgb) / .92)';
                         else modalStatusEl.style.color = 'rgba(255,255,255,.55)';
                     }
                 };
@@ -612,6 +597,7 @@
                                 'X-CSRF-TOKEN': csrfToken
                             },
                             body: JSON.stringify({
+                                waiver_accepted: true,
                                 type: checkoutContext.type,
                                 id: checkoutContext.id,
                                 bundle: checkoutContext.bundle,
@@ -848,7 +834,7 @@
                                 'Accept': 'application/json',
                                 'X-CSRF-TOKEN': csrfToken
                             },
-                            body: JSON.stringify(checkoutContext)
+                            body: JSON.stringify({ ...checkoutContext, waiver_accepted: true })
                         });
                         const payJson = await payRes.json().catch(() => ({}));
                         if (!payRes.ok || !payJson.ok) {
@@ -886,6 +872,7 @@
                                 'X-CSRF-TOKEN': csrfToken
                             },
                             body: JSON.stringify({
+                                waiver_accepted: true,
                                 type: checkoutContext.type,
                                 id: checkoutContext.id,
                                 bundle: checkoutContext.bundle,
@@ -924,6 +911,19 @@
                     }
                 };
 
+                // Every payment button needs the immediate-delivery acknowledgement first.
+                [payWithCardBtn, payWithWalletBtn, payWithCryptoBtn, payWithCryptomusCardBtn].forEach((btn) => {
+                    if (!btn) return;
+                    btn.addEventListener('click', (e) => {
+                        const box = document.getElementById('waiverCheck');
+                        if (box && !box.checked) {
+                            e.stopImmediatePropagation();
+                            e.preventDefault();
+                            setStatus('Please tick the box to confirm immediate delivery before paying.', 'error');
+                            document.getElementById('waiverBox')?.scrollIntoView({ block: 'center' });
+                        }
+                    }, true);
+                });
                 payWithCardBtn.addEventListener('click', startPaystack);
                 if (payWithWalletBtn) payWithWalletBtn.addEventListener('click', startWalletPay);
                 payWithCryptoBtn.addEventListener('click', () => startCryptomus('crypto'));

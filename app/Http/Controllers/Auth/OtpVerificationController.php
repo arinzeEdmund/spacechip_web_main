@@ -13,6 +13,9 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\View\View;
 
+/**
+ * Web email verification by 6-digit code (sent at registration), with resend.
+ */
 class OtpVerificationController extends Controller
 {
     public function show(Request $request): View|RedirectResponse
@@ -46,23 +49,17 @@ class OtpVerificationController extends Controller
         if ($user->hasVerifiedEmail()) {
             $request->session()->forget('otp_user_id');
             Auth::login($user);
+
             return redirect()->intended(route('dashboard', absolute: false));
         }
 
-        if (
-            $user->email_otp !== $request->input('otp') ||
-            ! $user->email_otp_expires_at ||
-            now()->isAfter($user->email_otp_expires_at)
-        ) {
-            return back()->withErrors(['otp' => 'The code is incorrect or has expired.']);
+        if (! $user->checkEmailOtp((string) $request->input('otp'))) {
+            return back()->withErrors(['otp' => 'The code is incorrect or has expired. After 5 wrong tries, request a new code.']);
         }
 
         // Mark verified and clear OTP
-        $user->forceFill([
-            'email_verified_at'    => now(),
-            'email_otp'            => null,
-            'email_otp_expires_at' => null,
-        ])->save();
+        $user->clearEmailOtp();
+        $user->forceFill(['email_verified_at' => now()])->save();
 
         event(new Verified($user));
 
@@ -80,9 +77,10 @@ class OtpVerificationController extends Controller
             return redirect()->route('register');
         }
 
-        $rateLimiterKey = 'otp-resend:' . $userId;
+        $rateLimiterKey = 'otp-resend:'.$userId;
         if (RateLimiter::tooManyAttempts($rateLimiterKey, 3)) {
             $seconds = RateLimiter::availableIn($rateLimiterKey);
+
             return back()->withErrors(['otp' => "Too many resend attempts. Please wait {$seconds} seconds."]);
         }
         RateLimiter::hit($rateLimiterKey, 600);
@@ -92,7 +90,7 @@ class OtpVerificationController extends Controller
             return redirect()->route('register');
         }
 
-        $otp = RegisteredUserController::generateAndStoreOtp($user);
+        $otp = $user->issueEmailOtp();
 
         try {
             Mail::to($user->email)->send(new OtpVerificationMail($otp, $user->name));
@@ -105,12 +103,13 @@ class OtpVerificationController extends Controller
     private function maskedEmail(Request $request): string
     {
         $userId = $request->session()->get('otp_user_id');
-        $user   = $userId ? User::find($userId) : null;
+        $user = $userId ? User::find($userId) : null;
         if (! $user) {
             return '****';
         }
         [$local, $domain] = explode('@', $user->email, 2);
-        $masked = substr($local, 0, 2) . str_repeat('*', max(0, strlen($local) - 2));
-        return $masked . '@' . $domain;
+        $masked = substr($local, 0, 2).str_repeat('*', max(0, strlen($local) - 2));
+
+        return $masked.'@'.$domain;
     }
 }

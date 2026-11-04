@@ -5,11 +5,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * A monthly SMSPool number rental with its mirrored SMS inbox.
+ */
 class SocialNumberRental extends Model
 {
     protected $casts = [
         'provider_payload' => 'array',
-        'sms_messages' => 'array',
+        'sms_messages' => \App\Casts\EncryptedJson::class,
         'current_period_start' => 'datetime',
         'current_period_end' => 'datetime',
         'activated_at' => 'datetime',

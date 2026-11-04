@@ -4,71 +4,74 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
-        <meta name="theme-color" content="#0b1a1a">
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
         <meta name="apple-mobile-web-app-title" content="{{ config('app.name', 'spacechip') }}">
 
-        <title>{{ config('app.name', 'Laravel') }}</title>
-        <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
-        <link rel="alternate icon" href="{{ asset('favicon.svg') }}">
-        <link rel="apple-touch-icon" href="{{ asset('favicon.svg') }}">
-        <link rel="manifest" href="{{ asset('manifest.json') }}">
+        <title>{{ config('app.name', 'spacechip') }}</title>
+        @include('partials.head-assets')
 
-        <!-- Fonts -->
-        <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600,700" rel="stylesheet" />
-
-        <!-- Scripts -->
-        <script>
-            tailwind = window.tailwind || {}
-            tailwind.config = Object.assign({}, tailwind.config || {}, { darkMode: 'class' })
-        </script>
-        <script src="https://cdn.tailwindcss.com"></script>
+        @include('partials.tailwind')
         <style>
-            :root{--font-sans:"Instrument Sans",ui-sans-serif,system-ui,sans-serif;--primary:#f27457;--secondary:#145454}
-            body{font-family:var(--font-sans);background:
-                radial-gradient(900px 520px at 12% 14%, rgba(242,116,87,.32) 0%, rgba(242,116,87,0) 60%),
-                radial-gradient(980px 560px at 88% 18%, rgba(20,84,84,.26) 0%, rgba(20,84,84,0) 62%),
-                radial-gradient(1100px 700px at 50% 92%, rgba(242,116,87,.18) 0%, rgba(242,116,87,0) 65%),
-                linear-gradient(180deg, #F7F7F8 0%, #F5F6F8 60%, #F7F7F8 100%)}
+            :root{--font-sans:"Instrument Sans",ui-sans-serif,system-ui,sans-serif}
+            body{font-family:var(--font-sans);background:radial-gradient(900px 520px at 10% -10%, rgb(var(--accent-rgb) / .10) 0%, transparent 60%),
+                var(--bg)}
             
-            body::before{content:"";position:fixed;inset:-20%;background:
-                radial-gradient(520px 420px at 18% 32%, rgba(242,116,87,.35) 0%, rgba(242,116,87,0) 70%),
-                radial-gradient(560px 460px at 82% 38%, rgba(20,84,84,.28) 0%, rgba(20,84,84,0) 72%),
-                radial-gradient(700px 520px at 58% 66%, rgba(242,116,87,.22) 0%, rgba(242,116,87,0) 74%);
+            body::before{content:"";position:fixed;inset:-20%;background:radial-gradient(640px 460px at 90% 6%, rgb(var(--accent-rgb) / .07) 0%, transparent 70%);
                 filter:blur(26px);opacity:.9;z-index:-1;pointer-events:none}
 
-            .auth-card{background:rgba(255,255,255,.75);backdrop-filter:blur(12px);border:1px solid rgba(20,84,84,.12);box-shadow:0 14px 35px rgba(15,31,31,.07);border-radius:24px}
+            .auth-card{position:relative;background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow-3);border-radius:28px;animation:auth-in .8s cubic-bezier(.16,1,.3,1) both}
+            .auth-intro{text-align:center;margin-bottom:28px}
+            .auth-emblem{margin:0 auto 20px;display:flex;justify-content:center;color:var(--text);animation:auth-float 6s ease-in-out infinite}.auth-wordmark{height:30px;width:auto}
+            .auth-intro h1{margin:0;font-size:26px;font-weight:700;letter-spacing:-.03em;color:var(--text)}
+            .auth-intro p{margin:8px auto 0;max-width:300px;font-size:15px;line-height:1.5;color:var(--muted)}
+            .auth-foot{margin:22px 0 28px;font-size:13px;color:var(--muted);display:flex;gap:8px}
+            .auth-foot a{color:var(--muted);text-decoration:none}
+            .auth-foot a:hover{color:var(--accent-text)}
+            @keyframes auth-in{from{opacity:0;transform:translateY(16px) scale(.985)}}
+            @keyframes auth-float{50%{transform:translateY(-4px)}}
+            @media (prefers-reduced-motion:reduce){.auth-card,.auth-emblem{animation:none}}
 
-            .btn-primary{background:linear-gradient(90deg,var(--primary),var(--secondary));color:#fff;font-weight:700;box-shadow:0 8px 20px rgba(242,116,87,.15);transition:all .2s}
-            .btn-primary:hover{filter:brightness(1.05);box-shadow:0 12px 25px rgba(242,116,87,.25)}
-            .logo-sc{height:48px;width:48px;border-radius:14px;background:linear-gradient(90deg,var(--primary),var(--secondary));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:18px;margin-bottom:8px}
+            .btn-primary{background:var(--accent-fill);color:#fff;font-weight:700;box-shadow:0 8px 20px rgb(var(--accent-rgb) / .15);transition:all .2s}
+            .btn-primary:hover{filter:brightness(1.05);box-shadow:0 12px 25px rgb(var(--accent-rgb) / .25)}
             .btn-disabled{opacity:.7;pointer-events:none;cursor:not-allowed;filter:grayscale(.5)}
         </style>
     </head>
-    <body class="font-sans text-gray-900 antialiased">
+    <body class="font-sans text-text antialiased">
+        @include('partials.skip-link')
         <div class="min-h-screen flex flex-col">
-            <header class="sticky top-0 z-50 border-b border-gray-100" style="background: rgba(255,255,255,.78); backdrop-filter: blur(12px);">
-                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div class="flex items-center justify-center py-3">
-                        <a href="/" class="flex items-center gap-3">
-                            <div style="height:40px;width:40px;border-radius:9999px;background:linear-gradient(90deg,#f27457,#145454);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;letter-spacing:.02em">
-                                SC
-                            </div>
-                            <div style="font-weight:800;color:rgba(20,84,84,.92);letter-spacing:.02em">
-                                spacechip
-                            </div>
-                        </a>
-                    </div>
-                </div>
-            </header>
+            @include('partials.site-header', ['minimal' => true])
 
-            <div class="flex-1 flex flex-col sm:justify-center items-center px-4 sm:px-6 pt-8 sm:pt-0">
-                <div class="w-full max-w-md mt-2 px-5 py-8 sm:px-8 sm:py-10 auth-card overflow-hidden">
+            <main id="main" tabindex="-1" class="flex-1 flex flex-col sm:justify-center items-center px-4 sm:px-6 pt-8 sm:pt-0">
+                @php
+                    $authIntro = match (true) {
+                        request()->routeIs('login') => ['Welcome back', 'Sign in to manage your eSIMs, numbers and wallet.'],
+                        request()->routeIs('register') => ['Create your account', 'One account for travel eSIMs and private numbers.'],
+                        request()->routeIs('password.request') => ['Reset your password', "Enter your email and we'll send you a secure reset link."],
+                        request()->routeIs('password.reset') => ['Choose a new password', 'Make it long and unique to keep your account safe.'],
+                        request()->routeIs('password.confirm') => ['Confirm it’s you', 'Please re-enter your password to continue.'],
+                        request()->routeIs('verification.notice') => ['Verify your email', 'One quick step before you get started.'],
+                        default => null,
+                    };
+                @endphp
+                <div class="w-full max-w-md mt-2 px-6 py-8 sm:px-9 sm:py-10 auth-card">
+                    @if ($authIntro)
+                        <div class="auth-intro">
+                            <div class="auth-emblem">@include('partials.brand-wordmark', ['class' => 'auth-wordmark'])</div>
+                            <h1>{{ $authIntro[0] }}</h1>
+                            <p>{{ $authIntro[1] }}</p>
+                        </div>
+                    @endif
                     {{ $slot }}
                 </div>
-            </div>
+                <p class="auth-foot">
+                    <a href="{{ route('help') }}">Help center</a>
+                    <span aria-hidden="true">·</span>
+                    <a href="{{ route('privacy') }}">Privacy</a>
+                    <span aria-hidden="true">·</span>
+                    <a href="{{ route('terms') }}">Terms</a>
+                </p>
+            </main>
         </div>
 
         <script>
@@ -131,14 +134,14 @@
             });
         </script>
         <div id="pwa-install-banner" class="hidden fixed left-4 right-4 bottom-4 z-[9999]" aria-hidden="true">
-            <div class="rounded-2xl border border-white/15 bg-slate-900/70 text-white/90 backdrop-blur-xl px-4 py-3 shadow-[0_14px_35px_rgba(0,0,0,.25)] flex flex-wrap items-center justify-between gap-3">
+            <div class="rounded-2xl border border-white/15 bg-black/80 text-white/90 backdrop-blur-xl px-4 py-3 shadow-[0_14px_35px_rgba(0,0,0,.25)] flex flex-wrap items-center justify-between gap-3">
                 <div class="min-w-[200px] max-w-[560px]">
                     <div class="font-extrabold">Install {{ config('app.name', 'spacechip') }}</div>
                     <div id="pwa-install-text" class="mt-0.5 text-sm text-white/70">Get faster access and offline support.</div>
                 </div>
                 <div class="flex items-center gap-2">
                     <button id="pwa-install-later" type="button" class="px-4 py-2 rounded-full bg-white/10 border border-white/15 font-extrabold text-white/85">Not now</button>
-                    <button id="pwa-install-action" type="button" class="px-4 py-2 rounded-full font-extrabold text-white bg-gradient-to-r from-[#f27457] to-[#145454]">Install</button>
+                    <button id="pwa-install-action" type="button" class="px-4 py-2 rounded-full font-extrabold text-white bg-accent-fill hover:bg-accent-fill-hover">Install</button>
                 </div>
             </div>
         </div>

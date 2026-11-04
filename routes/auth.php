@@ -14,15 +14,18 @@ use App\Http\Controllers\Auth\VerifyEmailController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['guest', 'prevent-back-history'])->group(function () {
+    // Only providers with a `{provider}_id` column on users and Socialite credentials configured.
     Route::get('auth/{provider}', [SocialAuthController::class, 'redirectToProvider'])
+        ->whereIn('provider', ['google', 'facebook'])
         ->name('social.redirect');
 
     Route::get('auth/{provider}/callback', [SocialAuthController::class, 'handleProviderCallback'])
+        ->whereIn('provider', ['google', 'facebook'])
         ->name('social.callback');
     Route::get('register', [RegisteredUserController::class, 'create'])
         ->name('register');
 
-    Route::post('register', [RegisteredUserController::class, 'store']);
+    Route::post('register', [RegisteredUserController::class, 'store'])->middleware('region.block');
 
     Route::get('login', [AuthenticatedSessionController::class, 'create'])
         ->name('login');

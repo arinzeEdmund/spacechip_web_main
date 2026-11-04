@@ -3,58 +3,45 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <meta name="theme-color" content="#0b1a1a">
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
         <meta name="apple-mobile-web-app-title" content="{{ config('app.name', 'spacechip') }}">
         <title>All Assets - {{ config('app.name', 'spacechip') }}</title>
-        <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
-        <link rel="alternate icon" href="{{ asset('favicon.svg') }}">
-        <link rel="apple-touch-icon" href="{{ asset('favicon.svg') }}">
-        <link rel="manifest" href="{{ asset('manifest.json') }}">
-        <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600" rel="stylesheet" />
+        @include('partials.head-assets')
         <style>
-            :root{--font-sans:"Instrument Sans",ui-sans-serif,system-ui,sans-serif;--primary:#f27457;--secondary:#145454}
+            :root{--font-sans:"Instrument Sans",ui-sans-serif,system-ui,sans-serif}
             *{box-sizing:border-box}
-            body{margin:0;color:#0f1f1f;font-family:var(--font-sans);min-height:100vh;position:relative;overflow-x:hidden;display:flex;flex-direction:column;background:
-                radial-gradient(900px 520px at 12% 14%, rgba(242,116,87,.32) 0%, rgba(242,116,87,0) 60%),
-                radial-gradient(980px 560px at 88% 18%, rgba(20,84,84,.26) 0%, rgba(20,84,84,0) 62%),
-                radial-gradient(1100px 700px at 50% 92%, rgba(242,116,87,.18) 0%, rgba(242,116,87,0) 65%),
-                linear-gradient(180deg, #F7F7F8 0%, #F5F6F8 60%, #F7F7F8 100%)}
-            body::before{content:"";position:fixed;inset:-20%;background:
-                radial-gradient(520px 420px at 18% 32%, rgba(242,116,87,.35) 0%, rgba(242,116,87,0) 70%),
-                radial-gradient(560px 460px at 82% 38%, rgba(20,84,84,.28) 0%, rgba(20,84,84,0) 72%),
-                radial-gradient(700px 520px at 58% 66%, rgba(242,116,87,.22) 0%, rgba(242,116,87,0) 74%);
+            body{margin:0;color:var(--text);font-family:var(--font-sans);min-height:100vh;position:relative;overflow-x:hidden;display:flex;flex-direction:column;background:radial-gradient(900px 520px at 10% -10%, rgb(var(--accent-rgb) / .10) 0%, transparent 60%),
+                var(--bg)}
+            body::before{content:"";position:fixed;inset:-20%;background:radial-gradient(640px 460px at 90% 6%, rgb(var(--accent-rgb) / .07) 0%, transparent 70%);
                 filter:blur(26px);opacity:.9;z-index:-1;pointer-events:none}
             a{color:inherit;text-decoration:none}
             a:hover,a:focus,a:active{text-decoration:none}
             .container{max-width:1120px;margin:0 auto;padding:0 24px}
             .header{padding:16px 0;display:flex;align-items:center;justify-content:space-between}
             .brand-wrap{display:flex;align-items:center;gap:10px}
-            .logo{height:32px;width:32px;border-radius:12px;background:linear-gradient(90deg,var(--primary),var(--secondary));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;letter-spacing:.02em}
-            .brand{font-weight:700;letter-spacing:.02em;color:rgba(20,84,84,.92)}
+            .brand{font-weight:700;letter-spacing:.02em;color:rgb(var(--accent-text-rgb) / .92)}
             .actions{display:flex;gap:12px;align-items:center}
-            .btn-primary{padding:10px 16px;border-radius:9999px;background:linear-gradient(90deg,var(--primary),var(--secondary));color:#fff;font-size:14px;font-weight:600;box-shadow:0 14px 35px rgba(20,84,84,.14),0 2px 6px rgba(0,0,0,.06);text-decoration:none;display:inline-flex;align-items:center;gap:8px}
-            .btn-secondary{padding:10px 16px;border-radius:9999px;background:rgba(255,255,255,.75);backdrop-filter:blur(10px);border:1px solid rgba(20,84,84,.18);color:rgba(20,84,84,.92);font-size:14px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:8px}
+            .btn-primary{padding:10px 16px;border-radius:9999px;background:var(--accent-fill);color:#fff;font-size:14px;font-weight:600;box-shadow:0 14px 35px rgba(0,0,0,.14),0 2px 6px rgba(0,0,0,.06);text-decoration:none;display:inline-flex;align-items:center;gap:8px}
+            .btn-secondary{padding:10px 16px;border-radius:9999px;background:rgb(var(--surface-rgb) / .75);backdrop-filter:blur(10px);border:1px solid rgb(var(--ink-rgb) / .18);color:rgb(var(--accent-text-rgb) / .92);font-size:14px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:8px}
             
             .section{padding:40px 0}
             .section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:24px}
-            .section-title{font-size:24px;font-weight:800;letter-spacing:-.01em;color:#0b1a1a}
-            .section-sub{color:rgba(15,31,31,.64);font-size:15px;margin-top:4px}
+            .section-title{font-size:24px;font-weight:800;letter-spacing:-.01em;color:var(--text)}
+            .section-sub{color:rgb(var(--ink-rgb) / .64);font-size:15px;margin-top:4px}
             
             .search-bar{margin-bottom:32px;position:relative;max-width:600px}
-            .search-bar input{width:100%;padding:16px 20px 16px 52px;border-radius:20px;background:rgba(255,255,255,.85);backdrop-filter:blur(10px);border:1px solid rgba(20,84,84,.15);box-shadow:0 14px 35px rgba(15,31,31,.08);outline:none;font-size:16px;color:#0b1a1a;transition:all .3s}
-            .search-bar input:focus{border-color:var(--primary);box-shadow:0 14px 35px rgba(242,116,87,.12)}
-            .search-bar svg{position:absolute;left:18px;top:50%;transform:translateY(-50%);height:22px;width:22px;color:rgba(15,31,31,.4);pointer-events:none}
+            .search-bar input{width:100%;padding:16px 20px 16px 52px;border-radius:20px;background:rgb(var(--surface-rgb) / .85);backdrop-filter:blur(10px);border:1px solid rgb(var(--ink-rgb) / .15);box-shadow:0 14px 35px rgba(0,0,0,.08);outline:none;font-size:16px;color:var(--text);transition:all .3s}
+            .search-bar input:focus{border-color:var(--primary);box-shadow:0 14px 35px rgb(var(--accent-rgb) / .12)}
+            .search-bar svg{position:absolute;z-index:1;left:18px;top:50%;transform:translateY(-50%);height:22px;width:22px;color:rgb(var(--ink-rgb) / .4);pointer-events:none}
 
-            .asset-toggles{display:flex;gap:10px;margin-bottom:24px;background:rgba(255,255,255,.5);padding:6px;border-radius:9999px;border:1px solid rgba(20,84,84,.1);width:fit-content}
-            .asset-toggles button{padding:12px 24px;border-radius:9999px;border:none;background:transparent;font-size:14px;font-weight:700;color:rgba(15,31,31,.6);cursor:pointer;transition:all .2s}
-            .asset-toggles button.active{background:#fff;color:rgba(20,84,84,.92);box-shadow:0 10px 25px rgba(15,31,31,.08);border:1px solid rgba(20,84,84,.1)}
+            .asset-toggles{display:flex;gap:2px;margin-bottom:24px;background:var(--surface-2);padding:3px;border-radius:9999px;border:1px solid var(--border);width:fit-content;max-width:100%}
+            .asset-toggles button{padding:9px 18px;border-radius:9999px;border:none;background:transparent;font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap;transition:color .15s,background-color .15s}
+            .asset-toggles button.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow-1),0 0 0 1px var(--border)}
             
             .sub-toggles{display:flex;gap:8px;margin-bottom:32px;flex-wrap:wrap}
-            .sub-toggles button{padding:10px 18px;border-radius:9999px;background:rgba(255,255,255,.6);border:1px solid rgba(20,84,84,.12);font-size:13px;font-weight:650;color:rgba(15,31,31,.62);cursor:pointer;transition:all .2s}
-            .sub-toggles button.active{background:linear-gradient(90deg, rgba(242,116,87,.14), rgba(20,84,84,.12));border-color:rgba(242,116,87,.32);color:rgba(20,84,84,.92)}
+            .sub-toggles button{padding:10px 18px;border-radius:9999px;background:rgb(var(--surface-rgb) / .6);border:1px solid rgb(var(--ink-rgb) / .12);font-size:13px;font-weight:650;color:rgb(var(--ink-rgb) / .62);cursor:pointer;transition:all .2s}
+            .sub-toggles button.active{background:var(--accent-soft);border-color:rgb(var(--accent-rgb) / .32);color:rgb(var(--accent-text-rgb) / .92)}
 
             .grid{display:grid;grid-template-columns:1fr;gap:14px}
             @media(min-width:640px){.grid{grid-template-columns:repeat(2,1fr)}}
@@ -70,78 +57,61 @@
                 .search-bar{max-width:none;margin-bottom:20px}
                 .search-bar input{padding:14px 16px 14px 46px;border-radius:18px;font-size:15px}
                 .search-bar svg{left:16px;height:20px;width:20px}
-                .asset-toggles{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:8px;border-radius:24px}
-                .asset-toggles button{width:100%;padding:10px 12px;font-size:13px;text-align:center}
-                .asset-toggles button:nth-child(3){grid-column:1/-1}
-                .card{flex-direction:column;align-items:flex-start}
-                .card-left{width:100%}
-                .card-right{width:100%;flex-direction:row;align-items:center;justify-content:flex-end;text-align:left}
-                .name{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+                .asset-toggles{width:100%;overflow-x:auto;scrollbar-width:none}
+                .asset-toggles button{flex:1 0 auto;padding:9px 14px;font-size:13px}
+                .card{padding:12px 12px 12px 14px}
                 .no-results{padding:42px 12px}
             }
 
             @media(max-width:480px){
-                .vnum-top{flex-direction:column;gap:10px}
-                .vnum-price-box{text-align:left}
-            }
+                                            }
             
-            .card{padding:16px;border-radius:22px;background:rgba(255,255,255,.75);backdrop-filter:blur(12px);border:1px solid rgba(20,84,84,.12);box-shadow:0 14px 35px rgba(15,31,31,.07);display:flex;justify-content:space-between;gap:14px;align-items:center;transition:all .3s}
+            .card{position:relative;padding:14px 14px 14px 16px;border-radius:18px;background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow-1);display:flex;justify-content:space-between;gap:14px;align-items:center;transition:border-color .18s,box-shadow .18s,transform .18s}
             .card.hidden-by-search{display:none!important}
             .card-left{display:flex;gap:14px;align-items:center;min-width:0}
-            .flag{height:40px;width:40px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.92);border:1px solid rgba(20,84,84,.12);overflow:hidden;flex:0 0 auto;font-size:26px}
+            .flag{height:40px;width:40px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:rgb(var(--surface-rgb) / .92);border:1px solid rgb(var(--ink-rgb) / .12);overflow:hidden;flex:0 0 auto;font-size:26px}
             .flag img{height:100%;width:100%;object-fit:cover;display:block}
             .meta{min-width:0}
-            .name{font-weight:800;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#0b1a1a}
-            .subtext{margin-top:2px;font-size:12px;color:rgba(15,31,31,.62)}
+            .name{font-weight:600;font-size:15px;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
+            .subtext{margin-top:2px;font-size:12px;color:rgb(var(--ink-rgb) / .62)}
             .card-right{text-align:right;display:flex;flex-direction:column;gap:8px;align-items:flex-end}
-            .price{font-weight:800;font-size:15px;color:rgba(20,84,84,.92)}
-            .price span{font-weight:650;color:rgba(15,31,31,.64);font-size:12px}
-            .mini-btn{padding:8px 14px;border-radius:9999px;background:rgba(255,255,255,.85);border:1px solid rgba(20,84,84,.14);font-size:13px;font-weight:700;color:rgba(20,84,84,.92);cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+            .price{font-weight:800;font-size:15px;color:rgb(var(--accent-text-rgb) / .92)}
+            .price span{font-weight:650;color:rgb(var(--ink-rgb) / .64);font-size:12px}
+            .mini-btn{display:inline-flex;align-items:center;height:34px;padding:0 14px;border-radius:10px;background:var(--surface-2);border:1px solid var(--border);font-size:13px;font-weight:600;color:var(--text);cursor:pointer;white-space:nowrap;transition:background-color .15s,color .15s,border-color .15s}
             .mini-btn.is-loading{pointer-events:none;opacity:.75}
-            .btn-spinner{width:14px;height:14px;border-radius:9999px;border:2px solid rgba(20,84,84,.25);border-top-color:rgba(20,84,84,.92);animation:btn-spin .8s linear infinite}
+            .btn-spinner{width:14px;height:14px;border-radius:9999px;border:2px solid rgb(var(--accent-strong-rgb) / .25);border-top-color:rgb(var(--accent-strong-rgb) / .92);animation:btn-spin .8s linear infinite}
             @keyframes btn-spin{to{transform:rotate(360deg)}}
             
-            .vnum-card{padding:18px;border-radius:24px;background:rgba(255,255,255,.75);backdrop-filter:blur(12px);border:1px solid rgba(20,84,84,.12);box-shadow:0 14px 35px rgba(15,31,31,.07);display:flex;flex-direction:column;gap:16px;transition:all .3s}
+            .vnum-card{padding:20px;border-radius:24px;background:rgb(var(--surface-rgb) / .75);backdrop-filter:blur(12px);border:1px solid rgb(var(--ink-rgb) / .12);box-shadow:0 14px 35px rgba(0,0,0,.07);display:flex;flex-direction:column;gap:14px;transition:transform .2s,box-shadow .2s,border-color .2s}
+            .vnum-card:hover{transform:translateY(-3px);border-color:rgb(var(--accent-rgb) / .35);box-shadow:0 18px 40px rgba(0,0,0,.1)}
             .vnum-card.hidden-by-search{display:none!important}
-            .vnum-top{display:flex;justify-content:space-between;align-items:flex-start}
-            .vnum-info{display:flex;gap:14px;align-items:center;min-width:0}
-            .vnum-name{font-weight:800;font-size:16px;color:#0b1a1a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-            .vnum-desc{font-size:13px;color:rgba(15,31,31,.64);line-height:1.5;margin-top:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-            .vnum-price-box{text-align:right}
-            .vnum-price{font-weight:800;font-size:18px;color:rgba(20,84,84,.92)}
-            .vnum-price span{font-size:12px;color:rgba(15,31,31,.6);font-weight:600}
-            .vnum-btn{width:100%;padding:12px;border-radius:14px;background:linear-gradient(90deg,var(--primary),var(--secondary));color:#fff;font-weight:700;border:none;cursor:pointer;box-shadow:0 8px 20px rgba(242,116,87,.15)}
+            .vnum-top{display:flex;gap:14px;align-items:center;min-width:0}
+            .vnum-title{min-width:0;display:flex;flex-direction:column;gap:5px;align-items:flex-start}
+            .vnum-name{font-weight:800;font-size:16px;line-height:1.25;color:var(--text);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+            .vnum-code{font-size:11px;font-weight:800;letter-spacing:.06em;padding:2px 8px;border-radius:999px;background:rgb(var(--accent-rgb) / .12);color:rgb(var(--accent-text-rgb) / .95)}
+            .vnum-price{display:flex;align-items:baseline;gap:4px;padding:12px 0;border-top:1px dashed rgb(var(--ink-rgb) / .14);border-bottom:1px dashed rgb(var(--ink-rgb) / .14)}
+            .vnum-price b{font-weight:800;font-size:24px;letter-spacing:-.01em;color:rgb(var(--accent-text-rgb) / .95)}
+            .vnum-price span{font-size:13px;color:rgb(var(--ink-rgb) / .6);font-weight:600}
+            .vnum-chips{display:flex;flex-wrap:wrap;gap:6px}
+            .vnum-chips span{font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;background:rgb(var(--ink-rgb) / .06);color:rgb(var(--ink-rgb) / .72)}
+            .vnum-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:12px;border-radius:14px;background:var(--accent-fill);color:#fff;font-weight:700;border:none;cursor:pointer;text-decoration:none;box-shadow:0 8px 20px rgb(var(--accent-rgb) / .15);transition:filter .15s}
+            .vnum-btn span{transition:transform .2s}
+            .vnum-btn:hover span{transform:translateX(4px)}
 
-            .no-results{grid-column: 1/-1; text-align: center; padding: 60px; color: rgba(15,31,31,.5);}
+            .no-results{grid-column: 1/-1; text-align: center; padding: 60px; color: rgb(var(--ink-rgb) / .5);}
             .no-results svg{margin-bottom: 12px; opacity: .5;}
             .load-more-wrap{margin-top:18px;display:none;justify-content:center}
             .load-more-wrap.show{display:flex}
-            .load-more-btn{padding:12px 16px;border-radius:14px;background:rgba(255,255,255,.8);border:1px solid rgba(20,84,84,.14);font-weight:800;color:rgba(20,84,84,.92);cursor:pointer}
+            .load-more-btn{padding:12px 16px;border-radius:14px;background:rgb(var(--surface-rgb) / .8);border:1px solid rgb(var(--ink-rgb) / .14);font-weight:800;color:rgb(var(--accent-text-rgb) / .92);cursor:pointer}
 
-            /* Skeleton Styles */
-            .skeleton {
-                background: linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 35%, #f3f4f6 70%, #e5e7eb 100%);
-                background-size: 300% 100%;
-                animation: skeleton-loading 0.95s ease-in-out infinite;
-                border-radius: 4px;
-            }
 
-            @keyframes skeleton-loading {
-                0% { background-position: 200% 0; }
-                100% { background-position: -200% 0; }
-            }
-            .dark .skeleton{
-                background: linear-gradient(90deg, rgba(31,41,55,.55) 0%, rgba(55,65,81,.95) 35%, rgba(242,116,87,.26) 50%, rgba(55,65,81,.95) 65%, rgba(31,41,55,.55) 100%);
-                background-size: 400% 100%;
-                animation: skeleton-loading 0.85s ease-in-out infinite;
-            }
 
             .skeleton-card {
                 padding: 16px;
                 border-radius: 22px;
-                background: rgba(255,255,255,.75);
+                background: rgb(var(--surface-rgb) / .75);
                 backdrop-filter: blur(12px);
-                border: 1px solid rgba(20,84,84,.12);
+                border: 1px solid rgb(var(--ink-rgb) / .12);
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
@@ -155,37 +125,19 @@
 
             .hidden{display:none!important}
             
-            main{flex:1}
-            footer{margin-top:auto;border-top:1px solid rgba(15,31,31,.10);background:rgba(255,255,255,.35);backdrop-filter:blur(10px)}
+            main{flex:1;width:100%;min-width:0}
+            footer{margin-top:auto;border-top:1px solid rgb(var(--ink-rgb) / .10);background:rgb(var(--surface-rgb) / .35);backdrop-filter:blur(10px)}
             .footer{padding:40px 0;display:grid;grid-template-columns:1fr;gap:24px}
-            .links{color:rgba(15,31,31,.64);font-size:14px;line-height:22px;text-decoration:none}
+            .links{color:rgb(var(--ink-rgb) / .64);font-size:14px;line-height:22px;text-decoration:none}
             @media(min-width:860px){.footer{grid-template-columns:repeat(3,1fr)}}
+            .footer-wordmark{height:26px;width:auto;display:block}
         </style>
     </head>
     <body>
-        <header>
-            <div class="container">
-                <div class="header">
-                    <a href="/" class="brand-wrap">
-                        <div class="logo">SC</div>
-                        <div class="brand">spacechip</div>
-                    </a>
-                    <div class="actions">
-                        <a href="/" class="btn-secondary">Back to Home</a>
-                        @auth
-                            <form method="POST" action="{{ route('logout') }}">
-                                @csrf
-                                <button type="submit" class="btn-primary" style="border:0;cursor:pointer">Sign Out</button>
-                            </form>
-                        @else
-                            <a href="{{ route('login') }}" class="btn-primary">Sign In</a>
-                        @endauth
-                    </div>
-                </div>
-            </div>
-        </header>
+        @include('partials.skip-link')
+        @include('partials.site-header')
 
-        <main class="container">
+        <main id="main" tabindex="-1" class="container">
             <section class="section">
                 <div class="section-head">
                     <div>
@@ -200,7 +152,7 @@
                         <path d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z" stroke="currentColor" stroke-width="2.5"/>
                         <path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
                     </svg>
-                    <input type="text" id="assetSearch" placeholder="Search countries, regions, or plans...">
+                    <input type="text" id="assetSearch" aria-label="Search countries, regions or plans" placeholder="Search countries, regions, or plans...">
                 </div>
 
                 <div class="asset-toggles">
@@ -294,14 +246,11 @@
             <div class="container">
                 <div class="footer">
                     <div>
-                        <div style="display:flex;align-items:center;gap:10px">
-                            <div class="logo" style="height:34px;width:34px;border-radius:14px">SC</div>
-                            <div style="font-weight:800;color:rgba(20,84,84,.92)">spacechip</div>
-                        </div>
-                        <p style="margin-top:10px;color:rgba(15,31,31,.64);font-size:14px;line-height:1.6">Be local anywhere with flexible plans for data, calls, and privacy-first numbers.</p>
+                        <div style="color:var(--text)">@include('partials.brand-wordmark', ['class' => 'footer-wordmark'])</div>
+                        <p style="margin-top:10px;color:rgb(var(--ink-rgb) / .64);font-size:14px;line-height:1.6">Be local anywhere with flexible plans for data, calls, and privacy-first numbers.</p>
                     </div>
                     <div>
-                        <div style="font-weight:800;color:#0b1a1a">Company</div>
+                        <div style="font-weight:800;color:var(--text)">Company</div>
                         <div style="margin-top:10px;display:grid;gap:8px">
                             <a class="links" href="{{ route('contact') }}">Contact Us</a>
                             <a class="links" href="{{ route('terms') }}">Terms &amp; Conditions</a>
@@ -309,7 +258,7 @@
                         </div>
                     </div>
                     <div>
-                        <div style="font-weight:800;color:#0b1a1a">Support</div>
+                        <div style="font-weight:800;color:var(--text)">Support</div>
                         <div style="margin-top:10px;display:grid;gap:8px">
                             <a class="links" href="{{ route('help') }}">Help Center</a>
                             <a class="links" href="{{ route('esim.guide') }}">eSIM Guide</a>
@@ -319,285 +268,7 @@
             </div>
         </footer>
 
-        <script>
-            (() => {
-                const assetToggles = Array.from(document.querySelectorAll('[data-asset-toggle]'));
-                const assetSections = Array.from(document.querySelectorAll('[data-asset-section]'));
-                const searchInput = document.getElementById('assetSearch');
-                const noResultsSearch = document.getElementById('noResultsSearch');
-                const loadMoreWrap = document.getElementById('loadMoreWrap');
-                const loadMoreBtn = document.getElementById('loadMoreBtn');
-
-                const grids = {
-                    countries: document.getElementById('countriesGrid').querySelector('.grid'),
-                    regions: document.getElementById('regionsGrid').querySelector('.grid'),
-                    virtualNumbers: document.getElementById('virtualNumbersGrid').querySelector('.grid')
-                };
-
-                const state = {
-                    countries: { page: 0, hasMore: true, loading: false, q: '' },
-                    regions: { page: 0, hasMore: true, loading: false, q: '' },
-                    virtual: { page: 0, hasMore: true, loading: false, q: '' },
-                };
-                let activeTab = 'countries';
-
-                const esc = (value) => {
-                    const s = String(value ?? '');
-                    return s
-                        .replaceAll('&', '&amp;')
-                        .replaceAll('<', '&lt;')
-                        .replaceAll('>', '&gt;')
-                        .replaceAll('"', '&quot;')
-                        .replaceAll("'", '&#39;');
-                };
-
-                const safeHref = (value) => {
-                    const s = String(value ?? '').trim();
-                    if (!s) return '';
-                    try {
-                        const url = new URL(s, window.location.origin);
-                        if (url.protocol !== 'http:' && url.protocol !== 'https:') return '';
-                        return url.href;
-                    } catch (e) {
-                        return '';
-                    }
-                };
-
-                const safeImgSrc = (value) => {
-                    const s = String(value ?? '').trim();
-                    if (!s) return '';
-                    if (s.startsWith('data:image/')) return s;
-                    return safeHref(s);
-                };
-
-                const createCard = (item, type) => {
-                    const card = document.createElement('div');
-                    card.className = type === 'virtual' ? 'vnum-card' : 'card';
-                    card.setAttribute('data-search-name', String(item.name || '').toLowerCase());
-
-                    const rawName = String(item.name || '');
-                    const truncatedName = rawName.length > 12 ? rawName.substring(0, 12) + '...' : rawName;
-
-                    if (type === 'virtual') {
-                        const imgSrc = safeImgSrc(item.flag_url || '');
-                        const href = safeHref(item.url || '');
-                        card.innerHTML = `
-                            <div class="vnum-top">
-                                <div class="vnum-info">
-                                    <div class="flag">
-                                        ${imgSrc ? `<img src="${imgSrc}" alt="${esc(rawName)}">` : `<span>${esc(item.flag || '🌐')}</span>`}
-                                    </div>
-                                    <div class="vnum-name">${esc(truncatedName)}</div>
-                                </div>
-                                <div class="vnum-price-box">
-                                    <div class="vnum-price">${esc(item.price_formatted)}<span>/mo</span></div>
-                                </div>
-                            </div>
-                            <div class="vnum-desc">${esc(item.description || 'Virtual phone number for calls and SMS.')}</div>
-                            ${href ? `<a class="vnum-btn" href="${href}" style="text-decoration:none;display:block;text-align:center">Get Number</a>` : `<button class="vnum-btn" type="button" disabled>Get Number</button>`}
-                        `;
-                    } else {
-                        const kind = type === 'regions' ? 'region' : 'country';
-                        const url = `/assets/${kind}/${encodeURIComponent(String(item.id || ''))}`;
-                        const imgSrc = safeImgSrc(item.flag_url || '');
-                        card.innerHTML = `
-                            <div class="card-left">
-                                <div class="flag">
-                                    ${imgSrc ? `<img src="${imgSrc}" alt="${esc(rawName)}">` : `<span>${esc(item.flag || '🌐')}</span>`}
-                                </div>
-                                <div class="meta">
-                                    <div class="name">${esc(truncatedName)}</div>
-                                </div>
-                            </div>
-                            <div class="card-right">
-                                <a href="${url}" class="mini-btn js-view-plans">View Plans</a>
-                            </div>
-                        `;
-                    }
-                    return card;
-                };
-
-                const keyToTab = (key) => (key === 'virtualNumbers' ? 'virtual' : key);
-                const tabToKey = (tab) => (tab === 'virtual' ? 'virtualNumbers' : tab);
-
-                const updateLoadMoreUi = () => {
-                    const tabState = state[activeTab];
-                    const show = !!(tabState && tabState.hasMore && !tabState.loading && tabState.q === (searchInput.value || '').trim());
-                    loadMoreWrap.classList.toggle('show', show);
-                };
-
-                const setSkeleton = (key) => {
-                    const grid = grids[key];
-                    if (!grid) return;
-                    grid.innerHTML = '';
-                    const count = 9;
-                    for (let i = 0; i < count; i++) {
-                        const sk = document.createElement('div');
-                        sk.className = 'skeleton-card skeleton-placeholder';
-                        sk.innerHTML = `
-                            <div class="card-left">
-                                <div class="skeleton-flag skeleton"></div>
-                                <div class="meta">
-                                    <div class="skeleton-text-lg skeleton"></div>
-                                </div>
-                            </div>
-                            <div class="card-right">
-                                <div class="skeleton-btn skeleton"></div>
-                            </div>
-                        `;
-                        grid.appendChild(sk);
-                    }
-                };
-
-                const fetchNextPage = async (tab, { reset = false } = {}) => {
-                    const tabState = state[tab];
-                    if (!tabState || tabState.loading) return;
-
-                    const key = tabToKey(tab);
-                    const grid = grids[key];
-                    if (!grid) return;
-
-                    const q = (searchInput.value || '').trim();
-                    if (reset) {
-                        tabState.page = 0;
-                        tabState.hasMore = true;
-                        tabState.q = q;
-                        setSkeleton(key);
-                        noResultsSearch.classList.add('hidden');
-                    }
-
-                    if (!tabState.hasMore) {
-                        updateLoadMoreUi();
-                        return;
-                    }
-
-                    tabState.loading = true;
-                    updateLoadMoreUi();
-
-                    // Keep skeletons for initial load
-                    if (reset) {
-                        setSkeleton(key);
-                    }
-
-                    try {
-                        const nextPage = tabState.page + 1;
-                        const url = `/api/allassets?tab=${encodeURIComponent(tab)}&page=${nextPage}&per_page=30${q ? `&q=${encodeURIComponent(q)}` : ''}`;
-                        const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
-                        const json = await res.json().catch(() => ({}));
-                        if (!res.ok) {
-                            grid.innerHTML = '<div class="no-results"><p>Failed to load data.</p></div>';
-                            tabState.hasMore = false;
-                            return;
-                        }
-
-                        const items = Array.isArray(json.items) ? json.items : [];
-                        if (nextPage === 1) {
-                            grid.innerHTML = '';
-                        }
-                        items.forEach((item) => {
-                            grid.appendChild(createCard(item, tab === 'regions' ? 'regions' : (tab === 'virtual' ? 'virtual' : 'countries')));
-                        });
-
-                        tabState.page = nextPage;
-                        tabState.hasMore = !!json.has_more;
-
-                        const any = grid.querySelectorAll('.card, .vnum-card').length > 0;
-                        noResultsSearch.classList.toggle('hidden', any || (q === '' && items.length > 0));
-                    } catch (e) {
-                        grid.innerHTML = '<div class="no-results"><p>Failed to load data.</p></div>';
-                        tabState.hasMore = false;
-                    } finally {
-                        tabState.loading = false;
-                        updateLoadMoreUi();
-                    }
-                };
-
-                // Main Asset Toggle Logic
-                const setAssetSection = (mode) => {
-                    assetToggles.forEach(btn => btn.classList.toggle('active', btn.getAttribute('data-asset-toggle') === mode));
-                    assetSections.forEach(sec => sec.classList.toggle('hidden', sec.getAttribute('data-asset-section') !== mode));
-                    activeTab = mode === 'virtual' ? 'virtual' : mode;
-                    const currentKey = tabToKey(activeTab);
-                    
-                    // Show appropriate section
-                    assetSections.forEach(sec => sec.classList.toggle('hidden', sec.getAttribute('data-asset-section') !== mode));
-                    
-                    if (state[activeTab].page === 0) {
-                        fetchNextPage(activeTab, { reset: true });
-                    } else {
-                        const grid = grids[currentKey];
-                        const hasCards = grid && grid.querySelectorAll('.card, .vnum-card').length > 0;
-                        noResultsSearch.classList.toggle('hidden', hasCards);
-                    }
-                    updateLoadMoreUi();
-                };
-
-                assetToggles.forEach(btn => {
-                    btn.addEventListener('click', () => setAssetSection(btn.getAttribute('data-asset-toggle')));
-                });
-
-                let searchTimer = null;
-                searchInput.addEventListener('input', () => {
-                    if (searchTimer) window.clearTimeout(searchTimer);
-                    searchTimer = window.setTimeout(() => {
-                        fetchNextPage(activeTab, { reset: true });
-                    }, 250);
-                });
-
-                loadMoreBtn.addEventListener('click', () => {
-                    fetchNextPage(activeTab, { reset: false });
-                });
-
-                let activeLoadingLink = null;
-                const resetViewPlansLoading = (el) => {
-                    if (!el) return;
-                    if (!el.classList.contains('is-loading')) return;
-                    el.classList.remove('is-loading');
-                    el.removeAttribute('aria-busy');
-                    el.removeAttribute('aria-disabled');
-                    if (el.dataset.originalHtml) el.innerHTML = el.dataset.originalHtml;
-                };
-                const resetAllViewPlansLoading = () => {
-                    document.querySelectorAll('a.js-view-plans.is-loading').forEach(resetViewPlansLoading);
-                    activeLoadingLink = null;
-                };
-
-                window.addEventListener('pageshow', () => {
-                    resetAllViewPlansLoading();
-                });
-
-                document.addEventListener('click', (e) => {
-                    const a = e.target.closest('a.js-view-plans');
-                    if (!a) return;
-                    if (e.defaultPrevented) return;
-                    if (e.button !== 0) return;
-                    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-                    const href = a.getAttribute('href');
-                    if (!href) return;
-                    e.preventDefault();
-                    if (activeLoadingLink && activeLoadingLink !== a) resetViewPlansLoading(activeLoadingLink);
-                    activeLoadingLink = a;
-                    if (!a.dataset.originalHtml) a.dataset.originalHtml = a.innerHTML;
-                    a.classList.add('is-loading');
-                    a.setAttribute('aria-busy', 'true');
-                    a.setAttribute('aria-disabled', 'true');
-                    a.innerHTML = '<span class="btn-spinner" aria-hidden="true"></span><span>Loading…</span>';
-                    window.location.assign(href);
-                });
-
-                // Initialize
-                const urlParams = new URLSearchParams(window.location.search);
-                const tabParam = urlParams.get('tab');
-
-                if (tabParam) {
-                    setAssetSection(tabParam);
-                } else {
-                    setAssetSection('countries');
-                }
-
-                fetchNextPage(activeTab, { reset: true });
-            })();
-        </script>
+        <script src="{{ asset('js/allassets.js') }}?v={{ @filemtime(public_path('js/allassets.js')) }}"></script>
         <script src="{{ asset('pwa-install.js') }}" defer></script>
     </body>
 </html>

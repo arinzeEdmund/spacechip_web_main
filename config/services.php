@@ -54,6 +54,8 @@ return [
         'client_secret' => env('AIRALO_CLIENT_SECRET'),
         'currency' => env('AIRALO_CURRENCY', 'USD'),
         'sandbox' => env('AIRALO_SANDBOX', true),
+        // Shared secret expected on webhook calls (header X-Webhook-Token or ?token=). Empty = unauthenticated.
+        'webhook_secret' => env('AIRALO_WEBHOOK_SECRET'),
     ],
 
     'gloesim' => [

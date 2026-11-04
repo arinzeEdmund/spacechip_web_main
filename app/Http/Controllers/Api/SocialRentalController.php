@@ -243,7 +243,7 @@ class SocialRentalController extends Controller
             $rental->update([
                 'sms_messages' => $messages,
                 'last_sms_sync_at' => now(),
-                'provider_payload' => array_merge((array) $rental->provider_payload, ['last_sms' => $res['json'] ?? null]),
+                'provider_payload' => array_merge((array) $rental->provider_payload, ['last_sms' => ['count' => count($messages)]]),
             ]);
         }
 

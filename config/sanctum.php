@@ -50,7 +50,8 @@ return [
     |
     */
 
-    'expiration' => null,
+    // Mobile tokens now expire (minutes). Users sign in again after 30 days; changing the password revokes all tokens.
+    'expiration' => (int) env('SANCTUM_TOKEN_EXPIRATION_MINUTES', 60 * 24 * 30),
 
     /*
     |--------------------------------------------------------------------------

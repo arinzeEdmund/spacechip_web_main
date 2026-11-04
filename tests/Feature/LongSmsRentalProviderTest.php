@@ -8,11 +8,12 @@ use App\Services\Admin\SettingsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Tests\Concerns\ActsAsAdmin;
 use Tests\TestCase;
 
 class LongSmsRentalProviderTest extends TestCase
 {
-    use RefreshDatabase;
+    use ActsAsAdmin, RefreshDatabase;
 
     protected function setUp(): void
     {
@@ -34,9 +35,10 @@ class LongSmsRentalProviderTest extends TestCase
     private function useSupplier(string $key): void
     {
         $admin = User::factory()->create(['is_admin' => true]);
-        $this->actingAs($admin)->put('/admin/settings', $this->form(['social_rental_provider' => $key]))->assertSessionHasNoErrors();
+        $this->asAdmin($admin)->put('/admin/settings', $this->form(['social_rental_provider' => $key]))->assertSessionHasNoErrors();
         Cache::flush();
         $this->app['auth']->forgetGuards();
+        $this->app['auth']->shouldUse('web'); // actingAs(..., 'admin') switches the default guard
     }
 
     private function fakeLongSms(): void
@@ -65,7 +67,7 @@ class LongSmsRentalProviderTest extends TestCase
         config()->set('services.longsms.api_key', '');
         $admin = User::factory()->create(['is_admin' => true]);
 
-        $this->actingAs($admin)->put('/admin/settings', $this->form(['social_rental_provider' => 'longsms']))->assertSessionHasErrors('social_rental_provider');
+        $this->asAdmin($admin)->put('/admin/settings', $this->form(['social_rental_provider' => 'longsms']))->assertSessionHasErrors('social_rental_provider');
         $this->assertSame('smspool', app(SettingsService::class)->get('social_rental_provider'));
     }
 
@@ -73,7 +75,7 @@ class LongSmsRentalProviderTest extends TestCase
     {
         $admin = User::factory()->create(['is_admin' => true]);
 
-        $this->actingAs($admin)->put('/admin/settings', $this->form(['social_rental_provider' => 'nope']))->assertSessionHasErrors('social_rental_provider');
+        $this->asAdmin($admin)->put('/admin/settings', $this->form(['social_rental_provider' => 'nope']))->assertSessionHasErrors('social_rental_provider');
     }
 
     public function test_longsms_rental_quote_buy_inbox_and_same_margin(): void

@@ -10,7 +10,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rules;
-use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class RegisteredUserController extends Controller
@@ -23,18 +22,21 @@ class RegisteredUserController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $request->validate([
-            'name'     => ['required', 'string', 'max:255'],
-            'email'    => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:' . User::class],
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
-        ]);
+            'accept_terms' => ['accepted'],
+        ], ['accept_terms.accepted' => 'Please accept the Terms and Privacy Policy to create an account.']);
 
         $user = User::create([
-            'name'     => $request->name,
-            'email'    => $request->email,
+            'name' => $request->name,
+            'email' => $request->email,
             'password' => Hash::make($request->password),
         ]);
 
-        $otp = $this->generateAndStoreOtp($user);
+        app(\App\Services\ConsentRecorder::class)->recordSignup($user->id, $request, 'web_register');
+
+        $otp = $user->issueEmailOtp();
 
         try {
             Mail::to($user->email)->send(new OtpVerificationMail($otp, $user->name));
@@ -45,17 +47,5 @@ class RegisteredUserController extends Controller
         $request->session()->put('otp_user_id', $user->id);
 
         return redirect()->route('verification.otp');
-    }
-
-    public static function generateAndStoreOtp(User $user): string
-    {
-        $otp = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-
-        $user->forceFill([
-            'email_otp'            => $otp,
-            'email_otp_expires_at' => now()->addMinutes(10),
-        ])->save();
-
-        return $otp;
     }
 }

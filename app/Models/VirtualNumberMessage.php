@@ -5,10 +5,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * An SMS/MMS or voicemail on a virtual number (inbound or outbound).
+ */
 class VirtualNumberMessage extends Model
 {
     protected $casts = [
-        'raw' => 'array',
+        'raw' => \App\Casts\EncryptedJson::class,
+        'body' => \App\Casts\EncryptedText::class,
         'media' => 'array',
     ];
 
