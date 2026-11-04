@@ -11,8 +11,8 @@
     <div class="text-center mb-6">
         <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-3" style="background:var(--accent-soft);border:1px solid rgb(var(--ink-rgb) / .12)">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Z" stroke="#2f8f2f" stroke-width="1.8"/>
-                <path d="m2 8 8.5 6a3 3 0 0 0 3 0L22 8" stroke="#2f8f2f" stroke-width="1.8"/>
+                <path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Z" stroke="#d86c54" stroke-width="1.8"/>
+                <path d="m2 8 8.5 6a3 3 0 0 0 3 0L22 8" stroke="#d86c54" stroke-width="1.8"/>
             </svg>
         </div>
         <h1 class="text-xl font-extrabold text-gray-900 tracking-tight">Check your email</h1>

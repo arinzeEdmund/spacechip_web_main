@@ -54,7 +54,7 @@
     .lx-field{margin-top:18px}.lx-field:first-child{margin-top:0}
     .lx-field label{display:flex;justify-content:space-between;font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px}
     .lx-field label b{color:var(--accent-text)}
-    .lx input[type=range]{width:100%;accent-color:var(--accent-strong,#2e7d32)}
+    .lx input[type=range]{width:100%;accent-color:var(--accent-strong,#d86c54)}
     .lx-acts{display:grid;grid-template-columns:1fr;gap:10px}
     .lx-act{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:14px;border:1px solid var(--lx-line);background:var(--surface)}
     .lx-act span.n{flex:1;font-size:13px;font-weight:650;color:var(--text)}

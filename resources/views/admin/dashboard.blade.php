@@ -68,7 +68,7 @@
                 <div class="pointer-events-none absolute inset-x-0 top-[38%] text-center text-[13px] text-faint">No settled revenue in this period</div>
             @endif
             <svg viewBox="0 0 {{ $W }} {{ $H }}" class="h-[240px] w-full" role="img" aria-label="Daily revenue and sign-ups for the last 30 days">
-                <defs><linearGradient id="bar" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#1f7a1f"/><stop offset="1" stop-color="#2f8f2f"/></linearGradient></defs>
+                <defs><linearGradient id="bar" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#d86c54"/><stop offset="1" stop-color="#b85944"/></linearGradient></defs>
                 @foreach ([0, .5, 1] as $g)
                     @php $y = round($H - 22 - $g * ($H - 50), 1); @endphp
                     <line x1="{{ $pad }}" x2="{{ $W }}" y1="{{ $y }}" y2="{{ $y }}" stroke="rgba(128,128,128,0.18)" stroke-dasharray="3 4"/>
@@ -81,13 +81,13 @@
                     </rect>
                     @if ($i % 5 === 0)<text x="{{ round($x + $bw * .32, 1) }}" y="{{ $H - 4 }}" font-size="10" fill="#94a3b8" text-anchor="middle">{{ \Carbon\Carbon::parse($d['date'])->format('M j') }}</text>@endif
                 @endforeach
-                <polyline points="{{ $line }}" fill="none" stroke="#2f8f2f" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+                <polyline points="{{ $line }}" fill="none" stroke="#d86c54" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
             </svg>
             </div>
         </x-admin.card>
 
         <x-admin.card title="Revenue mix" subtitle="Last 30 days by product">
-            @php $mixTotal = max(1, $mix->sum('amount')); $palette = ['var(--accent-fill)', '#57ad57', 'var(--text)', '#8a8a8a', '#b9dfb9', 'var(--border-strong)']; @endphp
+            @php $mixTotal = max(1, $mix->sum('amount')); $palette = ['var(--accent-fill)', '#b85944', 'var(--text)', '#8a8a8a', '#f5c4b8', 'var(--border-strong)']; @endphp
             @forelse ($mix as $i => $row)
                 <div class="mb-3.5 last:mb-0">
                     <div class="mb-1.5 flex items-baseline justify-between text-[13px]">

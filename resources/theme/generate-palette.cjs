@@ -13,9 +13,9 @@ const PALETTES = ['slate', 'gray', 'zinc', 'neutral', 'stone', 'red', 'orange', 
     'emerald', 'cyan', 'sky', 'blue', 'indigo', 'violet', 'purple', 'fuchsia', 'pink', 'rose'];
 const SHADES = ['50', '100', '200', '300', '400', '500', '600', '700', '800', '900', '950'];
 
-// Brand ramp built around #1f7a1f (600). The old coral, teal and brand palettes all point here.
-const ACCENT = { 50: '#f0f8f0', 100: '#dcefdc', 200: '#b9dfb9', 300: '#8cc98c', 400: '#57ad57', 500: '#2f8f2f',
-    600: '#1f7a1f', 700: '#196419', 800: '#154f15', 900: '#113f11', 950: '#0a240a' };
+// Brand ramp built around #d86c54 (600). The old coral, teal and brand palettes all point here.
+const ACCENT = { 50: '#fdf4f2', 100: '#fae8e4', 200: '#f5d1c9', 300: '#eeb3a5', 400: '#e5907c', 500: '#de7c65',
+    600: '#d86c54', 700: '#b85944', 800: '#8a4231', 900: '#5c2a1f', 950: '#3a1a13' };
 
 const rgb = (hex) => {
     const h = hex.replace('#', '');

@@ -18,7 +18,7 @@
             $gid = 'sg-'.md5($label);
         @endphp
         <svg viewBox="0 0 {{ $w }} {{ $h }}" class="ad-spark" preserveAspectRatio="none" aria-hidden="true">
-            <defs><linearGradient id="{{ $gid }}" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#2f9e2f" stop-opacity=".32"/><stop offset="1" stop-color="#2f9e2f" stop-opacity="0"/></linearGradient></defs>
+            <defs><linearGradient id="{{ $gid }}" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#d86c54" stop-opacity=".32"/><stop offset="1" stop-color="#d86c54" stop-opacity="0"/></linearGradient></defs>
             <polygon points="0,{{ $h }} {{ $pts }} {{ $w }},{{ $h }}" fill="url(#{{ $gid }})"/>
             <polyline points="{{ $pts }}" fill="none" stroke="#3fae3f" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
         </svg>

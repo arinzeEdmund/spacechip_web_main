@@ -302,7 +302,7 @@
                                             <span class="iphone-btn iphone-btn-vol-down"></span>
                                             <span class="iphone-btn iphone-btn-power"></span>
                                             <div class="iphone-screen">
-                                                <img src="{{ asset('images/'.$screen) }}" alt="" width="640" height="1391" @if ($position === 'front') fetchpriority="high" @else loading="lazy" @endif>
+                                                <img src="{{ asset('images/'.$screen) }}?v={{ @filemtime(public_path('images/'.$screen)) }}" alt="" width="640" height="1391" @if ($position === 'front') fetchpriority="high" @else loading="lazy" @endif>
                                                 <span class="iphone-island"></span>
                                             </div>
                                         </div>

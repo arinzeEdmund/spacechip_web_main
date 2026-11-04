@@ -8,7 +8,7 @@
 @endphp
 <div style="font-family:'Instrument Sans',Arial,sans-serif;background:#f4f5f4;padding:24px;">
     <div style="max-width:640px;margin:0 auto;background:#ffffff;border-radius:18px;border:{{ $hairline }};overflow:hidden;">
-        <div style="padding:18px 20px;background:linear-gradient(90deg,#1f7a1f,#0b2e0b);color:#ffffff;">
+        <div style="padding:18px 20px;background:#d86c54;background:linear-gradient(90deg,#d86c54,#5c2a1f);color:#ffffff;">
             <div style="font-weight:900;letter-spacing:.02em;">{{ config('app.name', 'Spacechip') }}</div>
             <div style="opacity:.9;margin-top:6px;">{{ $kicker }}</div>
         </div>
@@ -21,7 +21,7 @@
             @if ($chips)
                 <div style="margin-bottom:14px;">
                     @foreach ($chips as $label => $value)
-                        <span style="display:inline-block;margin:0 6px 6px 0;padding:8px 10px;border-radius:12px;background:rgba(31,122,31,.07);border:1px solid rgba(31,122,31,.14);font-weight:700;font-size:12px;">{{ $label }}: {{ $value }}</span>
+                        <span style="display:inline-block;margin:0 6px 6px 0;padding:8px 10px;border-radius:12px;background:rgba(216,108,84,.10);border:1px solid rgba(216,108,84,.14);font-weight:700;font-size:12px;">{{ $label }}: {{ $value }}</span>
                     @endforeach
                 </div>
             @endif
@@ -31,11 +31,11 @@
             @endforeach
 
             @foreach ($links as $label => $url)
-                <div style="margin-bottom:8px;"><span style="color:{{ $muted }};font-weight:700;">{{ $label }}:</span> <a href="{{ $url }}" style="color:#1f7a1f;font-weight:800;">Open {{ $label }}</a></div>
+                <div style="margin-bottom:8px;"><span style="color:{{ $muted }};font-weight:700;">{{ $label }}:</span> <a href="{{ $url }}" style="color:#b85944;font-weight:800;">Open {{ $label }}</a></div>
             @endforeach
 
             @if (filled($quote))
-                <div style="margin-top:12px;padding:12px 14px;border-radius:14px;background:rgba(31,122,31,.06);border:1px solid rgba(31,122,31,.12);white-space:pre-wrap;">{{ $quote }}</div>
+                <div style="margin-top:12px;padding:12px 14px;border-radius:14px;background:rgba(216,108,84,.08);border:1px solid rgba(216,108,84,.22);white-space:pre-wrap;">{{ $quote }}</div>
             @endif
 
             @if (filled($note))
@@ -50,7 +50,7 @@
 
             @if ($action)
                 <div style="margin:20px 0;">
-                    <a href="{{ $action['url'] }}" style="display:inline-block;padding:12px 24px;background:#1f7a1f;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:800;">{{ $action['label'] }}</a>
+                    <a href="{{ $action['url'] }}" style="display:inline-block;padding:12px 24px;background:#d86c54;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:800;">{{ $action['label'] }}</a>
                 </div>
             @endif
 

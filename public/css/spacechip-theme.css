@@ -2,7 +2,7 @@
  * Spacechip theme: colour tokens, light & dark mode, shared UI primitives
  * ------------------------------------------------------------------
  * Loaded first on every page (partials/head-assets, admin layout). The
- * palette is green #1f7a1f on black, white and neutral grays. Patterns
+ * palette is coral #d86c54 on black, white and neutral grays. Patterns
  * follow new_theme/ (token names, surfaces, pills, skeletons, toggle).
  *
  * Mode is a class on <html>: "light" or "dark", set before first paint by
@@ -33,14 +33,14 @@ html:root {
     --faint-rgb: 138 138 138;
     /* Ink inverts with the mode: use it for hairlines, tints and scrims on surfaces. */
     --ink-rgb: 0 0 0;
-
-    --accent-rgb: 31 122 31;
-    --accent-fill-rgb: 31 122 31;
-    --accent-fill-hover-rgb: 25 100 25;
-    --accent-text-rgb: 31 122 31;
-    --accent-strong-rgb: 31 122 31;
+    /* Primary: coral #d86c54. */
+    --accent-rgb: 216 108 84;
+    --accent-fill-rgb: 216 108 84;
+    --accent-fill-hover-rgb: 184 89 68;
+    --accent-text-rgb: 184 89 68;
+    --accent-strong-rgb: 216 108 84;
     --on-accent-rgb: 255 255 255;
-    --accent-soft: rgb(31 122 31 / .10);
+    --accent-soft: rgb(216 108 84 / .10);
 
     --success-rgb: 21 128 61;
     --warning-rgb: 180 83 9;
@@ -83,13 +83,13 @@ html.dark {
     --faint-rgb: 115 115 115;
     --ink-rgb: 255 255 255;
 
-    --accent-rgb: 47 158 47;
-    --accent-fill-rgb: 31 122 31;
-    --accent-fill-hover-rgb: 38 143 38;
-    --accent-text-rgb: 92 196 92;
-    --accent-strong-rgb: 61 176 61;
+    --accent-rgb: 236 125 98;
+    --accent-fill-rgb: 216 108 84;
+    --accent-fill-hover-rgb: 236 125 98;
+    --accent-text-rgb: 245 161 141;
+    --accent-strong-rgb: 236 125 98;
     --on-accent-rgb: 255 255 255;
-    --accent-soft: rgb(47 158 47 / .18);
+    --accent-soft: rgb(236 125 98 / .18);
 
     --success-rgb: 74 222 128;
     --warning-rgb: 251 191 36;
@@ -234,7 +234,7 @@ html.dark img:not([src$=".svg"]):not(.no-dim) {
 
 .ui-btn--primary {
     color: var(--on-accent);
-    background: var(--accent-fill);
+    background:var(--accent-fill);
     box-shadow: 0 0 0 1px var(--accent-fill), 0 8px 24px -8px rgb(var(--accent-rgb) / .9);
 }
 .ui-btn--primary:hover { background: var(--accent-fill-hover); }

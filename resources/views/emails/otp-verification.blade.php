@@ -11,14 +11,14 @@
         .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 32px; }
         h1 { font-size: 22px; font-weight: 800; color: #0b1a1a; margin: 0 0 8px; }
         .sub { font-size: 15px; color: rgba(15,31,31,.62); margin: 0 0 32px; line-height: 1.5; }
-        .otp-box { background: linear-gradient(135deg, rgba(242,116,87,.06), rgba(20,84,84,.06)); border: 1px solid rgba(20,84,84,.12); border-radius: 18px; padding: 28px; text-align: center; margin-bottom: 28px; }
+        .otp-box { background: linear-gradient(135deg, rgba(216,108,84,.06), rgba(184,89,68,.06)); border: 1px solid rgba(184,89,68,.12); border-radius: 18px; padding: 28px; text-align: center; margin-bottom: 28px; }
         .otp-label { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: rgba(15,31,31,.45); margin-bottom: 10px; }
         .otp-code { font-size: 46px; font-weight: 900; letter-spacing: .22em; color: #0b1a1a; font-variant-numeric: tabular-nums; }
         .expiry { font-size: 13px; color: rgba(15,31,31,.5); text-align: center; margin-bottom: 28px; }
-        .expiry strong { color: rgba(242,116,87,.92); }
+        .expiry strong { color: rgba(216,108,84,.92); }
         .divider { border: none; border-top: 1px solid rgba(15,31,31,.08); margin: 24px 0; }
         .footer { font-size: 13px; color: rgba(15,31,31,.45); text-align: center; line-height: 1.6; }
-        .footer a { color: rgba(20,84,84,.8); text-decoration: none; }
+        .footer a { color: rgba(184,89,68,.8); text-decoration: none; }
     </style>
 </head>
 <body>

@@ -319,7 +319,7 @@ Brand: green `#1f7a1f` on black, white and gray, with light, dark and system the
 
 | Feature | How it works |
 |---|---|
-| **Logo** | No web splash (the mobile app keeps one). The wordmark is `partials/brand-wordmark` (inline SVG, "Space" in `currentColor`, "chip" `#6DB35E`); favicons, PWA icons and `public/brand/*` are generated with the mobile repo's `scripts/generate-brand-assets.swift`, so web and app share one source. |
+| **Logo** | No web splash (the mobile app keeps one). The wordmark is `partials/brand-wordmark` (inline SVG, "Space" in `currentColor`, "chip" `#D86C54`); favicons, PWA icons and `public/brand/*` are generated with the mobile repo's `scripts/generate-brand-assets.swift`, so web and app share one source. |
 | **Reveal** | Cards (any class `card` or `*-card`) and key sections fade and rise in with a 55 ms stagger as they enter the viewport. A `MutationObserver` gives cards rendered later by page scripts a lighter entrance. Classes are removed after the animation so page hover and transition styles take over. |
 | **Page transitions** | Cross-document View Transitions (`@view-transition`). The nav and tab bar are named so they stay put while content cross-fades. Unsupported browsers navigate normally. |
 | **Count-up** | `[data-sc-countup]` animates numeric changes (the wallet balance). |

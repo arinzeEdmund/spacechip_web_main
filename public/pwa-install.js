@@ -94,7 +94,7 @@
     install.type = 'button';
     install.id = 'pwa-install-action';
     install.textContent = 'Install';
-    install.style.cssText = 'padding:10px 14px;border-radius:9999px;background:#1f7a1f;border:none;color:#fff;font-weight:900;cursor:pointer';
+    install.style.cssText = 'padding:10px 14px;border-radius:9999px;background:#d86c54;border:none;color:#fff;font-weight:900;cursor:pointer';
 
     actions.appendChild(later);
     actions.appendChild(install);

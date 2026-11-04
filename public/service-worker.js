@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'spacechip-pwa-v2';
+const CACHE_VERSION = 'spacechip-pwa-v3';
 const OFFLINE_URL = '/offline.html';
 
 const CORE_ASSETS = [
